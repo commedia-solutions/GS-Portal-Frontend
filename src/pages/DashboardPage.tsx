@@ -122,10 +122,21 @@ function Labeled({
 }
 
 /** Parse strictly as DD/MM/YYYY or DD-MM-YYYY (dashboard requirement). */
-const parseDDMMYYYY = (s: string) => {
-  const [d, m, y] = String(s).split(/[/-]/).map((n) => parseInt(n, 10));
-  const dt = new Date(y || 1970, (m || 1) - 1, d || 1);
-  return isNaN(+dt) ? new Date(1970, 0, 1) : dt;
+// const parseDDMMYYYY = (s: string) => {
+//   const [d, m, y] = String(s).split(/[/-]/).map((n) => parseInt(n, 10));
+//   const dt = new Date(y || 1970, (m || 1) - 1, d || 1);
+//   return isNaN(+dt) ? new Date(1970, 0, 1) : dt;
+// };
+
+const parseMMDDYYYY = (s: string) => {
+  const [mRaw, dRaw, yRaw] = String(s).trim().split(/[/-]/);
+  const m = parseInt(mRaw, 10) || 1;
+  const d = parseInt(dRaw, 10) || 1;
+  let y = parseInt(yRaw, 10) || 1970;
+  if (y < 100) y += 2000; // handle e.g. 25 → 2025
+  const dt = new Date(y, m - 1, d);
+  // normalize to start-of-day for safe comparisons
+  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 };
 
 /** Numeric key from "PRN-001" / "PRN001" etc. */
@@ -135,15 +146,6 @@ const reqNum = (req: string): number => {
 };
 
 /* -------------------- table scaffold -------------------- */
-
-// type Column = {
-//   key: string;
-//   label: string;
-//   width?: number;
-//   align?: "left" | "center" | "right";
-// };
-
-
 type Column = {
   key: string;
   label: string;
@@ -153,24 +155,6 @@ type Column = {
 };
 
 type Row = { [key: string]: string | number };
-
-// const COLUMNS: Column[] = [
-//   { key: "sr", label: "Sr No", width: 70, align: "center" },
-//   { key: "req", label: "Pass Req No", width: 160, align: "center" },
-//   { key: "date", label: "Date", width: 130, align: "center" },
-//   { key: "sat", label: "Satellite", width: 120, align: "center" },
-//   { key: "stn", label: "Station", width: 130, align: "center" },
-//   { key: "orb", label: "Orbit No", width: 110, align: "center" },
-//   { key: "maxEl", label: "Max (El) Deg", width: 130, align: "center" },
-//   { key: "aos", label: "AOS (UT)", width: 120, align: "center" },
-//   { key: "los", label: "LOS (UT)", width: 120, align: "center" },
-//   { key: "ops", label: "Operations", width: 140, align: "center" },
-//   { key: "opsReq", label: "Operations Requester", width: 190, align: "center" },
-//   { key: "opsSup", label: "Operations Supporter", width: 190, align: "center" },
-//   { key: "sched", label: "Schedule Status", width: 160, align: "center" },
-//   { key: "pass", label: "Pass Status", width: 130, align: "center" },
-//   { key: "remarks", label: "Remarks", width: 220, align: "center" },
-// ];
 
 const COLUMNS: Column[] = [
   { key: "sr",    label: "Sr",                 width: 60,  align: "center" },
@@ -204,76 +188,6 @@ const COLUMNS: Column[] = [
   { key: "remarks", label: "Remarks",          width: 180, align: "center" },
 ];
 
-
-// function DarkScrollTable({ rows, columns }: { rows: Row[]; columns: Column[] }) {
-//   const totalW = columns.reduce((acc, c) => acc + (c.width ?? 120), 0) + 16;
-//   return (
-//     <Box sx={{ width: totalW, minWidth: "100%" }}>
-//       {/* header */}
-//       <Box
-//         sx={{
-//           position: "sticky",
-//           top: 0,
-//           zIndex: 1,
-//           display: "grid",
-//           gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-//           bgcolor: "#000",
-//           borderBottom: "1px solid rgba(255,255,255,0.14)",
-//         }}
-//       >
-//         {columns.map((c) => (
-//           <Box
-//             key={c.key}
-//             sx={{
-//               px: 1.25,
-//               py: 1,
-//               fontWeight: 700,
-//               fontSize: 13,
-//               color: "#fff",
-//               textAlign: c.align ?? "center",
-//               whiteSpace: "nowrap",
-//             }}
-//           >
-//             {c.label}
-//           </Box>
-//         ))}
-//       </Box>
-
-//       {/* rows */}
-//       {rows.map((r, idx) => (
-//         <Box
-//           key={idx}
-//           sx={{
-//             display: "grid",
-//             gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-//             borderBottom: "1px solid rgba(255,255,255,0.08)",
-//             bgcolor: idx % 2 ? "rgba(255,255,255,0.02)" : "transparent",
-//           }}
-//         >
-//           {columns.map((c) => (
-//             <Box
-//               key={c.key}
-//               sx={{
-//                 px: 1.25,
-//                 py: 1,
-//                 fontSize: 13,
-//                 color: "#EAEAEA",
-//                 textAlign: c.align ?? "center",
-//                 whiteSpace: "nowrap",
-//               }}
-//             >
-//               {r[c.key] as any}
-//             </Box>
-//           ))}
-//         </Box>
-//       ))}
-
-//       {rows.length === 0 && (
-//         <Box sx={{ px: 1.25, py: 2, color: "#aaa", textAlign: "center" }}>No passes found.</Box>
-//       )}
-//     </Box>
-//   );
-// }
 
 
 function DarkScrollTable({ rows, columns }: { rows: Row[]; columns: Column[] }) {
@@ -409,70 +323,138 @@ export default function DashboardPage() {
   };
 
   // filtering + SORT (ascending by PRN number)
+  // const filteredSorted = React.useMemo(() => {
+  //   const q = search.trim().toLowerCase();
+
+  //   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  //   const today0 = startOfDay(new Date());
+
+  //   const inTimeline = (dt: Date) => {
+  //     const d0 = startOfDay(dt);
+  //     if (timeline === "All") return true;
+  //     if (timeline === "Today") return d0.getTime() === today0.getTime();
+  //     if (timeline === "Tomorrow") {
+  //       const t0 = startOfDay(new Date(today0));
+  //       t0.setDate(t0.getDate() + 1);
+  //       return d0.getTime() === t0.getTime();
+  //     }
+  //     if (timeline === "Week") {
+  //       const weekAgo = startOfDay(new Date(today0));
+  //       weekAgo.setDate(weekAgo.getDate() - 6);
+  //       return d0 >= weekAgo && d0 <= today0;
+  //     }
+  //     if (timeline === "Month") {
+  //       const monthAgo = startOfDay(new Date(today0));
+  //       monthAgo.setMonth(monthAgo.getMonth() - 1);
+  //       return d0 >= monthAgo && d0 <= today0;
+  //     }
+  //     if (timeline === "Year") {
+  //       const yearAgo = startOfDay(new Date(today0));
+  //       yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+  //       return d0 >= yearAgo && d0 <= today0;
+  //     }
+  //     return true;
+  //   };
+
+  //   // filter
+  //   const arr = rows.filter((r) => {
+  //     if (status !== "All" && r.pass !== status) return false;
+
+  //     // const dt = parseDDMMYYYY(String(r.date));
+  //     const dt = parseMMDDYYYY(String(r.date));
+  //     if (!inTimeline(dt)) return false;
+
+  //     if (date) {
+  //       const pick = startOfDay(new Date(date));
+  //       if (startOfDay(dt).getTime() !== pick.getTime()) return false;
+  //     }
+
+  //     if (q) {
+  //       // const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.remarks}`.toLowerCase();
+  //       const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.opsReq ?? ""} ${r.opsSup ?? ""} ${r.remarks}`.toLowerCase();
+
+  //       if (!hay.includes(q)) return false;
+  //     }
+  //     return true;
+  //   });
+
+  //   // sort ascending by numeric part of "PRN-xxx"
+  //   arr.sort((a, b) => {
+  //     const na = reqNum(String(a.req));
+  //     const nb = reqNum(String(b.req));
+  //     if (na !== nb) return na - nb;
+  //     return String(a.req).localeCompare(String(b.req));
+  //   });
+
+  //   return arr;
+  // }, [rows, search, timeline, status, date]);
+
   const filteredSorted = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
+  const q = search.trim().toLowerCase();
 
-    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const today0 = startOfDay(new Date());
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today0 = startOfDay(new Date());
+  const addDays = (d: Date, n: number) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return startOfDay(x);
+  };
+  const currentWeekRange = (ref: Date) => {
+    // Sunday–Saturday week; change to Monday-start by: const w = (ref.getDay()+6)%7
+    const start = addDays(ref, -ref.getDay());
+    const end = addDays(start, 6);
+    return [start, end] as const;
+  };
 
-    const inTimeline = (dt: Date) => {
-      const d0 = startOfDay(dt);
-      if (timeline === "All") return true;
-      if (timeline === "Today") return d0.getTime() === today0.getTime();
-      if (timeline === "Tomorrow") {
-        const t0 = startOfDay(new Date(today0));
-        t0.setDate(t0.getDate() + 1);
-        return d0.getTime() === t0.getTime();
+  const inTimeline = (dt: Date) => {
+    const d0 = startOfDay(dt);
+    switch (timeline) {
+      case "All":
+        return true;
+      case "Today":
+        return d0.getTime() === today0.getTime();
+      case "Tomorrow":
+        return d0.getTime() === addDays(today0, 1).getTime();
+      case "Week": {
+        const [wStart, wEnd] = currentWeekRange(today0); // this calendar week
+        return d0 >= wStart && d0 <= wEnd;
       }
-      if (timeline === "Week") {
-        const weekAgo = startOfDay(new Date(today0));
-        weekAgo.setDate(weekAgo.getDate() - 6);
-        return d0 >= weekAgo && d0 <= today0;
-      }
-      if (timeline === "Month") {
-        const monthAgo = startOfDay(new Date(today0));
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        return d0 >= monthAgo && d0 <= today0;
-      }
-      if (timeline === "Year") {
-        const yearAgo = startOfDay(new Date(today0));
-        yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-        return d0 >= yearAgo && d0 <= today0;
-      }
-      return true;
-    };
+      case "Month":
+        return d0.getFullYear() === today0.getFullYear() &&
+               d0.getMonth() === today0.getMonth();
+      case "Year":
+        return d0.getFullYear() === today0.getFullYear();
+      default:
+        return true;
+    }
+  };
 
-    // filter
-    const arr = rows.filter((r) => {
-      if (status !== "All" && r.pass !== status) return false;
+  const arr = rows.filter((r) => {
+    if (status !== "All" && r.pass !== status) return false;
 
-      const dt = parseDDMMYYYY(String(r.date));
-      if (!inTimeline(dt)) return false;
+    const dt = parseMMDDYYYY(String(r.date));
+    if (!inTimeline(dt)) return false;
 
-      if (date) {
-        const pick = startOfDay(new Date(date));
-        if (startOfDay(dt).getTime() !== pick.getTime()) return false;
-      }
+    if (date) {
+      if (startOfDay(dt).getTime() !== startOfDay(date).getTime()) return false;
+    }
 
-      if (q) {
-        // const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.remarks}`.toLowerCase();
-        const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.opsReq ?? ""} ${r.opsSup ?? ""} ${r.remarks}`.toLowerCase();
+    if (q) {
+      const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.opsReq ?? ""} ${r.opsSup ?? ""} ${r.remarks}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
 
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+  // sort by numeric part of PRN (unchanged)
+  arr.sort((a, b) => {
+    const na = reqNum(String(a.req)), nb = reqNum(String(b.req));
+    if (na !== nb) return na - nb;
+    return String(a.req).localeCompare(String(b.req));
+  });
 
-    // sort ascending by numeric part of "PRN-xxx"
-    arr.sort((a, b) => {
-      const na = reqNum(String(a.req));
-      const nb = reqNum(String(b.req));
-      if (na !== nb) return na - nb;
-      return String(a.req).localeCompare(String(b.req));
-    });
-
-    return arr;
-  }, [rows, search, timeline, status, date]);
+  return arr;
+}, [rows, search, timeline, status, date]);
 
   // paged rows with Sr No
   const paged = React.useMemo(() => {
@@ -569,7 +551,8 @@ export default function DashboardPage() {
                     slotProps={{
                       textField: {
                         size: "small",
-                        placeholder: "DD/MM",
+                        // placeholder: "DD/MM",
+                        placeholder: "MM/DD/YYYY",
                         sx: { width: 150, ...compactCtrlSx },
                       },
                       openPickerButton: { sx: { color: "rgba(255,255,255,0.85)" } },
