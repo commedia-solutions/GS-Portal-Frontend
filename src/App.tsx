@@ -253,7 +253,7 @@ import AddPasses from "./pages/Add_data_pages/Add_Passes";
 import GSoperations from "./pages/GS_&_operations";
 import Userprofile from "./pages/User_profile";
 import Operations from "./pages/Operations";
-import UserLogs from "./pages/Logs/User_logs";
+import UserLogs from "./pages/User_logs";
 import Notifications from "./pages/Norifications/Notifications";
 import IAM from "./pages/IAM/IAM";
 
