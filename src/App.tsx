@@ -264,8 +264,6 @@ import IssuesPage from "./pages/Issues";
 // RBAC helpers
 import { AuthProvider, RequirePermission, PERMISSION } from "./auth";
 
-
-/* ---------- Hardened auth guard ---------- */
 function RequireAuth() {
   // Prefer the single canonical key; fall back to in-memory getter
   const token =
