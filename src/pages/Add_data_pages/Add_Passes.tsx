@@ -1,3 +1,4 @@
+// src/pages/Add_data_pages/Add_Passes.tsx
 import React from "react";
 import {
   Box,
@@ -13,62 +14,103 @@ import {
   ListItemText,
   Backdrop,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
-import MainLayout from "../../layouts/MainLayout";
-import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import { LocalizationProvider, DesktopDatePicker } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import "@mui/x-date-pickers/themeAugmentation";
 import type { SelectChangeEvent } from "@mui/material/Select";
-// import { apiUrl } from "../../config";
+import MainLayout from "../../layouts/MainLayout";
+import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import api from "../../api/http";
 
-/* ---------- Shared UI ---------- */
+// ✅ theme tokens/presets (match Dashboard)
+import { vars, sxPresets } from "../../ui/toast/themeBridge";
+import { useI18n } from "../../i18n";
+
+/* ---------- Shared UI (theme-aware, sizes unchanged) ---------- */
 const CARD_SX = {
-  bgcolor: "#1C1C1E",
-  color: "#E8E8EA",
-  border: "1px solid rgba(255,255,255,0.14)",
+  bgcolor: vars.bgCard,
+  color: vars.text,
+  border: `1px solid ${vars.border}`,
   borderRadius: 2,
   display: "flex",
   flexDirection: "column",
+  backgroundImage: "none",
+  boxShadow: "none",
 } as const;
 
+// leave brand colors as-is (exactly like your screenshots)
 const COLORS = { link: "#7CA7FF", green: "#16a34a", purple: "#7C57F2" };
-const CONTROL_BG = "#1C1C1E";
-const CONTROL_BORDER = "1px solid rgba(255,255,255,0.14)";
+
+// compact control look, but skin from CSS vars (same height/spacing)
+const FIELD_H = 36;
+const CONTENT_H = 32;
+const FONT_PX = 13;
+const HORIZ_PAD = 8;
 
 const controlSx = {
-  bgcolor: "#232325",
+  ...sxPresets.ctrl,
   borderRadius: 1,
-  color: "#fff",
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#444" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#4e4e4e" },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "#565656",
+  "& .MuiInputBase-root, & .MuiOutlinedInput-root": {
+    height: `${FIELD_H}px`,
+    minHeight: `${FIELD_H}px`,
+    alignItems: "center",
   },
-  "& .MuiInputBase-input": { color: "#fff", fontSize: 13 },
-  "& .MuiInputLabel-root": { color: "#aaa", fontSize: 13 },
+  "& .MuiOutlinedInput-input, & .MuiInputBase-input": {
+    height: `${CONTENT_H}px`,
+    lineHeight: `${CONTENT_H}px`,
+    padding: `0 ${HORIZ_PAD}px`,
+    fontSize: `${FONT_PX}px`,
+  },
+  "& .MuiSelect-select, & .MuiSelect-select.MuiInputBase-inputSizeSmall": {
+    height: `${CONTENT_H}px !important`,
+    lineHeight: `${CONTENT_H}px`,
+    padding: `0 ${HORIZ_PAD}px !important`,
+    fontSize: `${FONT_PX}px`,
+    display: "flex",
+    alignItems: "center",
+  },
 };
 
-const SCROLLER_SX = {
-  scrollbarWidth: "thin",
-  scrollbarColor: "#3f3f3f transparent",
-  "&::-webkit-scrollbar": { width: 8, height: 8 },
-  "&::-webkit-scrollbar-thumb": { background: "#3f3f3f", borderRadius: 8 },
-  "&::-webkit-scrollbar-thumb:hover": { background: "#5a5a5a" },
-  "&::-webkit-scrollbar-track": { background: "transparent" },
+/** Theme-aware interior fill (dark: #232325, light: #fff) + text color */
+const filledField = (t: any) => {
+  const isDark = t.palette.mode === "dark";
+  return {
+    "& .MuiOutlinedInput-root": {
+      backgroundColor: isDark ? "#232325" : "#fff",
+    },
+    "& .MuiOutlinedInput-root.Mui-focused": {
+      backgroundColor: isDark ? "#232325" : "#fff",
+    },
+    "& .MuiSelect-select": {
+      backgroundColor: isDark ? "#232325" : "#fff",
+    },
+    "& .MuiInputBase-input": {
+      color: isDark ? vars.text : "#000",
+      "::placeholder": {
+        color: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)",
+        opacity: 1,
+      },
+    },
+  };
 };
 
-const darkMenu = {
+const SCROLLER_SX = { ...sxPresets.scroller };
+
+const menuTheme = {
   PaperProps: {
+    elevation: 0,
     sx: {
-      bgcolor: CONTROL_BG,
-      color: "#E8E8EA",
-      border: CONTROL_BORDER,
-      "& .MuiMenuItem-root.Mui-selected": { bgcolor: "rgba(255,255,255,0.10)" },
-      "& .MuiMenuItem-root:hover": { bgcolor: "rgba(255,255,255,0.06)" },
+      bgcolor: vars.bgCard,
+      color: vars.text,
+      border: `1px solid ${vars.border}`,
+      "& .MuiMenuItem-root.Mui-selected": { bgcolor: vars.bgHover },
+      "& .MuiMenuItem-root:hover": { bgcolor: vars.bgHover },
     },
   },
 };
@@ -76,10 +118,10 @@ const darkMenu = {
 const LABEL_SX = {
   fontSize: 12,
   fontWeight: 500,
-  color: "rgba(255, 255, 255, 0.51)",
+  color: vars.textDim,
   mb: 0.5,
   lineHeight: 1.2,
-};
+} as const;
 
 const fmtDate = (d: Date | null) => {
   if (!d) return "";
@@ -89,10 +131,116 @@ const fmtDate = (d: Date | null) => {
   return `${mm}/${dd}/${yyyy}`;
 };
 
-// format 7 -> "REQ-007"
+// format 7 -> "PRN-007"
 const toPassNo = (n: number) => `PRN-${String(n).padStart(3, "0")}`;
 
+/* ---------------- CAPTCHA (same generator/dialog used elsewhere) ---------------- */
+type Captcha = { text: string; svg: string };
+function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
+function pick(chars: string, n: number) { let s = ""; for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)]; return s; }
+function makeCaptcha(width = 220, height = 80, length = 5): Captcha {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const text = pick(alphabet, length);
+  const charW = width / (length + 1);
+  const chars = [...text].map((ch, i) => {
+    const x = (i + 1) * charW + rand(-6, 6);
+    const y = height / 2 + rand(-5, 5);
+    const r = rand(-24, 24);
+    const fontSize = rand(30, 38);
+    return `<text x="${x}" y="${y}" font-size="${fontSize}" font-weight="700"
+              text-anchor="middle" dominant-baseline="middle"
+              transform="rotate(${r} ${x} ${y})">${ch}</text>`;
+  }).join("");
+  const lines = Array.from({ length: 4 }).map(() => {
+    const x1 = rand(0, width), y1 = rand(0, height);
+    const x2 = rand(0, width), y2 = rand(0, height);
+    const op = rand(0.25, 0.45).toFixed(2);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(1,2)}"/>`;
+  }).join("");
+  const dots = Array.from({ length: 35 }).map(() => {
+    const x = rand(0, width), y = rand(0, height);
+    const op = rand(0.15, 0.35).toFixed(2);
+    return `<circle cx="${x}" cy="${y}" r="${rand(0.8,2.2)}" fill="white" fill-opacity="${op}"/>`;
+  }).join("");
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <filter id="wavy">
+      <feTurbulence type="fractalNoise" baseFrequency="${rand(0.9,1.3)/100}" numOctaves="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="${rand(8,14)}" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#1a1a1d"/>
+      <stop offset="100%" stop-color="#121214"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+  <g filter="url(#wavy)" fill="#e7e7ff">${chars}</g>
+  <g>${lines}${dots}</g>
+</svg>`.trim();
+  return { text, svg };
+}
+const svgDataUrl = (svg: string) => "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+
+function CaptchaDialog({
+  open, onCancel, onOk,
+}: { open: boolean; onCancel: () => void; onOk: () => void; }) {
+  const { t } = useI18n();
+  const [cap, setCap] = React.useState<Captcha>(() => makeCaptcha());
+  const [input, setInput] = React.useState("");
+  const [error, setError] = React.useState("");
+  const refresh = () => { setCap(makeCaptcha()); setInput(""); setError(""); };
+  const submit = () => {
+    if (input.trim().toLowerCase() === cap.text.toLowerCase()) onOk();
+    else { setError(t("Incorrect code. Try again.")); refresh(); }
+  };
+  React.useEffect(() => { if (open) refresh(); }, [open]);
+
+  return (
+    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth
+      PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+      <DialogTitle sx={{ fontWeight: 700 }}>{t("Verify you’re human")}</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "grid", gap: 1 }}>
+          <img
+            src={svgDataUrl(cap.svg)}
+            alt="captcha"
+            style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${vars.border}` }}
+          />
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <TextField
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t("Type the letters")}
+              size="small"
+              fullWidth
+              sx={(tMui) => ({
+                ...sxPresets.ctrl,
+                "& .MuiOutlinedInput-root": { height: 36, background: tMui.palette.mode === "dark" ? "#232325" : "#fff" },
+              })}
+            />
+            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: vars.border }}>
+              {t("Refresh")}
+            </Button>
+          </Box>
+          {error && <Box sx={{ color: "#f87171", fontSize: 12, mt: 0.25 }}>{error}</Box>}
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 2, pb: 2 }}>
+        <Button onClick={onCancel} sx={{ textTransform: "none" }}>{t("Cancel")}</Button>
+        <Button onClick={submit} variant="contained"
+          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b46f1" } }}>
+          {t("Verify")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+/* ---------------- end CAPTCHA ---------------- */
+
 export default function AddPasses() {
+  const { t } = useI18n();
+
   /* -------- Top card (bulk upload) state -------- */
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
@@ -114,31 +262,22 @@ export default function AddPasses() {
   };
 
   const handleUpload = async () => {
-    if (!file) return alert("Please select a CSV file first.");
+    if (!file) return alert(t("Please select a CSV file first."));
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      return alert("Only .csv files are supported.");
+      return alert(t("Only .csv files are supported."));
     }
 
     try {
       setUploading(true);
       const fd = new FormData();
       fd.append("file", file);
-
-      // const res = await fetch(apiUrl("/api/passes/bulk"), {
-      //   method: "POST",
-      //   body: fd,
-      // });
-
-      // // Just success/failure — no counts
-      // if (!res.ok) throw new Error("upload failed");
-      // await res.json().catch(() => ({}));
       await api.post("/api/passes/bulk", fd);
-      alert("Bulk upload complete.");
+      alert(t("Bulk upload complete."));
       clearTop();
-      await suggestNextPassNo(); // refresh next pass number after bulk insert
+      await suggestNextPassNo();
     } catch (e) {
       console.error(e);
-      alert("Bulk upload failed.");
+      alert(t("Bulk upload failed."));
     } finally {
       setUploading(false);
     }
@@ -157,24 +296,17 @@ export default function AddPasses() {
   const [ops, setOps] = React.useState<string[]>([]);
   const [opsReq, setOpsReq] = React.useState<string[]>([]);
   const [opsSup, setOpsSup] = React.useState<string[]>([]);
-  // const [sched, setSched] = React.useState("Scheduled");
-  const [sched] = React.useState("Scheduled"); // read-only
   const [remarks, setRemarks] = React.useState("");
-  const passStatus = "Pending"; // readonly
+  const passStatus = t("Pending"); // readonly (translated display)
   const [saving, setSaving] = React.useState(false);
+  const [passType, setPassType] = React.useState<"Normal" | "Emergency">("Normal");
+  const [sched] = React.useState(t("Scheduled")); // read-only display
 
-  // Pull current passes and compute next REQ number (based on highest numeric part)
+  // compute next PRN
   const suggestNextPassNo = React.useCallback(async () => {
     try {
-      // const res = await fetch(apiUrl("/api/passes"));
-      // const json = await res.json().catch(() => []);
       const json = await api.get<any>("/api/passes");
-      const rows: any[] = Array.isArray(json)
-        ? json
-        : Array.isArray(json?.rows)
-        ? json.rows
-        : [];
-
+      const rows: any[] = Array.isArray(json) ? json : Array.isArray(json?.rows) ? json.rows : [];
       let maxNum = 0;
       for (const r of rows) {
         const raw = String(r.pass_req_no ?? "");
@@ -184,7 +316,7 @@ export default function AddPasses() {
       }
       setPassReqNo(toPassNo(maxNum + 1));
     } catch {
-      setPassReqNo("PRN-001"); 
+      setPassReqNo("PRN-001");
     }
   }, []);
 
@@ -192,87 +324,78 @@ export default function AddPasses() {
     suggestNextPassNo();
   }, [suggestNextPassNo]);
 
-  
+  /* -------- Options -------- */
+  const [satOptions, setSatOptions] = React.useState<string[]>([]);
+  const [stationOptions, setStationOptions] = React.useState<string[]>([]);
+  const [opOptions, setOpOptions] = React.useState<string[]>([]);
+  const [reqOptions, setReqOptions] = React.useState<string[]>([]);
+  const [supOptions, setSupOptions] = React.useState<string[]>([]);
 
   const fetchSatellites = React.useCallback(async () => {
-  try {
-    // const res = await fetch(apiUrl("/api/satellites"));
-    // const j = await res.json();
-    const j = await api.get<any>("/api/satellites");
-    const arr = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : [];
-    const names = arr
-      .map((r: any) => (r.satellite_name || r.name || r.satellite || "").toString().trim())
-      .filter(Boolean);
-    setSatOptions(names);
-  } catch {
-    setSatOptions([]);
-  }
-}, []);
+    try {
+      const j = await api.get<any>("/api/satellites");
+      const arr = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : [];
+      setSatOptions(
+        arr
+          .map((r: any) => (r.satellite_name || r.name || r.satellite || "").toString().trim())
+          .filter(Boolean)
+      );
+    } catch {
+      setSatOptions([]);
+    }
+  }, []);
 
-const fetchStations = React.useCallback(async () => {
-  try {
-    // const res = await fetch(apiUrl("/api/ground-stations"));
-    // const j = await res.json();
-    const j = await api.get<any>("/api/ground-stations");
-    const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-    const names = arr
-      .map((r: any) => (r.ground_station || r.station_name || r.name || "").toString().trim())
-      .filter(Boolean);
-    setStationOptions(names);
-  } catch {
-    setStationOptions([]);
-  }
-}, []);
+  const fetchStations = React.useCallback(async () => {
+    try {
+      const j = await api.get<any>("/api/ground-stations");
+      const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
+      setStationOptions(
+        arr
+          .map((r: any) => (r.ground_station || r.station_name || r.name || "").toString().trim())
+          .filter(Boolean)
+      );
+    } catch {
+      setStationOptions([]);
+    }
+  }, []);
 
-const fetchOperations = React.useCallback(async () => {
-  try {
-    // const res = await fetch(apiUrl("/api/operations"));
-    // const j = await res.json();
-    const j = await api.get<any>("/api/operations");
-    const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-    setOpOptions(
-      arr.map((r: any) => (r.operation_name || "").toString().trim()).filter(Boolean)
-    );
-  } catch {
-    setOpOptions([]);
-  }
-}, []);
+  const fetchOperations = React.useCallback(async () => {
+    try {
+      const j = await api.get<any>("/api/operations");
+      const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
+      setOpOptions(arr.map((r: any) => (r.operation_name || "").toString().trim()).filter(Boolean));
+    } catch {
+      setOpOptions([]);
+    }
+  }, []);
 
-const fetchRequesters = React.useCallback(async () => {
-  try {
-    // const res = await fetch(apiUrl("/api/operation-requesters"));
-    // const j = await res.json();
-    const j = await api.get<any>("/api/operation-requesters");
-    const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-    setReqOptions(
-      arr.map((r: any) => (r.requester_name || "").toString().trim()).filter(Boolean)
-    );
-  } catch {
-    setReqOptions([]);
-  }
-}, []);
+  const fetchRequesters = React.useCallback(async () => {
+    try {
+      const j = await api.get<any>("/api/operation-requesters");
+      const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
+      setReqOptions(arr.map((r: any) => (r.requester_name || "").toString().trim()).filter(Boolean));
+    } catch {
+      setReqOptions([]);
+    }
+  }, []);
 
-const fetchSupporters = React.useCallback(async () => {
-  try {
-    // const res = await fetch(apiUrl("/api/operation-supporters"));
-    // const j = await res.json();
-    const j = await api.get<any>("/api/operation-supporters");
-    const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-    setSupOptions(
-      arr.map((r: any) => (r.supporter_name || "").toString().trim()).filter(Boolean)
-    );
-  } catch {
-    setSupOptions([]);
-  }
-}, []);
+  const fetchSupporters = React.useCallback(async () => {
+    try {
+      const j = await api.get<any>("/api/operation-supporters");
+      const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
+      setSupOptions(arr.map((r: any) => (r.supporter_name || "").toString().trim()).filter(Boolean));
+    } catch {
+      setSupOptions([]);
+    }
+  }, []);
 
-React.useEffect(() => {
-  fetchSatellites();
-  fetchStations();
-  fetchOperations();
-  fetchRequesters();
-  fetchSupporters();
-}, [fetchSatellites, fetchStations, fetchOperations, fetchRequesters, fetchSupporters]);
+  React.useEffect(() => {
+    fetchSatellites();
+    fetchStations();
+    fetchOperations();
+    fetchRequesters();
+    fetchSupporters();
+  }, [fetchSatellites, fetchStations, fetchOperations, fetchRequesters, fetchSupporters]);
 
   const clearForm = () => {
     setDate(null);
@@ -285,16 +408,15 @@ React.useEffect(() => {
     setOps([]);
     setOpsReq([]);
     setOpsSup([]);
-    // setSched("Scheduled");
     setRemarks("");
+    setPassType("Normal");
   };
 
   const handleSave = async () => {
     if (!date || !satellite || !station || !orbitNo || !maxEl || !aos || !los) {
-      alert("Please fill all required fields.");
+      alert(t("Please fill all required fields."));
       return;
     }
-
     const payload = {
       pass_req_no: passReqNo,
       date_text: fmtDate(date),
@@ -307,59 +429,50 @@ React.useEffect(() => {
       operations: ops.join(", "),
       operations_requester: opsReq.join(", "),
       operations_supporter: opsSup.join(", "),
-      schedule_status: sched,
-      pass_status: passStatus,
+      schedule_status: "Scheduled", // store canonical; UI shows translated
+      pass_status: "Pending", // store canonical; UI shows translated
       remarks,
       added_by: "UI",
+      pass_type: passType,
     };
 
     try {
       setSaving(true);
-      // const res = await fetch(apiUrl("/api/passes"), {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(payload),
-      // });
-
-      // const data = await res.json().catch(() => ({}));
-      // if (!res.ok) {
-      //   if (res.status === 409) return alert("Pass Req No must be unique.");
-      //   return alert(data?.error || "Failed to save pass.");
-      // }
-
-       try {
-   await api.post("/api/passes", payload);
- } catch (e: any) {
-   if (String(e?.message || "").toLowerCase().includes("409")) {
-     alert("Pass Req No must be unique.");
-     return;
-   }
-   alert(e?.message || "Failed to save pass.");
-   return;
- }
-      alert("Pass saved successfully!");
+      try {
+        await api.post("/api/passes", payload);
+      } catch (e: any) {
+        if (String(e?.message || "").toLowerCase().includes("409")) {
+          alert(t("Pass Req No must be unique."));
+          return;
+        }
+        alert(e?.message || t("Failed to save pass."));
+        return;
+      }
+      alert(t("Pass saved successfully!"));
       clearForm();
       await suggestNextPassNo();
     } catch (e) {
       console.error(e);
-      alert("Network/API error while saving.");
+      alert(t("Network/API error while saving."));
     } finally {
       setSaving(false);
     }
   };
 
-  /* -------- Options -------- */
- const [satOptions, setSatOptions] = React.useState<string[]>([]);
-const [stationOptions, setStationOptions] = React.useState<string[]>([]);
-const [opOptions, setOpOptions] = React.useState<string[]>([]);
-const [reqOptions, setReqOptions] = React.useState<string[]>([]);
-const [supOptions, setSupOptions] = React.useState<string[]>([]);
-  // const schedStatuses = ["Scheduled", "Queued", "Hold"];
-
   const toArray = (e: SelectChangeEvent<string[]>) => {
     const v = e.target.value;
     return typeof v === "string" ? v.split(",") : (v as string[]);
   };
+
+  /* ---------- CAPTCHA wiring ---------- */
+  type CaptchaAction = "upload" | "save";
+  const [captchaOpen, setCaptchaOpen] = React.useState(false);
+  const [captchaAction, setCaptchaAction] = React.useState<CaptchaAction | null>(null);
+  const runAfterCaptcha = React.useCallback(async () => {
+    if (captchaAction === "upload") await handleUpload();
+    if (captchaAction === "save") await handleSave();
+    setCaptchaAction(null);
+  }, [captchaAction]);
 
   return (
     <MainLayout title="">
@@ -367,7 +480,7 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
       <Backdrop open={uploading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <CircularProgress color="inherit" />
-          <Typography>Uploading… this may take a while for large files.</Typography>
+          <Typography>{t("Uploading… this may take a while for large files.")}</Typography>
         </Box>
       </Backdrop>
 
@@ -382,19 +495,21 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
           }}
         >
           {/* ---------- TOP: Bulk upload ---------- */}
-          <Card sx={CARD_SX}>
+          <Card sx={CARD_SX} elevation={0}>
             <Box
               sx={{
                 px: 1.25,
                 py: 0.6,
-                borderBottom: "1px solid rgba(255,255,255,0.12)",
+                borderBottom: `1px solid ${vars.border}`,
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
+                bgcolor: vars.bgCard,
+                backgroundImage: "none",
               }}
             >
               <Typography sx={{ fontWeight: 700, fontSize: 15, color: COLORS.link }}>
-                Bulk Passes Upload
+                {t("Bulk Passes Upload")}
               </Typography>
               <Box sx={{ ml: "auto" }}>
                 <Button
@@ -402,7 +517,7 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
                   size="small"
                   sx={{ textTransform: "none", fontWeight: 700, color: COLORS.link, px: 1, minWidth: 0 }}
                 >
-                  Clear
+                  {t("Clear")}
                 </Button>
               </Box>
             </Box>
@@ -419,7 +534,9 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
               }}
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                <Typography sx={{ fontSize: 12 }}>Step 1: Download the given template</Typography>
+                <Typography sx={{ fontSize: 12, color: vars.text }}>
+                  {t("Step 1: Download the given template")}
+                </Typography>
                 <Button
                   variant="contained"
                   size="small"
@@ -429,47 +546,38 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
                     textTransform: "none",
                     fontWeight: 700,
                     bgcolor: COLORS.green,
+                    color: "#fff",
                     "&:hover": { bgcolor: "#12853d" },
                   }}
                 >
-                  Download Template
+                  {t("Download Template")}
                 </Button>
 
-                <Typography sx={{ fontSize: 12, ml: { lg: 2 } }}>Step 2: Fill it & Upload</Typography>
+                <Typography sx={{ fontSize: 12, ml: { lg: 2 }, color: vars.text }}>
+                  {t("Step 2: Fill it & Upload")}
+                </Typography>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  hidden
-                  onChange={handleFileChange}
-                />
+                <input ref={fileInputRef} type="file" accept=".csv" hidden onChange={handleFileChange} />
                 <Button
                   variant="contained"
                   size="small"
                   onClick={handleSelectFile}
                   disabled={uploading}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 700,
-                    bgcolor: "#2b2b2b",
-                    border: "1px solid rgba(255,255,255,0.14)",
-                    "&:hover": { bgcolor: "#333" },
-                  }}
+                  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
                 >
-                  Select File
+                  {t("Select File")}
                 </Button>
 
                 {file && (
                   <Chip
                     label={file.name}
                     onDelete={uploading ? undefined : clearTop}
-                    sx={{
-                      bgcolor: "#0f0f10",
-                      color: "#E8E8EA",
-                      border: "1px solid rgba(255,255,255,0.14)",
-                      ".MuiChip-deleteIcon": { color: "#999" },
-                    }}
+                    sx={(tMui) => ({
+                      bgcolor: tMui.palette.mode === "dark" ? "#232325" : "#fff",
+                      color: tMui.palette.mode === "dark" ? vars.text : "#000",
+                      border: `1px solid ${vars.border}`,
+                      ".MuiChip-deleteIcon": { color: vars.textDim },
+                    })}
                   />
                 )}
               </Box>
@@ -479,46 +587,50 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
                 size="medium"
                 startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />}
                 disabled={!file || uploading}
-                onClick={handleUpload}
+                onClick={() => { setCaptchaAction("upload"); setCaptchaOpen(true); }}
                 sx={{
                   textTransform: "none",
                   fontWeight: 700,
                   bgcolor: COLORS.purple,
                   "&:hover": { bgcolor: "#6b46f1" },
                   "&.Mui-disabled": {
-                    bgcolor: "#2f2f33",
-                    color: "#b5b7bd",
-                    border: "1px solid rgba(255,255,255,0.14)",
+                    bgcolor: vars.bgCtrl,
+                    color: vars.textDim,
+                    border: `1px solid ${vars.border}`,
                     boxShadow: "none",
                     opacity: 1,
                   },
                 }}
               >
-                {uploading ? "Uploading..." : "Upload"}
+                {uploading ? t("Uploading...") : t("Upload")}
               </Button>
             </Box>
           </Card>
 
           {/* ---------- BOTTOM: Add Pass form ---------- */}
-          <Card sx={CARD_SX}>
+          <Card sx={CARD_SX} elevation={0}>
             <Box
               sx={{
                 px: 1.25,
                 py: 0.7,
-                borderBottom: "1px solid rgba(255,255,255,0.12)",
+                borderBottom: `1px solid ${vars.border}`,
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
+                bgcolor: vars.bgCard,
+                backgroundImage: "none",
               }}
             >
-              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Add Pass Details</Typography>
-              <Box sx={{ ml: "auto" }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 16, color: vars.text }}>
+                {t("Add Pass Details")}
+              </Typography>
+                            <Box sx={{ ml: "auto" }}>
                 <Button
                   size="small"
                   onClick={clearForm}
                   sx={{ textTransform: "none", fontWeight: 600, color: COLORS.link, px: 1 }}
                 >
-                  Clear
+                  {t("Clear")}
                 </Button>
               </Box>
             </Box>
@@ -535,87 +647,145 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
               >
                 {/* Row 1 */}
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Pass Req No *</Typography>
-                  <TextField value={passReqNo} InputProps={{ readOnly: true }} size="small" sx={controlSx} />
+                  <Typography sx={LABEL_SX}>{t("Pass Req No *")}</Typography>
+                  <TextField
+                    value={passReqNo}
+                    InputProps={{ readOnly: true }}
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                  />
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Date(UT) *</Typography>
+                  <Typography sx={LABEL_SX}>{t("Date(UT) *")}</Typography>
                   <LocalizationProvider dateAdapter={AdapterDateFns}>
                     <DesktopDatePicker
                       value={date}
                       onChange={(newValue: Date | null) => setDate(newValue)}
                       format="MM/dd/yyyy"
-                      slotProps={{ textField: { size: "small", placeholder: "MM/DD/YYYY", sx: controlSx } }}
+                      slotProps={{
+                        textField: {
+                          size: "small",
+                          placeholder: t("MM/DD/YY"),
+                          sx: (tMui) => ({ ...controlSx, ...filledField(tMui) }),
+                        },
+                        popper: {
+                          sx: {
+                            "& .MuiPaper-root": {
+                              bgcolor: vars.bgCard,
+                              color: vars.text,
+                              border: `1px solid ${vars.border}`,
+                            },
+                            "& .MuiPickersDay-root": { color: vars.text },
+                            "& .MuiPickersDay-root.Mui-selected": {
+                              bgcolor: `${vars.accent} !important`,
+                              color: "#fff",
+                            },
+                            "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label": {
+                              color: vars.text,
+                            },
+                          },
+                        },
+                      }}
                     />
                   </LocalizationProvider>
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Satellite Name *</Typography>
+                  <Typography sx={LABEL_SX}>{t("Satellite Name *")}</Typography>
                   <FormControl fullWidth size="small">
                     <Select
                       value={satellite}
                       onChange={(e) => setSatellite(e.target.value)}
                       displayEmpty
-                      sx={controlSx}
-                      MenuProps={darkMenu}
+                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                      MenuProps={menuTheme}
                     >
                       <MenuItem disabled value="">
-                        Select Satellite
+                        {t("Select Satellite")}
                       </MenuItem>
                       {satOptions.map((s) => (
-  <MenuItem key={s} value={s}>{s}</MenuItem>
-))}
+                        <MenuItem key={s} value={s}>
+                          {s}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Box>
 
                 {/* Row 2 */}
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Supporting Station *</Typography>
+                  <Typography sx={LABEL_SX}>{t("Supporting Station *")}</Typography>
                   <FormControl fullWidth size="small">
                     <Select
                       value={station}
                       onChange={(e) => setStation(e.target.value)}
                       displayEmpty
-                      sx={controlSx}
-                      MenuProps={darkMenu}
+                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                      MenuProps={menuTheme}
                     >
                       <MenuItem disabled value="">
-                        Select Station
+                        {t("Select Station")}
                       </MenuItem>
                       {stationOptions.map((s) => (
-  <MenuItem key={s} value={s}>{s}</MenuItem>
-))}
+                        <MenuItem key={s} value={s}>
+                          {s}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Orbit No *</Typography>
-                  <TextField value={orbitNo} onChange={(e) => setOrbitNo(e.target.value)} placeholder="Enter Orbit No" size="small" sx={controlSx} />
+                  <Typography sx={LABEL_SX}>{t("Orbit No *")}</Typography>
+                  <TextField
+                    value={orbitNo}
+                    onChange={(e) => setOrbitNo(e.target.value)}
+                    placeholder={t("Enter Orbit No")}
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                  />
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Max (El) Deg *</Typography>
-                  <TextField value={maxEl} onChange={(e) => setMaxEl(e.target.value)} placeholder="Enter Max El (Deg)" size="small" sx={controlSx} />
+                  <Typography sx={LABEL_SX}>{t("Max (El) Deg *")}</Typography>
+                  <TextField
+                    value={maxEl}
+                    onChange={(e) => setMaxEl(e.target.value)}
+                    placeholder={t("Enter Max El (Deg)")}
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                  />
                 </Box>
 
                 {/* Row 3 */}
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>AOS (UT) *</Typography>
-                  <TextField value={aos} onChange={(e) => setAos(e.target.value)} placeholder="HH:MM:SS" size="small" sx={controlSx} inputProps={{ inputMode: "numeric" }} />
+                  <Typography sx={LABEL_SX}>{t("AOS (UT) *")}</Typography>
+                  <TextField
+                    value={aos}
+                    onChange={(e) => setAos(e.target.value)}
+                    placeholder="HH:MM:SS"
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                    inputProps={{ inputMode: "numeric" }}
+                  />
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>LOS (UT) *</Typography>
-                  <TextField value={los} onChange={(e) => setLos(e.target.value)} placeholder="HH:MM:SS" size="small" sx={controlSx} inputProps={{ inputMode: "numeric" }} />
+                  <Typography sx={LABEL_SX}>{t("LOS (UT) *")}</Typography>
+                  <TextField
+                    value={los}
+                    onChange={(e) => setLos(e.target.value)}
+                    placeholder="HH:MM:SS"
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                    inputProps={{ inputMode: "numeric" }}
+                  />
                 </Box>
 
                 {/* Row 4 — multi-selects */}
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Operations</Typography>
+                  <Typography sx={LABEL_SX}>{t("Operations")}</Typography>
                   <FormControl fullWidth size="small">
                     <Select<string[]>
                       multiple
@@ -623,26 +793,26 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
                       onChange={(e) => setOps(toArray(e))}
                       displayEmpty
                       renderValue={(selected) =>
-                        (selected as string[]).length ? (selected as string[]).join(", ") : "Select Operations"
+                        (selected as string[]).length ? (selected as string[]).join(", ") : t("Select Operations")
                       }
-                      sx={controlSx}
-                      MenuProps={darkMenu}
+                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                      MenuProps={menuTheme}
                     >
                       <MenuItem disabled value="">
-                        Select Operations
+                        {t("Select Operations")}
                       </MenuItem>
                       {opOptions.map((o) => (
-  <MenuItem key={o} value={o}>
-    <Checkbox checked={ops.indexOf(o) > -1} sx={{ p: 0.5, mr: 1, color: "#bbb" }} />
-    <ListItemText primary={o} />
-  </MenuItem>
-))}
+                        <MenuItem key={o} value={o}>
+                          <Checkbox checked={ops.indexOf(o) > -1} sx={{ p: 0.5, mr: 1, color: vars.textDim }} />
+                          <ListItemText primary={o} />
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Operations Requester</Typography>
+                  <Typography sx={LABEL_SX}>{t("Operations Requester")}</Typography>
                   <FormControl fullWidth size="small">
                     <Select<string[]>
                       multiple
@@ -650,26 +820,26 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
                       onChange={(e) => setOpsReq(toArray(e))}
                       displayEmpty
                       renderValue={(selected) =>
-                        (selected as string[]).length ? (selected as string[]).join(", ") : "Select Requester"
+                        (selected as string[]).length ? (selected as string[]).join(", ") : t("Select Requester")
                       }
-                      sx={controlSx}
-                      MenuProps={darkMenu}
+                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                      MenuProps={menuTheme}
                     >
                       <MenuItem disabled value="">
-                        Select Requester
+                        {t("Select Requester")}
                       </MenuItem>
                       {reqOptions.map((r) => (
-  <MenuItem key={r} value={r}>
-    <Checkbox checked={opsReq.indexOf(r) > -1} sx={{ p: 0.5, mr: 1, color: "#bbb" }} />
-    <ListItemText primary={r} />
-  </MenuItem>
-))}
+                        <MenuItem key={r} value={r}>
+                          <Checkbox checked={opsReq.indexOf(r) > -1} sx={{ p: 0.5, mr: 1, color: vars.textDim }} />
+                          <ListItemText primary={r} />
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>TTL Service provider</Typography>
+                  <Typography sx={LABEL_SX}>{t("TTL Service provider")}</Typography>
                   <FormControl fullWidth size="small">
                     <Select<string[]>
                       multiple
@@ -677,63 +847,116 @@ const [supOptions, setSupOptions] = React.useState<string[]>([]);
                       onChange={(e) => setOpsSup(toArray(e))}
                       displayEmpty
                       renderValue={(selected) =>
-                        (selected as string[]).length ? (selected as string[]).join(", ") : "Select Supporter"
+                        (selected as string[]).length ? (selected as string[]).join(", ") : t("Select Supporter")
                       }
-                      sx={controlSx}
-                      MenuProps={darkMenu}
+                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                      MenuProps={menuTheme}
                     >
                       <MenuItem disabled value="">
-                        Select Supporter
+                        {t("Select Supporter")}
                       </MenuItem>
-                     {supOptions.map((s) => (
-  <MenuItem key={s} value={s}>
-    <Checkbox checked={opsSup.indexOf(s) > -1} sx={{ p: 0.5, mr: 1, color: "#bbb" }} />
-    <ListItemText primary={s} />
-  </MenuItem>
-))}
+                      {supOptions.map((s) => (
+                        <MenuItem key={s} value={s}>
+                          <Checkbox checked={opsSup.indexOf(s) > -1} sx={{ p: 0.5, mr: 1, color: vars.textDim }} />
+                          <ListItemText primary={s} />
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Box>
 
-          
+                <Box className="form-item">
+                  <Typography sx={LABEL_SX}>{t("Pass Type *")}</Typography>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={passType}
+                      onChange={(e) => setPassType(e.target.value as "Normal" | "Emergency")}
+                      displayEmpty
+                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                      MenuProps={menuTheme}
+                    >
+                      <MenuItem disabled value="">
+                        {t("Select Pass Type")}
+                      </MenuItem>
+                      <MenuItem value="Normal">{t("Normal")}</MenuItem>
+                      <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
 
                 <Box className="form-item">
-  <Typography sx={LABEL_SX}>Schedule Status *</Typography>
-  <TextField
-    value={sched}
-    InputProps={{ readOnly: true }}
-    size="small"
-    sx={controlSx}
-  />
-</Box>
-
+                  <Typography sx={LABEL_SX}>{t("Schedule Status *")}</Typography>
+                  <TextField
+                    value={sched}
+                    InputProps={{ readOnly: true }}
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                  />
+                </Box>
 
                 {/* Row 5 */}
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>Pass Status</Typography>
-                  <TextField value={passStatus} InputProps={{ readOnly: true }} size="small" sx={controlSx} />
+                  <Typography sx={LABEL_SX}>{t("Pass Status")}</Typography>
+                  <TextField
+                    value={passStatus}
+                    InputProps={{ readOnly: true }}
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                  />
                 </Box>
 
-                <Box className="form-item" sx={{ gridColumn: { xs: "auto", md: "span 2" } }}>
-                  <Typography sx={LABEL_SX}>Remarks</Typography>
-                  <TextField value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Enter remarks" size="small" sx={controlSx} />
+                <Box className="form-item">
+                  <Typography sx={LABEL_SX}>{t("Remarks")}</Typography>
+                  <TextField
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder={t("Enter remarks")}
+                    size="small"
+                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                  />
                 </Box>
               </Box>
 
+              {/* Footer actions UNDER the grid */}
               <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
                 <Button
                   variant="contained"
-                  onClick={handleSave}
+                  onClick={() => { setCaptchaAction("save"); setCaptchaOpen(true); }}
                   disabled={saving}
-                  sx={{ textTransform: "none", fontWeight: 700, bgcolor: COLORS.purple, "&:hover": { bgcolor: "#6b46f1" } }}
+                  sx={{
+                    "&&": {
+                      textTransform: "none",
+                      fontWeight: 700,
+                      bgcolor: COLORS.purple,
+                      color: "#fff !important",
+                    },
+                    "&:hover": { bgcolor: "#6b46f1", color: "#fff !important" },
+                    "& .MuiSvgIcon-root": { color: "#fff !important" },
+                    "&.Mui-disabled": {
+                      bgcolor: vars.bgCtrl,
+                      color: `${vars.textDim} !important`,
+                      border: `1px solid ${vars.border}`,
+                      boxShadow: "none",
+                      opacity: 1,
+                      "& .MuiSvgIcon-root": { color: `${vars.textDim} !important` },
+                    },
+                  }}
                 >
-                  {saving ? "Saving..." : "Save"}
+                  <span style={{ color: "#fff" }}>{saving ? t("Saving...") : t("Save")}</span>
                 </Button>
               </Box>
             </Box>
           </Card>
         </Box>
       </Box>
+
+      {/* CAPTCHA Dialog (gates Upload + Save) */}
+      <CaptchaDialog
+        open={captchaOpen}
+        onCancel={() => { setCaptchaOpen(false); setCaptchaAction(null); }}
+        onOk={async () => { setCaptchaOpen(false); await runAfterCaptcha(); }}
+      />
     </MainLayout>
   );
 }
+

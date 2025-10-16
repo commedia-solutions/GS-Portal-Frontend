@@ -1,3 +1,4 @@
+// src/pages/Add_data_pages/SatellitesList.tsx
 import React from "react";
 import {
   Box,
@@ -9,21 +10,31 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import DownloadIcon from "@mui/icons-material/Download";
+import PrintIcon from "@mui/icons-material/Print";
 import MainLayout from "../../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import UpdateSatelliteModal from "../../components/Models/UpdateSatelliteModal";
+import api, { getAuthToken } from "../../api/http"; // ✅ use same client + fresh token
+import { useI18n } from "../../i18n";
 
-/* ---------- API base ---------- */
-const API = `${import.meta.env.VITE_API_BASE}/api`;
-// put near API const
-// const authHeaders = () => {
-//   const t = localStorage.getItem("token"); // or wherever you store it
-//   return t ? { Authorization: `Bearer ${t}` } : {};
-// };
+/* ---------- API base (safe fallback for fetch-based export) ---------- */
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+const API = API_BASE ? `${API_BASE}/api` : `/api`;
 
+/* ---------- Use CSS variables ---------- */
+const TOK = {
+  TEXT: "var(--text)",
+  TEXT_DIM: "var(--text-dim)",
+  CARD_BG: "var(--bg-card)",
+  CONTROL_BG: "var(--bg-ctrl)",
+  HOVER: "var(--bg-hover)",
+  BORDER_STR: "1px solid var(--border)",
+  BORDER_WEAK: "var(--border-weak)",
+  ICON: "var(--text)",
+  ACCENT: "var(--accent)",
+  SCROLLBAR: "var(--scrollbar)",
+};
 
-/* ---------- UI constants ---------- */
-const CONTROL_BG = "#1C1C1E";
 const UI = {
   ctrlH: 30,
   font: 13,
@@ -35,33 +46,34 @@ const UI = {
   paginationH: 36,
 };
 
-/* compact control style (search field) */
 const compactCtrlSx = {
-  bgcolor: CONTROL_BG,
+  bgcolor: TOK.CONTROL_BG,
   borderRadius: 1,
-  color: "#fff",
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#454444ff" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#454444ff" },
+  color: TOK.TEXT,
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
   "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "#544f4fff",
+    borderColor: "var(--border)",
   },
   "& .MuiOutlinedInput-root": {
     height: `${UI.ctrlH}px`,
-    color: "#fff",
+    color: TOK.TEXT,
+    backgroundColor: TOK.CONTROL_BG,
+    paddingLeft: 8,
   },
   "& .MuiInputBase-input": {
     height: `${UI.ctrlH - 2}px`,
     padding: "0 10px",
     fontSize: UI.font,
     lineHeight: 1,
-    color: "#fff",
+    color: TOK.TEXT,
   },
-  "& .MuiInputBase-input::placeholder": { color: "#fff", opacity: 1 },
-  "& input::-webkit-input-placeholder": { color: "#fff", opacity: 1 },
-  "& .MuiSvgIcon-root": { fontSize: UI.icon, color: "rgba(255,255,255,0.9)" },
-};
+  "& .MuiInputBase-input::placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
+  "& input::-webkit-input-placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
+  "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
+} as const;
 
-/* ---------- Table types & columns ---------- */
+/* ---------- table ---------- */
 type Row = {
   id: number;
   sr: number;
@@ -73,185 +85,31 @@ type Row = {
   pol: string;
 };
 
-// type Column = {
-//   key: keyof Row | "action";
-//   label: string;
-//   width?: number;
-//   align?: "left" | "center" | "right";
-// };
-
 type Column = {
   key: keyof Row | "action";
   label: string;
-  width?: number;                 // fixed px (kept for Sr/Action)
-  min?: number;                   // NEW: min width for flexible columns
-  flex?: number;                  // NEW: grow factor in fr units
+  width?: number;
+  min?: number;
+  flex?: number;
   align?: "left" | "center" | "right";
 };
 
-// const COLUMNS: Column[] = [
-//   { key: "sr", label: "Sr No", width: 80, align: "center" },
-//   { key: "satId", label: "Satellite ID", width: 140, align: "center" },
-//   { key: "satName", label: "Satellite Name", width: 180, align: "center" },
-//   { key: "norad", label: "Norad ID", width: 130, align: "center" },
-//   { key: "itu", label: "ITU Name", width: 130, align: "center" },
-//   { key: "station", label: "Station", width: 180, align: "center" },
-//   { key: "pol", label: "Polarization", width: 180, align: "center" },
-//   { key: "action", label: "Action", width: 130, align: "center" },
-// ];
-
-const COLUMNS: Column[] = [
-  { key: "sr",      label: "Sr No",          width: 72,  align: "center" },
-  { key: "satId",   label: "Satellite ID",   min: 120,   flex: 1,   align: "center" },
-  { key: "satName", label: "Satellite Name", min: 160,   flex: 1.1, align: "center" },
-  { key: "norad",   label: "Norad ID",       min: 120,   flex: 0.9, align: "center" },
-  { key: "itu",     label: "ITU Name",       min: 120,   flex: 0.9, align: "center" },
-  { key: "station", label: "Station",        min: 160,   flex: 1.1, align: "center" },
-  { key: "pol",     label: "Polarization",   min: 140,   flex: 1,   align: "center" },
-  { key: "action",  label: "Action",         width: 120, align: "center" },
-];
-
-
-/* ---------- Table (simple) ---------- */
-// function DarkScrollTable({
-//   rows,
-//   columns,
-//   onEdit,
-// }: {
-//   rows: Row[];
-//   columns: Column[];
-//   onEdit: (r: Row) => void;
-// }) {
-//   const totalW = columns.reduce((acc, c) => acc + (c.width ?? 120), 0) + 16;
-
-//   return (
-//     <Box>
-//       <Box sx={{ width: totalW, minWidth: "100%" }}>
-//         {/* sticky black header */}
-//         <Box
-//           sx={{
-//             position: "sticky",
-//             top: 0,
-//             zIndex: 1,
-//             display: "grid",
-//             gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-//             bgcolor: "#000",
-//             borderBottom: "1px solid rgba(255,255,255,0.14)",
-//           }}
-//         >
-//           {columns.map((c) => (
-//             <Box
-//               key={c.key}
-//               sx={{
-//                 px: 1.25,
-//                 py: 1,
-//                 fontWeight: 700,
-//                 fontSize: 13,
-//                 color: "#fff",
-//                 textAlign: c.align ?? "center",
-//                 whiteSpace: "nowrap",
-//               }}
-//             >
-//               {c.label}
-//             </Box>
-//           ))}
-//         </Box>
-
-//         {/* rows */}
-//         {rows.map((r, idx) => (
-//           <Box
-//             key={`${r.id}-${idx}`}
-//             sx={{
-//               display: "grid",
-//               gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-//               borderBottom: "1px solid rgba(255,255,255,0.08)",
-//               bgcolor: idx % 2 ? "rgba(255,255,255,0.02)" : "transparent",
-//             }}
-//           >
-//             {columns.map((c) => {
-//               if (c.key === "action") {
-//                 return (
-//                   <Box
-//                     key={`action-${idx}`}
-//                     sx={{
-//                       px: 1.25,
-//                       py: 0.75,
-//                       display: "flex",
-//                       justifyContent: "center",
-//                       alignItems: "center",
-//                     }}
-//                   >
-//                     <Button
-//                       size="small"
-//                       variant="contained"
-//                       sx={{
-//                         textTransform: "none",
-//                         fontWeight: 700,
-//                         fontSize: 12,
-//                         px: 1.25,
-//                         bgcolor: "#7C57F2",
-//                         "&:hover": { bgcolor: "#6b48ea" },
-//                       }}
-//                       onClick={() => onEdit(r)}
-//                     >
-//                       Update
-//                     </Button>
-//                   </Box>
-//                 );
-//               }
-//               return (
-//                 <Box
-//                   key={String(c.key)}
-//                   sx={{
-//                     px: 1.25,
-//                     py: 1,
-//                     fontSize: 13,
-//                     color: "#EAEAEA",
-//                     textAlign: c.align ?? "center",
-//                     whiteSpace: "nowrap",
-//                   }}
-//                 >
-//                   {r[c.key as keyof Row] as any}
-//                 </Box>
-//               );
-//             })}
-//           </Box>
-//         ))}
-
-//         {rows.length === 0 && (
-//           <Box sx={{ px: 1.25, py: 2, color: "#aaa", textAlign: "center" }}>
-//             No satellites found.
-//           </Box>
-//         )}
-//       </Box>
-//     </Box>
-//   );
-// }
-
 const CELL_PX = "clamp(6px, 0.8vw, 12px)";
 
-function DarkScrollTable({
+function ThemedScrollTable({
   rows,
   columns,
   onEdit,
+  emptyText,
 }: {
   rows: Row[];
   columns: Column[];
   onEdit: (r: Row) => void;
+  emptyText: string;
 }) {
-  // minimal total width so we still get horizontal scroll on very small screens
-  const minTotal = columns.reduce(
-    (acc, c) => acc + (c.width ?? c.min ?? 120),
-    0
-  ) + 16;
-
-  // responsive grid: fixed px when width is given; otherwise minmax(..., Xfr)
+  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 120), 0) + 16;
   const colTemplate = columns
-    .map((c) =>
-      c.width != null
-        ? `${c.width}px`
-        : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`
-    )
+    .map((c) => (c.width != null ? `${c.width}px` : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`))
     .join(" ");
 
   return (
@@ -265,19 +123,19 @@ function DarkScrollTable({
             zIndex: 1,
             display: "grid",
             gridTemplateColumns: colTemplate,
-            bgcolor: "#000",
-            borderBottom: "1px solid rgba(255,255,255,0.14)",
+            bgcolor: "var(--sat-thead-bg)",
+            borderBottom: TOK.BORDER_STR,
           }}
         >
           {columns.map((c) => (
             <Box
               key={String(c.key)}
               sx={{
-                px: CELL_PX,         // was 1.25 — now responsive + tighter
+                px: CELL_PX,
                 py: 1,
                 fontWeight: 700,
                 fontSize: 13,
-                color: "#fff",
+                color: "var(--sat-thead-text)",
                 textAlign: c.align ?? "center",
                 whiteSpace: "nowrap",
               }}
@@ -290,11 +148,11 @@ function DarkScrollTable({
         {/* rows */}
         {rows.map((r, idx) => (
           <Box
-            key={`${r.id}-${idx}`}
+            key={r.id ?? idx}
             sx={{
               display: "grid",
               gridTemplateColumns: colTemplate,
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
+              borderBottom: TOK.BORDER_STR,
               bgcolor: idx % 2 ? "rgba(255,255,255,0.02)" : "transparent",
             }}
           >
@@ -303,13 +161,7 @@ function DarkScrollTable({
                 return (
                   <Box
                     key={`action-${idx}`}
-                    sx={{
-                      px: CELL_PX,
-                      py: 0.75,
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
+                    sx={{ px: CELL_PX, py: 0.75, display: "flex", justifyContent: "center", alignItems: "center" }}
                   >
                     <Button
                       size="small"
@@ -319,8 +171,10 @@ function DarkScrollTable({
                         fontWeight: 700,
                         fontSize: 12,
                         px: 1.25,
-                        bgcolor: "#7C57F2",
-                        "&:hover": { bgcolor: "#6b48ea" },
+                        bgcolor: TOK.ACCENT,
+                        color: "#fff",
+                        "& .MuiSvgIcon-root": { color: "#fff" },
+                        "&:hover": { filter: "brightness(0.95)" },
                       }}
                       onClick={() => onEdit(r)}
                     >
@@ -329,15 +183,14 @@ function DarkScrollTable({
                   </Box>
                 );
               }
-
               return (
                 <Box
                   key={String(c.key)}
                   sx={{
-                    px: CELL_PX,       // was 1.25 — tighter & responsive
+                    px: CELL_PX,
                     py: 1,
                     fontSize: 13,
-                    color: "#EAEAEA",
+                    color: TOK.TEXT_DIM,
                     textAlign: c.align ?? "center",
                     whiteSpace: "nowrap",
                   }}
@@ -350,8 +203,8 @@ function DarkScrollTable({
         ))}
 
         {!rows.length && (
-          <Box sx={{ px: CELL_PX, py: 2, color: "#aaa", textAlign: "center" }}>
-            No satellites found.
+          <Box sx={{ px: CELL_PX, py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
+            {emptyText}
           </Box>
         )}
       </Box>
@@ -361,6 +214,8 @@ function DarkScrollTable({
 
 /* ---------- Page ---------- */
 export default function SatellitesList() {
+  const { t } = useI18n();
+
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
@@ -371,51 +226,48 @@ export default function SatellitesList() {
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
-
   const fetchRows = React.useCallback(async () => {
-  const token = localStorage.getItem("token");
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
+      // cache-buster so we never get stale data
+      const r = await api.get(`/api/satellites?_=${Date.now()}`);
+      const j: any = r as any;
 
-    const r = await fetch(`${API}/satellites`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+      const arr: any[] = Array.isArray(j)
+        ? j
+        : Array.isArray(j?.data)
+        ? j.data
+        : Array.isArray(j?.rows)
+        ? j.rows
+        : [];
 
-    const j = await r.json().catch(() => ({}));
-    const arr: any[] = Array.isArray(j)
-      ? j
-      : Array.isArray(j?.data)
-      ? j.data
-      : Array.isArray(j?.rows)
-      ? j.rows
-      : [];
+      const mapped: Row[] = arr.map((x: any, i: number) => ({
+        id: Number(x.id ?? i + 1),
+        sr: i + 1,
+        satId: String(x.satellite_id ?? ""),
+        satName: String(x.satellite_name ?? ""),
+        norad: String(x.norad_id ?? ""),
+        itu: String(x.itu_name ?? ""),
+        station: String(x.station_name ?? ""),
+        pol: String(x.polarization ?? ""),
+      }));
 
-    const mapped: Row[] = arr.map((x: any, i: number) => ({
-      id: Number(x.id ?? i + 1),
-      sr: i + 1,
-      satId: String(x.satellite_id ?? ""),
-      satName: String(x.satellite_name ?? ""),
-      norad: String(x.norad_id ?? ""),
-      itu: String(x.itu_name ?? ""),
-      station: String(x.station_name ?? ""),
-      pol: String(x.polarization ?? ""),
-    }));
-
-    setRows(mapped);
-    setPage(0);
-  } catch (e) {
-    console.error("Failed to load satellites", e);
-    setRows([]);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      setRows(mapped);
+      setPage(0);
+    } catch (e: any) {
+      console.error("Failed to load satellites", e);
+      const msg = e?.response?.data?.message || e?.message || "Failed to load satellites";
+      alert(msg);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     fetchRows();
   }, [fetchRows]);
 
-  /* client search + paging */
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -429,72 +281,93 @@ export default function SatellitesList() {
     [filtered, page, rowsPerPage]
   );
 
-  
-
   const doExport = React.useCallback(async () => {
-  const token = localStorage.getItem("token");
-  try {
-    const resp = await fetch(`${API}/satellites/export?format=csv`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-
-    if (!resp.ok) {
-      const msg = await resp.text().catch(() => "");
-      alert(`Export failed (${resp.status}): ${msg || resp.statusText}`);
-      return;
+    try {
+      // ✅ use the same fresh auth token the api client uses
+      const token = getAuthToken();
+      const resp = await fetch(`${API}/satellites/export?format=csv&_=${Date.now()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!resp.ok) {
+        const msg = await resp.text().catch(() => "");
+        alert(`Export failed (${resp.status}): ${msg || resp.statusText}`);
+        return;
+      }
+      const blob = await resp.blob();
+      const dispo = resp.headers.get("Content-Disposition") || "";
+      const m = dispo.match(/filename="?([^"]+)"?/i);
+      const filename = m?.[1] || "satellites.csv";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Export error", e);
+      alert("Export failed.");
     }
+  }, []);
 
-    const blob = await resp.blob();
-    const dispo = resp.headers.get("Content-Disposition") || "";
-    const m = dispo.match(/filename="?([^"]+)"?/i);
-    const filename = m?.[1] || "satellites.csv";
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    console.error("Export error", e);
-    alert("Export failed.");
-  }
-}, []);
+  const doPrint = React.useCallback(() => window.print(), []);
 
   const handleEdit = (r: Row) => {
     setEditing(r);
     setModalOpen(true);
   };
-
-  
   const handleSave = async () => {
-  await fetchRows();      // re-pull after successful PUT inside modal
-  setModalOpen(false);
-};
-
-
+    await fetchRows();
+    setModalOpen(false);
+  };
   const handleDelete = async () => {
-  await fetchRows();      // re-pull after successful DELETE inside modal
-  setModalOpen(false);
-};
+    await fetchRows();
+    setModalOpen(false);
+  };
+
+  const COLUMNS: Column[] = React.useMemo(
+    () => [
+      { key: "sr",       label: t("Sr No"),          width: 72,  align: "center" },
+      { key: "satId",    label: t("Satellite ID"),   min: 120,   flex: 1,   align: "center" },
+      { key: "satName",  label: t("Satellite Name"), min: 160,   flex: 1.1, align: "center" },
+      { key: "norad",    label: t("Norad ID"),       min: 120,   flex: 0.9, align: "center" },
+      { key: "itu",      label: t("ITU Name"),       min: 120,   flex: 0.9, align: "center" },
+      { key: "station",  label: t("Station"),        min: 160,   flex: 1.1, align: "center" },
+      { key: "pol",      label: t("Polarization"),   min: 140,   flex: 1,   align: "center" },
+      { key: "action",   label: t("Action"),         width: 120,               align: "center" },
+    ],
+    [t]
+  );
 
   return (
-    <MainLayout title="Satellite List">
+    <MainLayout title="">
       <Box sx={{ px: 2, py: 1.5 }}>
         <Card
+          elevation={0}
           sx={{
-            bgcolor: "#1C1C1E",
-            color: "#E8E8EA",
-            border: "1px solid rgba(255,255,255,0.14)",
+            bgcolor: TOK.CARD_BG,
+            color: TOK.TEXT,
+            border: TOK.BORDER_STR,
             borderRadius: 2,
             height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
             display: "flex",
             flexDirection: "column",
+            boxShadow: "none",
+            backgroundImage: "none",
+            "--sat-thead-bg": "#000000",
+            "--sat-thead-text": "#ffffff",
+            ".theme-dark &": {
+              "--sat-thead-bg": "#000000",
+              "--sat-thead-text": "#ffffff",
+            },
+            ".theme-light &": {
+              "--sat-thead-bg": "#464B4E",
+              "--sat-thead-text": "#ffffff",
+            },
           }}
         >
-          {/* header */}
+          {/* header strip */}
           <Box
             sx={{
               display: "flex",
@@ -502,20 +375,21 @@ export default function SatellitesList() {
               gap: UI.gap,
               px: UI.headerPx,
               py: UI.headerPy,
-              borderBottom: "1px solid rgba(255,255,255,0.12)",
+              borderBottom: TOK.BORDER_STR,
+              bgcolor: "transparent",
             }}
           >
             <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: UI.gap }}>
               <TextField
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={loading ? "Loading…" : "Search…"}
+                placeholder={loading ? t("Loading…") : t("Search…")}
                 size="small"
-                sx={{ width: UI.searchW, ...compactCtrlSx, "& .MuiOutlinedInput-root": { pl: 1 } }}
+                sx={{ width: UI.searchW, ...compactCtrlSx }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start" sx={{ mr: 0.25 }}>
-                      <SearchIcon sx={{ fontSize: UI.icon, color: "rgba(255,255,255,0.75)" }} />
+                      <SearchIcon sx={{ fontSize: UI.icon, color: TOK.ICON }} />
                     </InputAdornment>
                   ),
                 }}
@@ -531,10 +405,30 @@ export default function SatellitesList() {
                   fontWeight: 700,
                   fontSize: 12.5,
                   bgcolor: "#16a34a",
-                  "&:hover": { bgcolor: "#14833e" },
+                  color: "#fff",
+                  "& .MuiSvgIcon-root": { color: "#fff" },
+                  "&:hover": { bgcolor: "#14833e", color: "#fff" },
                 }}
               >
-                Export
+                {t("Export")}
+              </Button>
+
+              <Button
+                onClick={doPrint}
+                variant="outlined"
+                size="small"
+                startIcon={<PrintIcon />}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: 12.5,
+                  borderColor: TOK.BORDER_WEAK,
+                  color: TOK.TEXT,
+                  bgcolor: TOK.HOVER,
+                  "&:hover": { bgcolor: TOK.HOVER },
+                }}
+              >
+                {t("Print")}
               </Button>
             </Box>
           </Box>
@@ -548,20 +442,27 @@ export default function SatellitesList() {
                   overflow: "auto",
                   pr: 1,
                   scrollbarWidth: "thin",
-                  scrollbarColor: "#3f3f3f transparent",
+                  scrollbarColor: `${TOK.SCROLLBAR} transparent`,
                   "&::-webkit-scrollbar": { width: 8, height: 8 },
-                  "&::-webkit-scrollbar-thumb": { background: "#3f3f3f", borderRadius: 8 },
-                  "&::-webkit-scrollbar-thumb:hover": { background: "#5a5a5a" },
+                  "&::-webkit-scrollbar-thumb": { background: `var(--scrollbar)`, borderRadius: 8 },
+                  "&::-webkit-scrollbar-thumb:hover": {
+                    background: "color-mix(in srgb, var(--scrollbar) 80%, #888)",
+                  },
                   "&::-webkit-scrollbar-track": { background: "transparent" },
                 }}
               >
-                <DarkScrollTable rows={paged} columns={COLUMNS} onEdit={handleEdit} />
+                <ThemedScrollTable
+                  rows={paged}
+                  columns={COLUMNS}
+                  onEdit={handleEdit}
+                  emptyText={t("No satellites found.")}
+                />
               </Box>
             </Box>
           </Box>
 
           {/* pagination */}
-          <Box sx={{ borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <Box sx={{ borderTop: TOK.BORDER_STR }}>
             <TablePagination
               component="div"
               count={filtered.length}
@@ -573,59 +474,47 @@ export default function SatellitesList() {
                 setPage(0);
               }}
               rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage={t("Rows per page:")}
               sx={{
                 px: 1,
-                color: "#E8E8EA",
+                color: TOK.TEXT,
                 minHeight: UI.paginationH,
-                "& .MuiTablePagination-toolbar": {
-                  minHeight: UI.paginationH,
-                  p: 0,
-                  pl: 1,
-                  pr: 1,
-                  gap: 0.5,
-                },
+                "& .MuiTablePagination-toolbar": { minHeight: UI.paginationH, p: 0, pl: 1, pr: 1, gap: 0.5 },
                 "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: UI.font,
-                  m: 0,
+                  fontSize: UI.font, m: 0, color: TOK.TEXT_DIM,
                 },
-                "& .MuiTablePagination-input": { fontSize: UI.font, m: 0 },
+                "& .MuiTablePagination-input": { fontSize: UI.font, m: 0, color: TOK.TEXT },
                 "& .MuiSelect-select": {
-                  py: 0,
-                  px: 1,
-                  fontSize: UI.font,
-                  height: UI.ctrlH - 6,
-                  display: "flex",
-                  alignItems: "center",
-                  bgcolor: CONTROL_BG,
-                  borderRadius: 1,
+                  py: 0, px: 1, fontSize: UI.font, height: UI.ctrlH - 6,
+                  display: "flex", alignItems: "center", bgcolor: TOK.CONTROL_BG, borderRadius: 1,
                 },
-                "& .MuiIconButton-root": { p: 0.25 },
-                ".MuiSvgIcon-root": { color: "#E8E8EA", fontSize: UI.icon },
+                "& .MuiIconButton-root": { p: 0.25, color: TOK.TEXT },
+                ".MuiSvgIcon-root": { color: TOK.TEXT, fontSize: UI.icon },
               }}
             />
           </Box>
+
+          {/* modal */}
+          <UpdateSatelliteModal
+            open={modalOpen}
+            row={
+              editing
+                ? {
+                    satId: editing.satId,
+                    satName: editing.satName,
+                    norad: editing.norad,
+                    itu: editing.itu,
+                    station: editing.station,
+                    pol: editing.pol,
+                  }
+                : null
+            }
+            onClose={() => setModalOpen(false)}
+            onSave={handleSave}
+            onDelete={handleDelete}
+          />
         </Card>
       </Box>
-
-      {/* modal (PUT/DELETE will be implemented in the modal next) */}
-      <UpdateSatelliteModal
-        open={modalOpen}
-        row={
-          editing
-            ? {
-                satId: editing.satId,
-                satName: editing.satName,
-                norad: editing.norad,
-                itu: editing.itu,
-                station: editing.station,
-                pol: editing.pol,
-              }
-            : null
-        }
-        onClose={() => setModalOpen(false)}
-        onSave={handleSave}
-        onDelete={handleDelete}
-      />
     </MainLayout>
   );
 }

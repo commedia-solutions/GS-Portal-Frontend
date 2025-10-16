@@ -1,0 +1,57 @@
+/* ====== DARK (current look) ====== */
+body.theme-dark {
+  --bg-app:    #0F0F0F;
+  --bg-card:   #1C1C1E;
+  --bg-ctrl:   #1C1C1E;
+  --bg-hover:  rgba(255,255,255,0.06);
+
+  --text:      #E8E8EA;
+  --text-dim:  rgba(232,232,234,0.72);
+  --text-weak: rgba(232,232,234,0.55);
+
+  --border:    rgba(255,255,255,0.14);
+  --border-weak: rgba(255,255,255,0.10);
+
+  --accent:    #7C57F2;
+  --danger:    #ef4a4a;
+  --ok:        #2e7d32;
+
+  --scrollbar: #3f3f3f;
+
+  /* page-specific helpers */
+  --bg-strip:  #1C1C1E;
+  --bg-thead:  #000000;
+  --donut-track: #2f2f2f;
+  --bg-mid: rgba(255, 99, 71, 0.10);
+}
+
+/* ====== LIGHT (new look) ====== */
+body.theme-light {
+  --bg-app:    #ffffff;
+  --bg-card:   #ffffff;
+  --bg-ctrl:   #ffffff;
+  --bg-hover:  rgba(0,0,0,0.035);
+
+  --text:      #0B1115;
+  --text-dim:  rgba(11,17,21,0.75);
+  --text-weak: rgba(11,17,21,0.60);
+
+  --border:    rgba(0,0,0,0.12);
+  --border-weak: rgba(0,0,0,0.10);
+
+  --accent:    #6941F5;
+  --danger:    #d32f2f;
+  --ok:        #2e7d32;
+
+  --scrollbar: #c7c7c7;
+
+  /* page-specific helpers */
+  --bg-strip: var(--bg-card);
+  --bg-thead: var(--bg-card);
+  /* ✅ add donut track for light mode */
+  --donut-track: #e9e9e9;
+}
+
+/* existing helpers (keep) */
+:root, body { background: var(--bg-app); color: var(--text); }
+*::-webkit-scrollbar-thumb { background: var(--scrollbar); }

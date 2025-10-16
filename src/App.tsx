@@ -264,6 +264,10 @@ import IssuesPage from "./pages/Issues";
 // RBAC helpers
 import { AuthProvider, RequirePermission, PERMISSION } from "./auth";
 
+// Pass Schedule 
+
+import PassSchedule from "./pages/PassSchedule";
+
 function RequireAuth() {
   // Prefer the single canonical key; fall back to in-memory getter
   const token =
@@ -349,6 +353,11 @@ export default function App() {
 
             {/* ⛑️ Fallback now INSIDE the protected block */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+            {/* passSchedule */}
+
+            <Route path="/pass-schedule" element={<PassSchedule />} />
+            
           </Route>
         </Routes>
       </Router>

@@ -1,4 +1,4 @@
-// p4//
+// src/pages/Userprofile.tsx
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
 import {
@@ -9,18 +9,61 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import Cropper from "react-easy-crop";
 import { TOPBAR_HEIGHT } from "../components/TopNav";
+import { useI18n } from "../i18n";
+
+/* ---------- Theme tokens (match Logs/Requests/Satellites) ---------- */
+const TOK = {
+  TEXT: "var(--text)",
+  TEXT_DIM: "var(--text-dim)",
+  CARD_BG: "var(--bg-card)",
+  CONTROL_BG: "var(--bg-ctrl)",
+  HOVER: "var(--bg-hover)",
+  BORDER_STR: "1px solid var(--border)",
+  BORDER_WEAK: "1px solid var(--border-weak)",
+  ICON: "var(--text)",
+  ACCENT: "var(--accent)",
+  SCROLLBAR: "var(--scrollbar)",
+} as const;
+
+/* compact inputs (same family as other page) */
+const UI = {
+  ctrlH: 36,
+  font: 13,
+};
+const compactFieldSx = {
+  bgcolor: TOK.CONTROL_BG,
+  borderRadius: 2,
+  color: TOK.TEXT,
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border-weak)" },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
+  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+    borderColor: "var(--border)",
+  },
+  "& .MuiOutlinedInput-root": {
+    height: `${UI.ctrlH}px`,
+    color: TOK.TEXT,
+    backgroundColor: TOK.CONTROL_BG,
+    paddingLeft: 1,
+    borderRadius: 2,
+  },
+  "& .MuiInputBase-input": {
+    height: `${UI.ctrlH - 2}px`,
+    padding: "0 10px",
+    fontSize: UI.font,
+    lineHeight: 1,
+    color: TOK.TEXT,
+  },
+  "& .MuiFormLabel-root": { color: TOK.TEXT_DIM, fontSize: 12 },
+} as const;
 
 /* ---------- Base URLs ---------- */
-// Raw server base (no trailing slash)
 const RAW_BASE =
   (import.meta as any).env?.VITE_API_BASE ||
   (import.meta as any).env?.VITE_API_BASE_URL ||
   "http://localhost:4000";
 
 const BASE = String(RAW_BASE).replace(/\/+$/, "");
-// JSON API base always includes /api
 const API_BASE = BASE.endsWith("/api") ? BASE : `${BASE}/api`;
-// Static files base (NO /api) — used for /uploads/*
 const ASSET_BASE = API_BASE.replace(/\/api$/, "");
 
 /* ---------- Token helper ---------- */
@@ -43,12 +86,11 @@ async function jsonApi(path: string, init?: RequestInit) {
   if (!isForm && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  // Allow both "/api/..." and "/users/..." style paths
   const url = path.startsWith("http")
     ? path
     : path.startsWith("/api")
-    ? `${ASSET_BASE}${path}` // "/api/*" -> "http://host/api/*"
-    : `${API_BASE}${path}`;  // "/*"    -> "http://host/api/*"
+    ? `${ASSET_BASE}${path}`
+    : `${API_BASE}${path}`;
 
   const res = await fetch(url, { ...init, headers });
   const text = await res.text();
@@ -70,8 +112,6 @@ async function jsonApi(path: string, init?: RequestInit) {
   return data;
 }
 
-const CARD_BG = "#1C1C1E";
-const BORDER = "1px solid rgba(255,255,255,0.14)";
 const SAVE_PURPLE = "#7C57F2";
 
 /** Crop to a circle and return PNG dataURL */
@@ -112,6 +152,8 @@ async function getCroppedCircle(
 }
 
 export default function Userprofile() {
+  const { t } = useI18n();
+
   // IDs
   const [userId, setUserId] = useState<string>("");
 
@@ -167,12 +209,11 @@ export default function Userprofile() {
   const loadMe = useCallback(async () => {
     const token = getToken();
     if (!token) {
-      setSnack({ type: "error", msg: "Missing token. Please log in again." });
+      setSnack({ type: "error", msg: t("Missing token. Please log in again.") });
       return;
     }
     setLoading(true);
     try {
-      // /api/auth/me returns the user summary
       const me = await jsonApi("/api/auth/me");
       const u = (me && typeof me === "object" && "user" in me) ? (me as any).user : (me as any);
       const id = u?.id || u?.userId || u?.uid;
@@ -183,7 +224,6 @@ export default function Userprofile() {
       setUsername(u?.username ?? "");
       setEmail(u?.email ?? "");
 
-      // full user record (includes avatarUrl from server)
       const full = await jsonApi(`/api/users/${id}`);
       setName(full?.fullName ?? "");
       setContact(full?.phone ?? "");
@@ -191,26 +231,20 @@ export default function Userprofile() {
       setRole(full?.roleName ?? "");
 
       if (full?.avatarUrl) {
-  const abs = `${ASSET_BASE}${full.avatarUrl}`;
-  const rel = String(full.avatarUrl).replace(/^\/?uploads\//, "");
-  const v = String(Date.now());
-
-  // page display
-  setAvatarDataUrl(`${abs}?t=${v}`);
-
-  // seed per-user cache for TopNav
-  const k = (base: string) => `${base}:${id}`;
-  sessionStorage.setItem(k("pmgt_avatar_abs"), abs);
-  sessionStorage.setItem(k("pmgt_avatar_path"), rel);
-  sessionStorage.setItem(k("pmgt_avatar_version"), v);
-}
+        const abs = `${ASSET_BASE}${full.avatarUrl}`;
+        const rel = String(full.avatarUrl).replace(/^\/?uploads\//, "");
+        const v = String(Date.now());
+        setAvatarDataUrl(`${abs}?t=${v}`);
+        const k = (base: string) => `${base}:${id}`;
+        sessionStorage.setItem(k("pmgt_avatar_abs"), abs);
+        sessionStorage.setItem(k("pmgt_avatar_path"), rel);
+        sessionStorage.setItem(k("pmgt_avatar_version"), v);
+      }
 
       if (full?.avatarUrl) {
-        // full.avatarUrl is like "/uploads/avatars/xxx.png" (NO /api)
         setAvatarDataUrl(`${ASSET_BASE}${full.avatarUrl}?t=${Date.now()}`);
       }
 
-      // optional: designations via assignments service
       try {
         const assign = await jsonApi(`/api/assignments/user/${id}`);
         const desigs = Array.isArray(assign?.designations) ? assign.designations : [];
@@ -219,223 +253,300 @@ export default function Userprofile() {
         setDesignation("");
       }
     } catch (e: any) {
-      setSnack({ type: "error", msg: e.message || "Failed to load profile" });
+      setSnack({ type: "error", msg: e.message || t("Failed to load profile") });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadMe();
   }, [loadMe]);
 
   /* ---------- save profile + avatar ---------- */
-  
-
   const handleSave = async () => {
-  if (!userId) return;
-  if (!window.confirm("Save your profile changes?")) return;
-  setSaving(true);
-  try {
-    // 1) save basic fields
-    await jsonApi(`/api/users/${userId}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        fullName: name || "",
-        phone: contact || "",
-        ldapDn: ldap || "",
-      }),
-    });
-
-    // 2) upload avatar only if it's a fresh data URL from the cropper
-    if (avatarDataUrl?.startsWith("data:")) {
-      const blob = await (await fetch(avatarDataUrl)).blob(); // PNG
-      const fd = new FormData();
-      fd.append("avatar", blob, "avatar.png");
-
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/users/me/avatar`, {
-        method: "PUT",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined, // don't set Content-Type for FormData
-        body: fd,
+    if (!userId) return;
+    if (!window.confirm(t("Save your profile changes?"))) return;
+    setSaving(true);
+    try {
+      await jsonApi(`/api/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          fullName: name || "",
+          phone: contact || "",
+          ldapDn: ldap || "",
+        }),
       });
-      const uploaded = await res.json();
-      if (!res.ok) {
-        throw new Error(uploaded?.error || uploaded?.message || `HTTP ${res.status}`);
+
+      if (avatarDataUrl?.startsWith("data:")) {
+        const blob = await (await fetch(avatarDataUrl)).blob();
+        const fd = new FormData();
+        fd.append("avatar", blob, "avatar.png");
+
+        const token = getToken();
+        const res = await fetch(`${API_BASE}/users/me/avatar`, {
+          method: "PUT",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: fd,
+        });
+        const uploaded = await res.json();
+        if (!res.ok) {
+          throw new Error(uploaded?.error || uploaded?.message || `HTTP ${res.status}`);
+        }
+
+        const returnedUrl =
+          uploaded?.url || uploaded?.avatarUrl || uploaded?.path || uploaded?.profile_photo_url;
+        if (returnedUrl) {
+          const abs = String(returnedUrl).startsWith("http")
+            ? String(returnedUrl)
+            : `${ASSET_BASE}${String(returnedUrl)}`;
+
+          const relCandidate = uploaded?.profile_photo_path || returnedUrl;
+          const rel = String(relCandidate)
+            .replace(/^https?:\/\/[^/]+/, "")
+            .replace(/^\/?uploads\//, "");
+
+          const version = String(Date.now());
+
+          const uid = sessionStorage.getItem("pmgt_uid") || String(userId);
+          const k = (base: string) => (uid ? `${base}:${uid}` : base);
+
+          setAvatarDataUrl(`${abs}?v=${version}`);
+          sessionStorage.setItem(k("pmgt_avatar_abs"), abs);
+          sessionStorage.setItem(k("pmgt_avatar_path"), rel);
+          sessionStorage.setItem(k("pmgt_avatar_version"), version);
+
+          window.dispatchEvent(
+            new CustomEvent("pmgt:avatar-updated", { detail: { abs, rel, v: version } })
+          );
+
+          // (legacy keys – safe to keep)
+          setAvatarDataUrl(`${abs}?v=${version}`);
+          sessionStorage.setItem("pmgt_avatar_abs", abs);
+          sessionStorage.setItem("pmgt_avatar_path", rel);
+          sessionStorage.setItem("pmgt_avatar_version", version);
+
+          window.dispatchEvent(
+            new CustomEvent("pmgt:avatar-updated", {
+              detail: { abs, rel, v: version },
+            })
+          );
+        }
       }
 
-      // server may return /uploads/avatars/xxx.png or similar
-      const returnedUrl =
-        uploaded?.url || uploaded?.avatarUrl || uploaded?.path || uploaded?.profile_photo_url;
-      if (returnedUrl) {
-        const abs = String(returnedUrl).startsWith("http")
-          ? String(returnedUrl)
-          : `${ASSET_BASE}${String(returnedUrl)}`;
-
-        // derive a clean relative path under /uploads for caching & fallback
-        const relCandidate = uploaded?.profile_photo_path || returnedUrl;
-        const rel = String(relCandidate)
-          .replace(/^https?:\/\/[^/]+/, "")
-          .replace(/^\/?uploads\//, ""); // -> "avatars/xxx.png"
-
-        const version = String(Date.now());
-
-        const uid = sessionStorage.getItem("pmgt_uid") || String(userId);
-const k = (base: string) => (uid ? `${base}:${uid}` : base);
-
-// show new avatar immediately
-setAvatarDataUrl(`${abs}?v=${version}`);
-
-// persist for TopNav (per-user)
-sessionStorage.setItem(k("pmgt_avatar_abs"), abs);
-sessionStorage.setItem(k("pmgt_avatar_path"), rel);
-sessionStorage.setItem(k("pmgt_avatar_version"), version);
-
-// notify TopNav
-window.dispatchEvent(
-  new CustomEvent("pmgt:avatar-updated", { detail: { abs, rel, v: version } })
-);
-
-        // show new avatar immediately in this page
-        setAvatarDataUrl(`${abs}?v=${version}`);
-
-        // persist for TopNav (clean abs, separate version)
-        sessionStorage.setItem("pmgt_avatar_abs", abs);
-        sessionStorage.setItem("pmgt_avatar_path", rel);
-        sessionStorage.setItem("pmgt_avatar_version", version);
-
-        // notify TopNav in this tab
-        window.dispatchEvent(
-          new CustomEvent("pmgt:avatar-updated", {
-            detail: { abs, rel, v: version },
-          })
-        );
-      }
+      setSnack({ type: "success", msg: t("Profile saved") });
+    } catch (e: any) {
+      setSnack({ type: "error", msg: e.message || t("Failed to save profile") });
+    } finally {
+      setSaving(false);
     }
-
-    setSnack({ type: "success", msg: "Profile saved" });
-  } catch (e: any) {
-    setSnack({ type: "error", msg: e.message || "Failed to save profile" });
-  } finally {
-    setSaving(false);
-  }
-};
-
+  };
 
   return (
-    <MainLayout title="User Profile">
-      <Box sx={{ p: 2 }}>
+    <MainLayout title={t("User Profile")}>
+      <Box sx={{ px: 2, py: 1.5 }}>
         <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={onPick} />
 
         <Card
+          elevation={0}
           sx={{
-            backgroundColor: CARD_BG,
-            border: BORDER,
-            borderRadius: 3,
-            color: "rgba(255,255,255,0.92)",
+            bgcolor: TOK.CARD_BG,
+            color: TOK.TEXT,
+            border: TOK.BORDER_WEAK,
+            borderRadius: 2,
             height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
             display: "flex",
             flexDirection: "column",
+            boxShadow: "none",
+            backgroundImage: "none",
           }}
         >
-          {/* Header */}
-          <Box sx={{ px: 2.5, py: 1.5, borderBottom: "1px solid rgba(255,255,255,0.14)" }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="h6" sx={{ fontWeight: 700, color: "#fff", fontSize: 20 }}>
-                Add User details
-              </Typography>
-            </Stack>
+          {/* header strip — transparent, thin bottom border */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              px: 1.25,
+              py: 0.6,
+              borderBottom: TOK.BORDER_WEAK,
+              bgcolor: "transparent",
+            }}
+          >
+            <Typography sx={{ fontWeight: 700, color: TOK.TEXT, fontSize: 20 }}>
+              {t("Add User Details")}
+            </Typography>
           </Box>
 
-          {/* Body */}
-          <Box sx={{ flex: 1, p: 2 }}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
-              {/* LEFT: avatar */}
-              <Box
-                sx={{
-                  minWidth: { md: 220 },
-                  pr: { md: 2 },
-                  borderRight: { md: "1px solid rgba(255,255,255,0.14)" },
-                  display: "flex",
-                  justifyContent: { xs: "center", md: "flex-start" },
-                }}
-              >
-                <Box sx={{ position: "relative", width: 140, height: 140 }}>
-                  <Avatar
-                    src={avatarDataUrl}
-                    alt={name || "User avatar"}
-                    sx={{
-                      width: 140,
-                      height: 140,
-                      bgcolor: "#2A2A2E",
-                      border: BORDER,
-                      fontSize: 28,
-                    }}
-                  >
-                    {(name || "U").slice(0, 1).toUpperCase()}
-                  </Avatar>
-
-                  <Tooltip title="Change avatar">
-                    <IconButton
-                      onClick={openPicker}
+          {/* body */}
+          <Box sx={{ flex: 1, minHeight: 0, p: 2 }}>
+            <Box sx={{ height: "100%", borderRadius: 1, overflow: "visible", pt: 0.5 }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
+                {/* LEFT: avatar */}
+                <Box
+                  sx={{
+                    minWidth: { md: 220 },
+                    pr: { md: 2 },
+                    borderRight: { md: TOK.BORDER_WEAK },
+                    display: "flex",
+                    justifyContent: { xs: "center", md: "flex-start" },
+                  }}
+                >
+                  <Box sx={{ position: "relative", width: 140, height: 140 }}>
+                    <Avatar
+                      src={avatarDataUrl}
+                      alt={name || t("User avatar")}
                       sx={{
-                        position: "absolute",
-                        right: 6,
-                        bottom: 6,
-                        background: "rgba(0,0,0,0.6)",
-                        border: "1px solid rgba(255,255,255,0.24)",
-                        "&:hover": { background: "rgba(0,0,0,0.75)" },
+                        width: 140,
+                        height: 140,
+                        bgcolor: "#2A2A2E",
+                        color: "#fff",
+                        border: TOK.BORDER_WEAK,
+                        ".theme-light &": {
+                          bgcolor: "#ffffff",
+                          color: "#111827",
+                          border: "1px solid var(--border)",
+                        },
+                        ".theme-light & img, .theme-dark & img": {
+                          borderRadius: "50%",
+                        },
                       }}
                     >
-                      <EditIcon sx={{ color: "#fff", fontSize: 18 }} />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Box>
-
-              {/* RIGHT: fields */}
-              <Box sx={{ flex: 1 }}>
-                <Stack spacing={2}>
-                  <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} size="small" fullWidth sx={darkFieldSx} disabled={loading} />
-                  <TextField label="Contact No" value={contact} onChange={(e) => setContact(e.target.value)} size="small" fullWidth sx={darkFieldSx} disabled={loading} />
-                  <TextField label="Username" value={username} InputProps={{ readOnly: true }} size="small" fullWidth sx={darkFieldSx} />
-                  <TextField label="LDAP ID (optional)" value={ldap} onChange={(e) => setLdap(e.target.value)} size="small" fullWidth sx={darkFieldSx} disabled={loading} />
-                  <TextField label="Designation" value={designation || ""} InputProps={{ readOnly: true }} size="small" fullWidth sx={darkFieldSx} />
-                  <TextField label="Email" type="email" value={email} InputProps={{ readOnly: true }} size="small" fullWidth sx={darkFieldSx} />
-                  <TextField label="Role" value={role || ""} InputProps={{ readOnly: true }} size="small" fullWidth sx={darkFieldSx} />
-                  <Box display="flex" justifyContent="flex-end">
-                    <Button
-                      onClick={handleSave}
-                      disabled={loading || saving}
-                      variant="contained"
-                      sx={{
-                        backgroundColor: SAVE_PURPLE,
-                        textTransform: "none",
-                        fontWeight: 700,
-                        borderRadius: 2,
-                        px: 3,
-                        py: 0.8,
-                        fontSize: 13,
-                        "&:hover": { backgroundColor: "#6E4DE0" },
-                      }}
-                    >
-                      {saving ? "Saving…" : "Save"}
-                    </Button>
+                      {(name || "U").slice(0, 1).toUpperCase()}
+                    </Avatar>
+                    <Tooltip title={t("Change avatar")}>
+                      <IconButton
+                        onClick={openPicker}
+                        sx={{
+                          position: "absolute",
+                          right: 6,
+                          bottom: 6,
+                          width: 36,
+                          height: 36,
+                          backgroundColor: "rgba(0,0,0,0.6)",
+                          border: "1px solid rgba(255,255,255,0.25)",
+                          backdropFilter: "saturate(120%) blur(2px)",
+                          "&:hover": { backgroundColor: "rgba(0,0,0,0.7)" },
+                        }}
+                      >
+                        <EditIcon sx={{ color: "#fff", fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
-                </Stack>
-              </Box>
-            </Stack>
+                </Box>
+
+                {/* RIGHT: fields */}
+                <Box sx={{ flex: 1 }}>
+                  <Stack spacing={2}>
+                    <TextField
+                      label={t("Full Name")}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      size="small"
+                      fullWidth
+                      sx={compactFieldSx}
+                      disabled={loading}
+                    />
+                    <TextField
+                      label={t("Contact No")}
+                      value={contact}
+                      onChange={(e) => setContact(e.target.value)}
+                      size="small"
+                      fullWidth
+                      sx={compactFieldSx}
+                      disabled={loading}
+                    />
+                    <TextField
+                      label={t("User Id")}
+                      value={username}
+                      InputProps={{ readOnly: true }}
+                      size="small"
+                      fullWidth
+                      sx={compactFieldSx}
+                    />
+                    <TextField
+                      label={`${t("LDAP DN")} ${t("(optional)")}`}
+                      value={ldap}
+                      onChange={(e) => setLdap(e.target.value)}
+                      size="small"
+                      fullWidth
+                      sx={compactFieldSx}
+                      disabled={loading}
+                    />
+                    <TextField
+                      label={t("Designation")}
+                      value={designation || ""}
+                      InputProps={{ readOnly: true }}
+                      size="small"
+                      fullWidth
+                      sx={compactFieldSx}
+                    />
+                    <TextField
+                      label={t("Email")}
+                      type="email"
+                      value={email}
+                      InputProps={{ readOnly: true }}
+                      size="small"
+                      fullWidth
+                      sx={compactFieldSx}
+                    />
+                    <TextField
+                      label={t("Role")}
+                      value={role || ""}
+                      InputProps={{ readOnly: true }}
+                      size="small"
+                      fullWidth
+                      sx={compactFieldSx}
+                    />
+                    <Box display="flex" justifyContent="flex-end">
+                      <Button
+                        onClick={handleSave}
+                        disabled={loading || saving}
+                        variant="contained"
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          borderRadius: 2,
+                          px: 3,
+                          py: 0.8,
+                          fontSize: 13,
+                          bgcolor: SAVE_PURPLE,
+                          color: "#fff",
+                          "&:hover": { bgcolor: "#6E4DE0" },
+                        }}
+                      >
+                        {saving ? t("Saving…") : t("Save")}
+                      </Button>
+                    </Box>
+                  </Stack>
+                </Box>
+              </Stack>
+            </Box>
           </Box>
         </Card>
 
         {/* Avatar adjust dialog */}
-        <Dialog open={avatarDialogOpen} onClose={() => setAvatarDialogOpen(false)} maxWidth="md" fullWidth
-          PaperProps={{ sx: { backgroundColor: "#17171A", border: BORDER } }}>
-          <DialogTitle sx={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
-            Adjust your avatar
+        <Dialog
+          open={avatarDialogOpen}
+          onClose={() => setAvatarDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{ sx: { backgroundColor: TOK.CARD_BG, border: TOK.BORDER_WEAK } }}
+        >
+          <DialogTitle sx={{ color: TOK.TEXT, fontWeight: 700, fontSize: 15 }}>
+            {t("Adjust your avatar")}
           </DialogTitle>
           <DialogContent>
-            <Box sx={{ position: "relative", width: "100%", height: 300, background: "#0F0F11", border: BORDER, borderRadius: 2, overflow: "hidden" }}>
+            <Box
+              sx={{
+                position: "relative",
+                width: "100%",
+                height: 300,
+                background: TOK.CARD_BG,
+                border: TOK.BORDER_WEAK,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
               {rawImage && (
                 <Cropper
                   image={rawImage}
@@ -452,23 +563,56 @@ window.dispatchEvent(
               )}
             </Box>
             <Box sx={{ mt: 2 }}>
-              <Typography sx={{ color: "#fff", mb: 1, fontSize: 13 }}>Zoom</Typography>
-              <Slider value={zoom} min={1} max={3} step={0.01} onChange={(_, v) => setZoom(v as number)} sx={{ color: "#FFC107" }} />
+              <Typography sx={{ color: TOK.TEXT, mb: 1, fontSize: 13 }}>{t("Zoom")}</Typography>
+              <Slider
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.01}
+                onChange={(_, v) => setZoom(v as number)}
+                sx={{ color: "#FFC107" }}
+              />
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setAvatarDialogOpen(false)} variant="outlined"
-              sx={{ textTransform: "none", border: "1px solid rgba(255,255,255,0.24)", color: "#fff", borderRadius: 2, px: 2, fontSize: 13 }}>
-              Cancel
+            <Button
+              onClick={() => setAvatarDialogOpen(false)}
+              variant="outlined"
+              sx={{
+                textTransform: "none",
+                border: TOK.BORDER_STR,
+                color: TOK.TEXT,
+                borderRadius: 2,
+                px: 2,
+                fontSize: 13,
+              }}
+            >
+              {t("Cancel")}
             </Button>
-            <Button onClick={confirmCrop} variant="contained"
-              sx={{ backgroundColor: SAVE_PURPLE, textTransform: "none", fontWeight: 700, borderRadius: 2, px: 2.5, fontSize: 13, "&:hover": { backgroundColor: "#6E4DE0" } }}>
-              Save
+            <Button
+              onClick={confirmCrop}
+              variant="contained"
+              sx={{
+                backgroundColor: SAVE_PURPLE,
+                textTransform: "none",
+                fontWeight: 700,
+                borderRadius: 2,
+                px: 2.5,
+                fontSize: 13,
+                "&:hover": { backgroundColor: "#6E4DE0" },
+              }}
+            >
+              {t("Save")}
             </Button>
           </DialogActions>
         </Dialog>
 
-        <Snackbar open={!!snack} autoHideDuration={3500} onClose={() => setSnack(null)} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
+        <Snackbar
+          open={!!snack}
+          autoHideDuration={3500}
+          onClose={() => setSnack(null)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
           <Alert onClose={() => setSnack(null)} severity={snack?.type || "info"} sx={{ width: "100%" }}>
             {snack?.msg}
           </Alert>
@@ -477,17 +621,3 @@ window.dispatchEvent(
     </MainLayout>
   );
 }
-
-/* -------- compact dark inputs -------- */
-const darkFieldSx = {
-  "& .MuiInputBase-root": {
-    backgroundColor: "#1C1C1E",
-    borderRadius: 2,
-    color: "#fff",
-    fontSize: "0.9rem",
-    height: 36,
-  },
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.24)" },
-  "& .MuiFormLabel-root": { color: "rgba(255,255,255,0.6)", fontSize: 12 },
-} as const;

@@ -1,27 +1,44 @@
-
 // src/api/http.ts
-// export const BASE_URL =
-//   (import.meta as any).env?.VITE_API_BASE ?? "http://localhost:4000";
 
-export const BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE ?? "";
+/**
+ * BASE URL logic:
+ * - If VITE_API_BASE is defined (non-empty), use it (absolute or relative).
+ * - Otherwise, use RELATIVE '' so all calls go through Vite proxy in dev
+ *   and same-origin in prod/reverse-proxy.
+ */
+const raw = (import.meta as any).env?.VITE_API_BASE as string | undefined;
 
-
-let AUTH_TOKEN: string | null =
-  localStorage.getItem("auth_token") || 
-  sessionStorage.getItem("auth_token") ||
-  null;
-
-
-export function getAuthToken(): string | null {
-  return AUTH_TOKEN;
+function normalize(u?: string) {
+  if (!u) return "";
+  return u.replace(/\/+$/g, "");
 }
 
-/** Persist token and keep a memory copy used by the client */
+// ✅ default to relative, unless explicitly overridden
+export const BASE_URL = normalize(raw ?? "");
+
+// ------------------- Token handling -------------------
+let AUTH_TOKEN: string | null =
+  localStorage.getItem("auth_token") ||
+  sessionStorage.getItem("auth_token") ||
+  localStorage.getItem("token") ||
+  sessionStorage.getItem("token") ||
+  null;
+
+export function getAuthToken(): string | null {
+  return (
+    AUTH_TOKEN ??
+    localStorage.getItem("auth_token") ??
+    sessionStorage.getItem("auth_token") ??
+    localStorage.getItem("token") ??
+    sessionStorage.getItem("token") ??
+    null
+  );
+}
+
 export function setAuthToken(token: string | null, remember = true) {
   AUTH_TOKEN = token;
 
-  // new key
+  // primary key
   if (remember) {
     token
       ? localStorage.setItem("auth_token", token)
@@ -32,7 +49,7 @@ export function setAuthToken(token: string | null, remember = true) {
       : sessionStorage.removeItem("auth_token");
   }
 
-  // optional legacy keys for existing guards
+  // legacy keys (optional)
   if (remember) {
     token
       ? localStorage.setItem("token", token)
@@ -44,62 +61,15 @@ export function setAuthToken(token: string | null, remember = true) {
   }
 }
 
-export async function apiFetch<T = any>(
-  path: string,
-  opts: RequestInit & { auth?: boolean } = {}
-): Promise<T> {
-  const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
+// ------------------- Helpers -------------------
 
-  // Build headers; only set JSON content-type if not sending FormData
-  const headers: Record<string, string> = {
-    ...(opts.headers as Record<string, string> | undefined),
-  };
-  const isFormData =
-    typeof FormData !== "undefined" && opts.body instanceof FormData;
-  if (!isFormData && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  // attach Authorization unless explicitly disabled
-  if (opts.auth !== false && AUTH_TOKEN) {
-    headers.Authorization = `Bearer ${AUTH_TOKEN}`;
-  }
-
-  const res = await fetch(url, { ...opts, headers });
-
-  if (res.status === 401) {
-    window.dispatchEvent(new CustomEvent("auth:unauthorized"));
-    throw new Error("Unauthorized");
-  }
-
-  if (res.status === 204) {
-    // no content
-    return undefined as unknown as T;
-  }
-
-  const ct = res.headers.get("content-type") || "";
-  const isJson = ct.includes("application/json") || ct.includes("+json");
-
-  let payload: any = null;
-
-  try {
-    payload = isJson ? await res.json() : await res.text();
-  } catch {
-    payload = null; // swallow parse errors
-  }
-
-  if (!res.ok) {
-    const msg =
-      (isJson && payload && (payload.error || payload.message)) ||
-      (typeof payload === "string" && payload.slice(0, 300)) ||
-      `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-
-  return (payload as T) ?? (undefined as unknown as T);
+// Public endpoints (no auth header, no cookies)
+function isPublicPath(p: string) {
+  // accept both absolute and relative use
+  const path = p.startsWith("http") ? new URL(p).pathname : p;
+  return path.startsWith("/api/aws-contacts") || path.startsWith("/api/pass-schedule");
 }
 
-/** Build querystring from a params object and append it to a base path. */
 function buildQS(params?: Record<string, any>, basePath = ""): string {
   if (!params) return "";
   const qs = new URLSearchParams();
@@ -113,6 +83,76 @@ function buildQS(params?: Record<string, any>, basePath = ""): string {
   return basePath.includes("?") ? `&${s}` : `?${s}`;
 }
 
+// ------------------- Fetch wrapper -------------------
+export async function apiFetch<T = any>(
+  path: string,
+  opts: RequestInit & { auth?: boolean } = {}
+): Promise<T> {
+  // absolute URLs pass through; others are BASE_URL + path
+  const url = path.startsWith("http")
+    ? path
+    : `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+
+  const headers: Record<string, string> = {
+    ...(opts.headers as Record<string, string> | undefined),
+  };
+
+  const isFormData =
+    typeof FormData !== "undefined" && opts.body instanceof FormData;
+
+  // only set Content-Type for non-FormData bodies
+  if (!isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  // Attach token unless explicitly disabled or calling public routes
+  const token = getAuthToken();
+  if (opts.auth !== false && token && !isPublicPath(path)) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Avoid sending cookies/credentials to public endpoints (prevents 431/500)
+  const credentials: RequestCredentials = isPublicPath(path) ? "omit" : "include";
+
+  // Serialize non-FormData bodies
+  const body =
+    opts.body && typeof opts.body !== "string" && !(opts.body instanceof FormData)
+      ? JSON.stringify(opts.body)
+      : opts.body;
+
+  const res = await fetch(url, { ...opts, headers, credentials, body });
+
+  if (res.status === 401) {
+    // let the app react (e.g., force logout)
+    window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+    throw new Error("Unauthorized");
+  }
+  if (res.status === 204) {
+    return undefined as unknown as T;
+  }
+
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json") || ct.includes("+json");
+
+  let payload: any = null;
+  try {
+    payload = isJson ? await res.json() : await res.text();
+  } catch {
+    payload = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      (isJson && payload && (payload.error || payload.message)) ||
+      (typeof payload === "string" && payload.slice(0, 300)) ||
+      `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+
+  return (payload as T) ?? (undefined as unknown as T);
+}
+
+// ------------------- Convenience helpers -------------------
 type Opts = {
   params?: Record<string, any>;
   auth?: boolean;
@@ -120,63 +160,43 @@ type Opts = {
 };
 
 export const api = {
-  get: <T = any>(p: string, opts?: Opts) => {
-    const withQs = `${p}${buildQS(opts?.params, p)}`;
-    return apiFetch<T>(withQs, {
+  get:   <T = any>(p: string, opts?: Opts) =>
+    apiFetch<T>(`${p}${buildQS(opts?.params, p)}`, {
       method: "GET",
       auth: opts?.auth,
       headers: opts?.headers,
-    });
-  },
+    }),
 
-  del: <T = any>(p: string, opts?: Opts) => {
-    const withQs = `${p}${buildQS(opts?.params, p)}`;
-    return apiFetch<T>(withQs, {
+  del:   <T = any>(p: string, opts?: Opts) =>
+    apiFetch<T>(`${p}${buildQS(opts?.params, p)}`, {
       method: "DELETE",
       auth: opts?.auth,
       headers: opts?.headers,
-    });
-  },
+    }),
 
-  post: <T = any>(p: string, b?: any, opts?: Opts) => {
-    const withQs = `${p}${buildQS(opts?.params, p)}`;
-    return apiFetch<T>(withQs, {
+  post:  <T = any>(p: string, b?: any, opts?: Opts) =>
+    apiFetch<T>(`${p}${buildQS(opts?.params, p)}`, {
       method: "POST",
-      body:
-        b && typeof b !== "string" && !(b instanceof FormData)
-          ? JSON.stringify(b)
-          : b,
+      body: b,
       auth: opts?.auth,
       headers: opts?.headers,
-    });
-  },
+    }),
 
-  patch: <T = any>(p: string, b?: any, opts?: Opts) => {
-    const withQs = `${p}${buildQS(opts?.params, p)}`;
-    return apiFetch<T>(withQs, {
+  patch: <T = any>(p: string, b?: any, opts?: Opts) =>
+    apiFetch<T>(`${p}${buildQS(opts?.params, p)}`, {
       method: "PATCH",
-      body:
-        b && typeof b !== "string" && !(b instanceof FormData)
-          ? JSON.stringify(b)
-          : b,
+      body: b,
       auth: opts?.auth,
       headers: opts?.headers,
-    });
-  },
+    }),
 
-  put: <T = any>(p: string, b?: any, opts?: Opts) => {
-    const withQs = `${p}${buildQS(opts?.params, p)}`;
-    return apiFetch<T>(withQs, {
+  put:   <T = any>(p: string, b?: any, opts?: Opts) =>
+    apiFetch<T>(`${p}${buildQS(opts?.params, p)}`, {
       method: "PUT",
-      body:
-        b && typeof b !== "string" && !(b instanceof FormData)
-          ? JSON.stringify(b)
-          : b,
+      body: b,
       auth: opts?.auth,
       headers: opts?.headers,
-    });
-  },
+    }),
 };
 
-// optional default export so "import api from ..." also works
 export default api;

@@ -8,6 +8,9 @@ import Sidebar, {
 import TopNav, { TOPBAR_HEIGHT } from "../components/TopNav";
 import RightPanel, { RIGHT_RAIL_W } from "../components/RightPanel";
 
+// ⬅️ use the theme bridge vars
+import { vars } from "../ui/toast/themeBridge";
+
 type MainLayoutProps = {
   /** Text shown in the TopNav on the left */
   title?: string;
@@ -18,12 +21,9 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
   const [expanded, setExpanded] = useState(false);
   const leftWidth = expanded ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
 
-  
   return (
     <>
-      <Sidebar 
-      
-      expanded={expanded} setExpanded={setExpanded} />
+      <Sidebar expanded={expanded} setExpanded={setExpanded} />
       <TopNav leftOffset={leftWidth} title={title} />
       <RightPanel />
 
@@ -35,9 +35,14 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
           left: leftWidth,
           right: RIGHT_RAIL_W,
           bottom: 0,
-          bgcolor: "#0F0F0F",
+          // 🔁 theme-aware colors
+          bgcolor: vars.bgApp,
+          color: vars.text,
+
           transition: "left 200ms ease",
           overflow: "hidden",
+          // optional: make inner pages that use Cards/containers look clean
+          // and pick up scroll with their own scrollers
         }}
       >
         {children ?? null}

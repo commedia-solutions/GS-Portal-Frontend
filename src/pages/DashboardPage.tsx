@@ -1,4 +1,3 @@
-// p3//
 import React from "react";
 import {
   Box,
@@ -11,32 +10,16 @@ import {
   Button,
   TablePagination,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
+  import SearchIcon from "@mui/icons-material/Search";
 import MainLayout from "../layouts/MainLayout";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { TOPBAR_HEIGHT } from "../components/TopNav";
-
-// ✅ shared API client
 import { api } from "../api/http";
+import { vars, sxPresets } from "../ui/toast/themeBridge";
+import { useI18n } from "../i18n";
 
 /* -------------------- Controls (shared styles) -------------------- */
-
-const CONTROL_BG = "#1C1C1E";
-const CONTROL_BORDER = "1px solid rgba(255,255,255,0.14)";
-
-const darkMenu = {
-  PaperProps: {
-    sx: {
-      bgcolor: CONTROL_BG,
-      color: "#E8E8EA",
-      border: CONTROL_BORDER,
-      "& .MuiMenuItem-root.Mui-selected": { bgcolor: "rgba(255,255,255,0.10)" },
-      "& .MuiMenuItem-root:hover": { bgcolor: "rgba(255,255,255,0.06)" },
-    },
-  },
-};
-
 const UI = {
   ctrlH: 30,
   font: 13,
@@ -49,25 +32,17 @@ const UI = {
   paginationH: 36,
 };
 
-
 const compactCtrlSx = {
-  bgcolor: CONTROL_BG,
+  ...sxPresets.ctrl,
   borderRadius: 1,
-  color: "#fff",
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#454444ff" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#454444ff" },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "#544f4fff",
-  },
-  "& .MuiOutlinedInput-root": { height: `${UI.ctrlH}px`, color: "#fff" },
+  "& .MuiOutlinedInput-root": { height: `${UI.ctrlH}px` },
   "& .MuiInputBase-input": {
     height: `${UI.ctrlH - 2}px`,
     padding: "0 10px",
     fontSize: UI.font,
     lineHeight: 1,
-    color: "#fff",
   },
-  "& .MuiInputBase-input::placeholder": { color: "#fff", opacity: 1 },
+  "& .MuiInputBase-input::placeholder": { opacity: 1 },
   "& .MuiSelect-select": {
     height: `${UI.ctrlH - 2}px !important`,
     lineHeight: `${UI.ctrlH - 2}px`,
@@ -75,13 +50,23 @@ const compactCtrlSx = {
     display: "flex",
     alignItems: "center",
     fontSize: UI.font,
-    color: "#fff",
   },
-  "& .MuiSvgIcon-root": { fontSize: UI.icon, color: "rgba(255,255,255,0.9)" },
+  "& .MuiSvgIcon-root": { fontSize: UI.icon },
 } as const;
 
-/* -------------------- API types -------------------- */
+const darkMenu = {
+  PaperProps: {
+    sx: {
+      bgcolor: vars.bgCard,
+      color: vars.text,
+      border: `1px solid ${vars.border}`,
+      "& .MuiMenuItem-root.Mui-selected": { bgcolor: vars.bgHover },
+      "& .MuiMenuItem-root:hover": { bgcolor: vars.bgHover },
+    },
+  },
+};
 
+/* -------------------- API types -------------------- */
 type ApiPass = {
   id: number;
   pass_req_no: string;
@@ -98,10 +83,11 @@ type ApiPass = {
   schedule_status: string;
   pass_status: string;
   remarks?: string | null;
+  /** NEW */
+  pass_type?: "Normal" | "Emergency" | string | null;
 };
 
 /* -------------------- helpers -------------------- */
-
 function Labeled({
   label,
   width,
@@ -113,33 +99,22 @@ function Labeled({
 }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", width }}>
-      <Box sx={{ fontSize: 11, color: "rgba(255,255,255,0.75)", mb: 0.3, pl: 0.2 }}>
-        {label}
-      </Box>
+      <Box sx={{ fontSize: 11, color: vars.textDim, mb: 0.3, pl: 0.2 }}>{label}</Box>
       {children}
     </Box>
   );
 }
-
-/** Parse strictly as DD/MM/YYYY or DD-MM-YYYY (dashboard requirement). */
-// const parseDDMMYYYY = (s: string) => {
-//   const [d, m, y] = String(s).split(/[/-]/).map((n) => parseInt(n, 10));
-//   const dt = new Date(y || 1970, (m || 1) - 1, d || 1);
-//   return isNaN(+dt) ? new Date(1970, 0, 1) : dt;
-// };
 
 const parseMMDDYYYY = (s: string) => {
   const [mRaw, dRaw, yRaw] = String(s).trim().split(/[/-]/);
   const m = parseInt(mRaw, 10) || 1;
   const d = parseInt(dRaw, 10) || 1;
   let y = parseInt(yRaw, 10) || 1970;
-  if (y < 100) y += 2000; // handle e.g. 25 → 2025
+  if (y < 100) y += 2000;
   const dt = new Date(y, m - 1, d);
-  // normalize to start-of-day for safe comparisons
   return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 };
 
-/** Numeric key from "PRN-001" / "PRN001" etc. */
 const reqNum = (req: string): number => {
   const m = String(req).match(/(\d+)\s*$/);
   return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
@@ -151,46 +126,20 @@ type Column = {
   label: string;
   width?: number;
   align?: "left" | "center" | "right";
-  render?: (row: Row) => React.ReactNode; // allow custom display per column
+  render?: (row: Row) => React.ReactNode;
 };
 
 type Row = { [key: string]: string | number };
 
-const COLUMNS: Column[] = [
-  { key: "sr",    label: "Sr",                 width: 60,  align: "center" },
-  // req is kept in data for sort/search but not shown
-  { key: "date",  label: "Date",               width: 110, align: "center" },
-  { key: "sat",   label: "Satellite",          width: 120, align: "center" },
-  { key: "stn",   label: "Station",            width: 130, align: "center" },
-  { key: "orb",   label: "Orbit",              width: 90,  align: "center" },
-  { key: "maxEl", label: "Max (El)°",          width: 110, align: "center" },
-
-  {
-    key: "aos",   // keep existing key
-    label: "AOS / LOS (UT)",
-    width: 180,   // a bit wider so both times show
-    align: "center",
-    render: (r) => `${r.aos || "—"} / ${r.los || "—"}`,
-  },
-
-  { key: "ops",   label: "Operations",         width: 130, align: "center" },
-
-  {
-    key: "opsReq", // keep existing key
-    label: "Ops requester / supporter",
-    width: 240,   // a bit wider so both names show
-    align: "center",
-    render: (r) => `${r.opsReq || "—"} / ${r.opsSup || "—"}`,
-  },
-
-  { key: "sched", label: "Schedule",           width: 120, align: "center" },
-  { key: "pass",  label: "Pass",               width: 100, align: "center" },
-  { key: "remarks", label: "Remarks",          width: 180, align: "center" },
-];
-
-
-
-function DarkScrollTable({ rows, columns }: { rows: Row[]; columns: Column[] }) {
+function ThemedScrollTable({
+  rows,
+  columns,
+  emptyText,
+}: {
+  rows: Row[];
+  columns: Column[];
+  emptyText: string;
+}) {
   const totalW = columns.reduce((acc, c) => acc + (c.width ?? 120), 0) + 16;
   return (
     <Box sx={{ width: totalW, minWidth: "100%" }}>
@@ -202,19 +151,19 @@ function DarkScrollTable({ rows, columns }: { rows: Row[]; columns: Column[] }) 
           zIndex: 1,
           display: "grid",
           gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-          bgcolor: "#000",
-          borderBottom: "1px solid rgba(255,255,255,0.14)",
+          bgcolor: "var(--dash-thead-bg)",
+          borderBottom: `1px solid ${vars.border}`,
         }}
       >
         {columns.map((c) => (
           <Box
             key={c.key}
             sx={{
-              px: 0.75,   // tighter than 1.25
+              px: 0.75,
               py: 1,
               fontWeight: 700,
               fontSize: 13,
-              color: "#fff",
+              color: "var(--dash-thead-text)",
               textAlign: c.align ?? "center",
               whiteSpace: "nowrap",
             }}
@@ -231,18 +180,18 @@ function DarkScrollTable({ rows, columns }: { rows: Row[]; columns: Column[] }) 
           sx={{
             display: "grid",
             gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
-            bgcolor: idx % 2 ? "rgba(255,255,255,0.02)" : "transparent",
+            borderBottom: `1px solid ${vars.borderWeak}`,
+            bgcolor: idx % 2 ? vars.bgHover : "transparent",
           }}
         >
           {columns.map((c) => (
             <Box
               key={`${c.key}-${idx}`}
               sx={{
-                px: 0.75,   // tighter than 1.25
+                px: 0.75,
                 py: 1,
                 fontSize: 13,
-                color: "#EAEAEA",
+                color: vars.text,
                 textAlign: c.align ?? "center",
                 whiteSpace: "nowrap",
               }}
@@ -254,23 +203,24 @@ function DarkScrollTable({ rows, columns }: { rows: Row[]; columns: Column[] }) 
       ))}
 
       {rows.length === 0 && (
-        <Box sx={{ px: 0.75, py: 2, color: "#aaa", textAlign: "center" }}>No passes found.</Box>
+        <Box sx={{ px: 0.75, py: 2, color: vars.textDim, textAlign: "center" }}>
+          {emptyText}
+        </Box>
       )}
     </Box>
   );
 }
 
 /* -------------------- Page -------------------- */
-
 export default function DashboardPage() {
+  const { t } = useI18n();
+
   // filters
   const [search, setSearch] = React.useState("");
-  const [timeline, setTimeline] = React.useState<
-    "All" | "Today" | "Tomorrow" | "Week" | "Month" | "Year"
-  >("All");
-  const [status, setStatus] = React.useState<"All" | "Completed" | "Pending" | "Failed" | "Canceled">(
-    "All"
-  );
+  const [timeline, setTimeline] = React.useState<"All" | "Today" | "Tomorrow" | "Week" | "Month" | "Year">("All");
+  const [status, setStatus] = React.useState<"All" | "Completed" | "Pending" | "Failed" | "Canceled">("All");
+  /** NEW filter */
+  const [typeFilter, setTypeFilter] = React.useState<"" | "Normal" | "Emergency">("");
   const [date, setDate] = React.useState<Date | null>(null);
 
   // paging
@@ -279,12 +229,32 @@ export default function DashboardPage() {
   const [rows, setRows] = React.useState<Row[]>([]);
   const [loading, setLoading] = React.useState(false);
 
+  // translated columns
+  const COLUMNS: Column[] = React.useMemo(
+    () => [
+      { key: "sr", label: t("Sr"), width: 60, align: "center" },
+      { key: "date", label: t("Date"), width: 110, align: "center" },
+      { key: "sat", label: t("Satellite"), width: 120, align: "center" },
+      { key: "stn", label: t("Station"), width: 130, align: "center" },
+      /** NEW column */
+      { key: "type", label: t("Pass Type"), width: 110, align: "center" },
+      { key: "orb", label: t("Orbit"), width: 90, align: "center" },
+      { key: "maxEl", label: t("Max (El)°"), width: 110, align: "center" },
+      { key: "aos", label: t("AOS / LOS (UT)"), width: 180, align: "center", render: (r) => `${r.aos || "—"} / ${r.los || "—"}` },
+      { key: "ops", label: t("Operations"), width: 130, align: "center" },
+      { key: "opsReq", label: t("Ops requester / supporter"), width: 240, align: "center", render: (r) => `${r.opsReq || "—"} / ${r.opsSup || "—"}` },
+      { key: "sched", label: t("Schedule"), width: 120, align: "center" },
+      { key: "pass", label: t("Pass"), width: 100, align: "center" },
+      { key: "remarks", label: t("Remarks"), width: 180, align: "center" },
+    ],
+    [t]
+  );
+
   // fetch passes
   React.useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-        // ✅ use client wrapper: Authorization header auto-included
         const j = await api.get<any>("/api/passes");
         const data: ApiPass[] = Array.isArray(j) ? j : Array.isArray(j?.rows) ? j.rows : [];
         const mapped: Row[] = data.map((p) => ({
@@ -293,6 +263,7 @@ export default function DashboardPage() {
           date: p.date_text,
           sat: p.satellite_name,
           stn: p.supporting_station,
+          type: (p.pass_type as any) || "Normal", // NEW
           orb: p.orbit_no ?? "",
           maxEl: p.max_el_deg ?? "",
           aos: p.aos_ut,
@@ -319,144 +290,70 @@ export default function DashboardPage() {
     setSearch("");
     setTimeline("All");
     setStatus("All");
+    setTypeFilter("");
     setDate(null);
   };
 
-  // filtering + SORT (ascending by PRN number)
-  // const filteredSorted = React.useMemo(() => {
-  //   const q = search.trim().toLowerCase();
-
-  //   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  //   const today0 = startOfDay(new Date());
-
-  //   const inTimeline = (dt: Date) => {
-  //     const d0 = startOfDay(dt);
-  //     if (timeline === "All") return true;
-  //     if (timeline === "Today") return d0.getTime() === today0.getTime();
-  //     if (timeline === "Tomorrow") {
-  //       const t0 = startOfDay(new Date(today0));
-  //       t0.setDate(t0.getDate() + 1);
-  //       return d0.getTime() === t0.getTime();
-  //     }
-  //     if (timeline === "Week") {
-  //       const weekAgo = startOfDay(new Date(today0));
-  //       weekAgo.setDate(weekAgo.getDate() - 6);
-  //       return d0 >= weekAgo && d0 <= today0;
-  //     }
-  //     if (timeline === "Month") {
-  //       const monthAgo = startOfDay(new Date(today0));
-  //       monthAgo.setMonth(monthAgo.getMonth() - 1);
-  //       return d0 >= monthAgo && d0 <= today0;
-  //     }
-  //     if (timeline === "Year") {
-  //       const yearAgo = startOfDay(new Date(today0));
-  //       yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-  //       return d0 >= yearAgo && d0 <= today0;
-  //     }
-  //     return true;
-  //   };
-
-  //   // filter
-  //   const arr = rows.filter((r) => {
-  //     if (status !== "All" && r.pass !== status) return false;
-
-  //     // const dt = parseDDMMYYYY(String(r.date));
-  //     const dt = parseMMDDYYYY(String(r.date));
-  //     if (!inTimeline(dt)) return false;
-
-  //     if (date) {
-  //       const pick = startOfDay(new Date(date));
-  //       if (startOfDay(dt).getTime() !== pick.getTime()) return false;
-  //     }
-
-  //     if (q) {
-  //       // const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.remarks}`.toLowerCase();
-  //       const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.opsReq ?? ""} ${r.opsSup ?? ""} ${r.remarks}`.toLowerCase();
-
-  //       if (!hay.includes(q)) return false;
-  //     }
-  //     return true;
-  //   });
-
-  //   // sort ascending by numeric part of "PRN-xxx"
-  //   arr.sort((a, b) => {
-  //     const na = reqNum(String(a.req));
-  //     const nb = reqNum(String(b.req));
-  //     if (na !== nb) return na - nb;
-  //     return String(a.req).localeCompare(String(b.req));
-  //   });
-
-  //   return arr;
-  // }, [rows, search, timeline, status, date]);
-
   const filteredSorted = React.useMemo(() => {
-  const q = search.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
 
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const today0 = startOfDay(new Date());
-  const addDays = (d: Date, n: number) => {
-    const x = new Date(d);
-    x.setDate(x.getDate() + n);
-    return startOfDay(x);
-  };
-  const currentWeekRange = (ref: Date) => {
-    // Sunday–Saturday week; change to Monday-start by: const w = (ref.getDay()+6)%7
-    const start = addDays(ref, -ref.getDay());
-    const end = addDays(start, 6);
-    return [start, end] as const;
-  };
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today0 = startOfDay(new Date());
+    const addDays = (d: Date, n: number) => {
+      const x = new Date(d);
+      x.setDate(x.getDate() + n);
+      return startOfDay(x);
+    };
+    const currentWeekRange = (ref: Date) => {
+      const start = addDays(ref, -ref.getDay());
+      const end = addDays(start, 6);
+      return [start, end] as const;
+    };
 
-  const inTimeline = (dt: Date) => {
-    const d0 = startOfDay(dt);
-    switch (timeline) {
-      case "All":
-        return true;
-      case "Today":
-        return d0.getTime() === today0.getTime();
-      case "Tomorrow":
-        return d0.getTime() === addDays(today0, 1).getTime();
-      case "Week": {
-        const [wStart, wEnd] = currentWeekRange(today0); // this calendar week
-        return d0 >= wStart && d0 <= wEnd;
+    const inTimeline = (dt: Date) => {
+      const d0 = startOfDay(dt);
+      switch (timeline) {
+        case "All": return true;
+        case "Today": return d0.getTime() === today0.getTime();
+        case "Tomorrow": return d0.getTime() === addDays(today0, 1).getTime();
+        case "Week": {
+          const [wStart, wEnd] = currentWeekRange(today0);
+          return d0 >= wStart && d0 <= wEnd;
+        }
+        case "Month": return d0.getFullYear() === today0.getFullYear() && d0.getMonth() === today0.getMonth();
+        case "Year": return d0.getFullYear() === today0.getFullYear();
+        default: return true;
       }
-      case "Month":
-        return d0.getFullYear() === today0.getFullYear() &&
-               d0.getMonth() === today0.getMonth();
-      case "Year":
-        return d0.getFullYear() === today0.getFullYear();
-      default:
-        return true;
-    }
-  };
+    };
 
-  const arr = rows.filter((r) => {
-    if (status !== "All" && r.pass !== status) return false;
+    const arr = rows.filter((r) => {
+      if (status !== "All" && r.pass !== status) return false;
+      if (typeFilter && r.type !== typeFilter) return false; // NEW
 
-    const dt = parseMMDDYYYY(String(r.date));
-    if (!inTimeline(dt)) return false;
+      const dt = parseMMDDYYYY(String(r.date));
+      if (!inTimeline(dt)) return false;
 
-    if (date) {
-      if (startOfDay(dt).getTime() !== startOfDay(date).getTime()) return false;
-    }
+      if (date) {
+        if (startOfDay(dt).getTime() !== startOfDay(date).getTime()) return false;
+      }
 
-    if (q) {
-      const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.opsReq ?? ""} ${r.opsSup ?? ""} ${r.remarks}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
+      if (q) {
+        const hay = `${r.req} ${r.sat} ${r.stn} ${r.ops} ${r.opsReq ?? ""} ${r.opsSup ?? ""} ${r.remarks}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
 
-  // sort by numeric part of PRN (unchanged)
-  arr.sort((a, b) => {
-    const na = reqNum(String(a.req)), nb = reqNum(String(b.req));
-    if (na !== nb) return na - nb;
-    return String(a.req).localeCompare(String(b.req));
-  });
+    arr.sort((a, b) => {
+      const na = reqNum(String(a.req)),
+        nb = reqNum(String(b.req));
+      if (na !== nb) return na - nb;
+      return String(a.req).localeCompare(String(b.req));
+    });
 
-  return arr;
-}, [rows, search, timeline, status, date]);
+    return arr;
+  }, [rows, search, timeline, status, typeFilter, date]);
 
-  // paged rows with Sr No
   const paged = React.useMemo(() => {
     const start = page * rowsPerPage;
     const slice = filteredSorted.slice(start, start + rowsPerPage);
@@ -466,20 +363,27 @@ export default function DashboardPage() {
   const totalRows = filteredSorted.length;
 
   return (
-    <MainLayout title="Dashboard">
+    <MainLayout title="">
       <Box sx={{ px: 2, py: 1.5 }}>
         <Card
+          elevation={0}
           sx={{
-            bgcolor: "#1C1C1E",
-            color: "#E8E8EA",
-            border: "1px solid rgba(255,255,255,0.14)",
+            ...sxPresets.card,
+            bgcolor: vars.bgCard,
+            border: `1px solid ${vars.border}`,
+            boxShadow: "none",
+            backgroundImage: "none",
             borderRadius: 2,
             height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
             display: "flex",
             flexDirection: "column",
+            "--dash-thead-bg": "#000000",
+            "--dash-thead-text": "#ffffff",
+            ".theme-dark &": { "--dash-thead-bg": "#000000", "--dash-thead-text": "#ffffff" },
+            ".theme-light &": { "--dash-thead-bg": "#464B4E", "--dash-thead-text": "#ffffff" },
           }}
         >
-          {/* Header */}
+          {/* Header strip */}
           <Box
             sx={{
               display: "flex",
@@ -487,86 +391,77 @@ export default function DashboardPage() {
               gap: UI.gap,
               px: UI.headerPx,
               py: UI.headerPy,
-              borderBottom: "1px solid rgba(255,255,255,0.12)",
+              borderBottom: `1px solid ${vars.border}`,
+              bgcolor: "transparent",
             }}
           >
+            <Box sx={{ fontWeight: 700, fontSize: 20, color: vars.text, px: 0.5 }}>
+              {t("Dashboard")}
+            </Box>
+
             <Box sx={{ ml: "auto", display: "flex", alignItems: "flex-end", gap: UI.gap }}>
-              {/* Search lowered to align with labeled controls */}
               <Box sx={{ mt: 2.1 }}>
                 <TextField
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder={loading ? "Loading…" : "Search…"}
+                  placeholder={loading ? t("Loading…") : t("Search…")}
                   size="small"
                   sx={{ width: UI.searchW, ...compactCtrlSx, "& .MuiOutlinedInput-root": { pl: 1 } }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start" sx={{ mr: 0.25 }}>
-                        <SearchIcon sx={{ fontSize: UI.icon, color: "rgba(255,255,255,0.75)" }} />
+                        <SearchIcon sx={{ fontSize: UI.icon, color: vars.textDim }} />
                       </InputAdornment>
                     ),
                   }}
                 />
               </Box>
 
-              <Labeled label="Timeline" width={UI.selectW}>
+              <Labeled label={t("Timeline")} width={UI.selectW}>
                 <FormControl size="small" fullWidth>
-                  <Select
-                    value={timeline}
-                    onChange={(e) => setTimeline(e.target.value as any)}
-                    MenuProps={darkMenu}
-                    sx={compactCtrlSx}
-                  >
-                    {["All", "Today", "Tomorrow", "Week", "Month", "Year"].map((t) => (
-                      <MenuItem key={t} value={t}>
-                        {t}
-                      </MenuItem>
+                  <Select value={timeline} onChange={(e) => setTimeline(e.target.value as any)} MenuProps={darkMenu} sx={compactCtrlSx}>
+                    {["All", "Today", "Tomorrow", "Week", "Month", "Year"].map((opt) => (
+                      <MenuItem key={opt} value={opt}>{t(opt)}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </Labeled>
 
-              <Labeled label="Status" width={UI.selectW}>
+              <Labeled label={t("Status")} width={UI.selectW}>
                 <FormControl size="small" fullWidth>
-                  <Select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    MenuProps={darkMenu}
-                    sx={compactCtrlSx}
-                  >
-                    {["All", "Completed", "Pending", "Failed", "Canceled"].map((s) => (
-                      <MenuItem key={s} value={s}>
-                        {s}
-                      </MenuItem>
+                  <Select value={status} onChange={(e) => setStatus(e.target.value as any)} MenuProps={darkMenu} sx={compactCtrlSx}>
+                    {["All", "Completed", "Pending", "Failed", "Canceled"].map((opt) => (
+                      <MenuItem key={opt} value={opt}>{t(opt)}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </Labeled>
 
-              <Labeled label="Date" width={150}>
+              {/* NEW: Pass Type filter */}
+              <Labeled label={t("Pass Type")} width={UI.selectW}>
+                <FormControl size="small" fullWidth>
+                  <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} MenuProps={darkMenu} sx={compactCtrlSx}>
+                    <MenuItem value="">{t("All")}</MenuItem>
+                    <MenuItem value="Normal">{t("Normal")}</MenuItem>
+                    <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
+                  </Select>
+                </FormControl>
+              </Labeled>
+
+              <Labeled label={t("Date")} width={150}>
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                   <DatePicker
                     value={date}
                     onChange={(v: Date | null) => setDate(v)}
                     slotProps={{
-                      textField: {
-                        size: "small",
-                        // placeholder: "DD/MM",
-                        placeholder: "MM/DD/YYYY",
-                        sx: { width: 150, ...compactCtrlSx },
-                      },
-                      openPickerButton: { sx: { color: "rgba(255,255,255,0.85)" } },
+                      textField: { size: "small", placeholder: "MM/DD/YYYY", sx: { width: 150, ...compactCtrlSx } },
+                      openPickerButton: { sx: { color: vars.text } },
                       popper: {
                         sx: {
-                          "& .MuiPaper-root": { bgcolor: CONTROL_BG, color: "#fff", border: CONTROL_BORDER },
-                          "& .MuiPickersDay-root": { color: "#EDEDED" },
-                          "& .MuiPickersDay-root.Mui-selected": {
-                            bgcolor: "#7C57F2 !important",
-                            color: "#fff",
-                          },
-                          "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label": {
-                            color: "#fff",
-                          },
+                          "& .MuiPaper-root": { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` },
+                          "& .MuiPickersDay-root": { color: vars.text },
+                          "& .MuiPickersDay-root.Mui-selected": { bgcolor: `${vars.accent} !important`, color: "#fff" },
+                          "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label": { color: vars.text },
                         },
                       },
                     }}
@@ -574,78 +469,45 @@ export default function DashboardPage() {
                 </LocalizationProvider>
               </Labeled>
 
-              <Button
-                onClick={clearFilters}
-                size="small"
-                sx={{ mt: 2.1, color: "#7CA7FF", textTransform: "none", fontWeight: 700 }}
-              >
-                Clear
+              <Button onClick={clearFilters} size="small" sx={{ mt: 2.1, color: vars.accent, textTransform: "none", fontWeight: 700 }}>
+                {t("Clear")}
               </Button>
             </Box>
           </Box>
 
-          {/* Body — single scroll container */}
+          {/* Body */}
           <Box sx={{ flex: 1, minHeight: 0, p: 1, pt: 1, pb: 0.5 }}>
             <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden" }}>
-              <Box
-                sx={{
-                  height: "100%",
-                  overflow: "auto",
-                  pr: 1,
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "#3f3f3f transparent",
-                  "&::-webkit-scrollbar": { width: 8, height: 8 },
-                  "&::-webkit-scrollbar-thumb": { background: "#3f3f3f", borderRadius: 8 },
-                  "&::-webkit-scrollbar-thumb:hover": { background: "#5a5a5a" },
-                  "&::-webkit-scrollbar-track": { background: "transparent" },
-                }}
-              >
-                <DarkScrollTable rows={paged} columns={COLUMNS} />
+              <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...sxPresets.scroller }}>
+                <ThemedScrollTable rows={paged} columns={COLUMNS} emptyText={t("No passes found.")} />
               </Box>
             </Box>
           </Box>
 
           {/* Pagination */}
-          <Box sx={{ borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <Box sx={{ borderTop: `1px solid ${vars.border}` }}>
             <TablePagination
               component="div"
-              count={totalRows}
+              count={filteredSorted.length}
               page={page}
               onPageChange={(_, p) => setPage(p)}
               rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
+              onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+              labelRowsPerPage={t("Rows per page:")}
               rowsPerPageOptions={[10, 50, 150, 200]}
               sx={{
                 px: 1,
-                color: "#E8E8EA",
+                color: vars.text,
                 minHeight: UI.paginationH,
-                "& .MuiTablePagination-toolbar": {
-                  minHeight: UI.paginationH,
-                  p: 0,
-                  pl: 1,
-                  pr: 1,
-                  gap: 0.5,
-                },
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: UI.font,
-                  m: 0,
-                },
+                "& .MuiTablePagination-toolbar": { minHeight: UI.paginationH, p: 0, pl: 1, pr: 1, gap: 0.5 },
+                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: UI.font, m: 0, color: vars.textDim },
                 "& .MuiTablePagination-input": { fontSize: UI.font, m: 0 },
                 "& .MuiSelect-select": {
-                  py: 0,
-                  px: 1,
-                  fontSize: UI.font,
-                  height: UI.ctrlH - 6,
-                  display: "flex",
-                  alignItems: "center",
-                  bgcolor: CONTROL_BG,
-                  borderRadius: 1,
+                  py: 0, px: 1, fontSize: UI.font, height: UI.ctrlH - 6, display: "flex", alignItems: "center",
+                  bgcolor: vars.bgCtrl, borderRadius: 1,
                 },
                 "& .MuiIconButton-root": { p: 0.25 },
-                ".MuiSvgIcon-root": { color: "#E8E8EA", fontSize: UI.icon },
+                ".MuiSvgIcon-root": { fontSize: UI.icon, color: vars.text },
               }}
             />
           </Box>
