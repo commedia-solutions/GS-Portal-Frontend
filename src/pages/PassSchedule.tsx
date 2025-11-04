@@ -1344,11 +1344,12 @@ function AwsContactsPanel() {
       }));
       setRows(items);
     } catch (e: any) {
-      console.error(e);
-      alert(e?.message || t("Failed to list contacts"));
-    } finally {
-      setLoading(false);
-    }
+  console.error(e);
+  // Show empty state instead of a popup
+  setRows([]);
+} finally {
+  setLoading(false);
+}
   }, [
     region,
     satelliteArn,
@@ -1642,10 +1643,11 @@ function AwsContactsPanel() {
           </Box>
         ))}
         {!rows.length && (
-          <Box sx={{ p: 2, color: vars.textDim }}>
-            {loading ? "Loading contacts…" : "No contacts for selected filters."}
-          </Box>
-        )}
+  <Box sx={{ p: 2, color: vars.textDim }}>
+    No Contacts Found
+  </Box>
+)}
+
       </Box>
     </Card>
   );
