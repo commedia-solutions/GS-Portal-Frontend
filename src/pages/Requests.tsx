@@ -573,7 +573,7 @@ export default function RequestsPage() {
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [loadingList, setLoadingList] = React.useState(false);
 
-  const UPDATE_STATUS_OPTIONS = ["In Review", "In Progress", "On Hold", "Done", "Cancelled"] as const;
+  // const UPDATE_STATUS_OPTIONS = ["In Review", "In Progress", "On Hold", "Done", "Cancelled"] as const;
 
   // me
   const me = getStoredUser();

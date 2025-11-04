@@ -1,3 +1,5 @@
+//  v2
+
 // src/pages/PassSchedule.tsx
 import React from "react";
 import {
@@ -35,6 +37,10 @@ import { TOPBAR_HEIGHT } from "../components/TopNav";
 import api from "../api/http";
 import { vars, sxPresets } from "../ui/toast/themeBridge";
 import { useI18n } from "../i18n";
+
+/* -------------------- Feature flag -------------------- */
+// Toggle for showing the Regions & Buckets UI sections
+const SHOW_REGION_BUCKETS = false;
 
 /* -------------------- Shared constants & styles -------------------- */
 const REGION_OPTIONS = [
@@ -275,7 +281,7 @@ function CaptchaDialog({
 /* ---------------- Page wrapper ---------------- */
 export default function PassSchedulePage() {
   const { t } = useI18n();
-  const [tab, setTab] = React.useState<"pass" | "contacts">("contacts");
+  const [tab, setTab] = React.useState<"pass" | "tle" | "contacts">("contacts");
   return (
     <MainLayout title="">
       <Box
@@ -304,12 +310,15 @@ export default function PassSchedulePage() {
           <ToggleButton value="pass" disableRipple sx={pillSx}>
             {t("Pass Schedule")}
           </ToggleButton>
+          <ToggleButton value="tle" disableRipple sx={pillSx}>
+            {t("TLE Update")}
+          </ToggleButton>
           <ToggleButton value="contacts" disableRipple sx={pillSx}>
             {t("AWS Contacts")}
           </ToggleButton>
         </ToggleButtonGroup>
 
-        {tab === "pass" ? <PassSchedulePanel /> : <AwsContactsPanel />}
+        {tab === "pass" ? <PassSchedulePanel /> : tab === "tle" ? <TleUpdatePanel /> : <AwsContactsPanel />}
       </Box>
     </MainLayout>
   );
@@ -341,21 +350,10 @@ function PassSchedulePanel() {
   const clearTop = () => setFile(null);
 
   const handleDownloadTemplate = () => {
-    const headers = [
-      "DATE",
-      "S/C",
-      "STN",
-      "ORBIT", // left in template for your CSVs
-      "Max",
-      "AOS",
-      "LOS",
-      "OPERATIONS",
-    ];
+    const headers = ["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"];
     const example = ["", "", "", "", "", "", "", ""];
     const csv = [headers.join(","), example.join(",")].join("\n");
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" })
-    );
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = "pass_schedule_template.csv";
@@ -376,8 +374,7 @@ function PassSchedulePanel() {
     const mime = (file as any).type || "";
     const isCsv = name.endsWith(".csv") || mime === "text/csv";
     const isTxt = name.endsWith(".txt") || mime === "text/plain";
-    if (!isCsv && !isTxt)
-      return alert(t("Only .csv or .txt files are supported."));
+    if (!isCsv && !isTxt) return alert(t("Only .csv or .txt files are supported."));
     try {
       setUploading(true);
       const fd = new FormData();
@@ -385,9 +382,7 @@ function PassSchedulePanel() {
       const bucket = findBucket();
       const bucketParam = bucket ? `&bucket=${encodeURIComponent(bucket)}` : "";
       await api.post(
-        `/api/pass-schedule/bulk?gs=${encodeURIComponent(
-          gs
-        )}&region=${encodeURIComponent(region)}${bucketParam}`,
+        `/api/pass-schedule/bulk?gs=${encodeURIComponent(gs)}&region=${encodeURIComponent(region)}${bucketParam}`,
         fd
       );
       alert(t("Bulk schedule upload complete."));
@@ -402,8 +397,7 @@ function PassSchedulePanel() {
 
   type CaptchaAction = "upload";
   const [captchaOpen, setCaptchaOpen] = React.useState(false);
-  const [captchaAction, setCaptchaAction] =
-    React.useState<CaptchaAction | null>(null);
+  const [captchaAction, setCaptchaAction] = React.useState<CaptchaAction | null>(null);
   const runAfterCaptcha = React.useCallback(async () => {
     if (captchaAction === "upload") await handleUpload();
     setCaptchaAction(null);
@@ -417,9 +411,7 @@ function PassSchedulePanel() {
       bucket: bucketNew.trim(),
     };
     setRows((prev) => {
-      const filtered = prev.filter(
-        (r) => !(r.gs === row.gs && r.region === row.region)
-      );
+      const filtered = prev.filter((r) => !(r.gs === row.gs && r.region === row.region));
       return [row, ...filtered];
     });
     try {
@@ -447,15 +439,10 @@ function PassSchedulePanel() {
 
   return (
     <>
-      <Backdrop
-        open={uploading}
-        sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}
-      >
+      <Backdrop open={uploading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <CircularProgress color="inherit" />
-          <Typography>
-            Uploading… this may take a while for large files.
-          </Typography>
+          <Typography>Uploading… this may take a while for large files.</Typography>
         </Box>
       </Backdrop>
 
@@ -494,7 +481,7 @@ function PassSchedulePanel() {
           </Box>
         </Box>
 
-        <Box
+                <Box
           sx={{
             p: 1.25,
             display: "grid",
@@ -516,6 +503,7 @@ function PassSchedulePanel() {
               <MenuItem value="gs2">Groundstation 2</MenuItem>
             </Select>
           </FormControl>
+
           <FormControl
             size="small"
             sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
@@ -536,7 +524,7 @@ function PassSchedulePanel() {
           </FormControl>
         </Box>
 
-        {/* Upload */}
+        {/* Upload row */}
         <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
         <Box
           sx={{
@@ -608,6 +596,7 @@ function PassSchedulePanel() {
             <Typography sx={{ fontSize: 12, ml: { lg: 2 }, color: vars.text }}>
               Step 2: Fill it & Upload
             </Typography>
+
             <input
               ref={fileInputRef}
               type="file"
@@ -624,6 +613,7 @@ function PassSchedulePanel() {
             >
               Select File
             </Button>
+
             {file && (
               <Chip
                 label={prettyFileName}
@@ -639,6 +629,7 @@ function PassSchedulePanel() {
               />
             )}
           </Box>
+
           <Button
             variant="contained"
             size="medium"
@@ -666,116 +657,124 @@ function PassSchedulePanel() {
           </Button>
         </Box>
 
-        {/* Regions & Buckets */}
-        <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
-        <Box
-          sx={{
-            px: 1.25,
-            py: 0.7,
-            borderBottom: `1px solid ${vars.border}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-          }}
-        >
-          <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-            Regions & Buckets
-          </Typography>
-        </Box>
-        <Box sx={{ p: 1.25, display: "grid", gap: 1.25 }}>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "140px 240px 1fr 100px" },
-              gap: 1,
-            }}
-          >
-            <FormControl
-              size="small"
-              sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+        {/* Regions & Buckets (feature-flagged) */}
+        {SHOW_REGION_BUCKETS && (
+          <>
+            <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
+            <Box
+              sx={{
+                px: 1.25,
+                py: 0.7,
+                borderBottom: `1px solid ${vars.border}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+              }}
             >
-              <InputLabel>GS</InputLabel>
-              <Select
-                label="GS"
-                value={gsNew}
-                onChange={(e) => setGsNew(String(e.target.value))}
-              >
-                <MenuItem value="gs1">Groundstation 1</MenuItem>
-                <MenuItem value="gs2">Groundstation 2</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              placeholder="Region (e.g., sa-east-1)"
-              value={regionNew}
-              onChange={(e) => setRegionNew(e.target.value)}
-              onBlur={() => setRegionNew((v) => v.trim())}
-              sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-            />
-            <TextField
-              size="small"
-              placeholder="Bucket name"
-              value={bucketNew}
-              onChange={(e) => setBucketNew(e.target.value)}
-              sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-            />
-            <Button
-              onClick={addRow}
-              variant="contained"
-              disabled={!gsNew || !regionNew || !bucketNew}
-              sx={{ textTransform: "none", fontWeight: 700 }}
-            >
-              Add
-            </Button>
-          </Box>
+              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
+                Regions & Buckets
+              </Typography>
+            </Box>
 
-          <Table
-            size="small"
-            sx={{
-              borderColor: vars.border,
-              borderWidth: 1,
-              borderStyle: "solid",
-              borderRadius: 1,
-            }}
-          >
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ color: vars.textDim }}>GS</TableCell>
-                <TableCell sx={{ color: vars.textDim }}>Region</TableCell>
-                <TableCell sx={{ color: vars.textDim }}>Bucket</TableCell>
-                <TableCell sx={{ color: vars.textDim }} align="right">
-                  Actions
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} sx={{ color: vars.textDim }}>
-                    No custom mappings yet. Add one above (optional).
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((r, i) => (
-                  <TableRow key={`${r.gs}-${r.region}`}>
-                    <TableCell>{r.gs}</TableCell>
-                    <TableCell>
-                      {KNOWN_REGION_LABELS[r.region] || r.region}
-                    </TableCell>
-                    <TableCell>{r.bucket}</TableCell>
-                    <TableCell align="right">
-                      <IconButton onClick={() => removeRow(i)} size="small">
-                        <DeleteOutlineIcon
-                          sx={{ fontSize: 18, color: vars.textDim }}
-                        />
-                      </IconButton>
+            <Box sx={{ p: 1.25, display: "grid", gap: 1.25 }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "140px 240px 1fr 100px" },
+                  gap: 1,
+                }}
+              >
+                <FormControl
+                  size="small"
+                  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                >
+                  <InputLabel>GS</InputLabel>
+                  <Select
+                    label="GS"
+                    value={gsNew}
+                    onChange={(e) => setGsNew(String(e.target.value))}
+                  >
+                    <MenuItem value="gs1">Groundstation 1</MenuItem>
+                    <MenuItem value="gs2">Groundstation 2</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  size="small"
+                  placeholder="Region (e.g., sa-east-1)"
+                  value={regionNew}
+                  onChange={(e) => setRegionNew(e.target.value)}
+                  onBlur={() => setRegionNew((v) => v.trim())}
+                  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                />
+
+                <TextField
+                  size="small"
+                  placeholder="Bucket name"
+                  value={bucketNew}
+                  onChange={(e) => setBucketNew(e.target.value)}
+                  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+                />
+
+                <Button
+                  onClick={addRow}
+                  variant="contained"
+                  disabled={!gsNew || !regionNew || !bucketNew}
+                  sx={{ textTransform: "none", fontWeight: 700 }}
+                >
+                  Add
+                </Button>
+              </Box>
+
+              <Table
+                size="small"
+                sx={{
+                  borderColor: vars.border,
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  borderRadius: 1,
+                }}
+              >
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ color: vars.textDim }}>GS</TableCell>
+                    <TableCell sx={{ color: vars.textDim }}>Region</TableCell>
+                    <TableCell sx={{ color: vars.textDim }}>Bucket</TableCell>
+                    <TableCell sx={{ color: vars.textDim }} align="right">
+                      Actions
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </Box>
+                </TableHead>
+                <TableBody>
+                  {rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} sx={{ color: vars.textDim }}>
+                        No custom mappings yet. Add one above (optional).
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((r, i) => (
+                      <TableRow key={`${r.gs}-${r.region}`}>
+                        <TableCell>{r.gs}</TableCell>
+                        <TableCell>
+                          {KNOWN_REGION_LABELS[r.region] || r.region}
+                        </TableCell>
+                        <TableCell>{r.bucket}</TableCell>
+                        <TableCell align="right">
+                          <IconButton onClick={() => removeRow(i)} size="small">
+                            <DeleteOutlineIcon
+                              sx={{ fontSize: 18, color: vars.textDim }}
+                            />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          </>
+        )}
       </Card>
 
       <CaptchaDialog
@@ -793,9 +792,415 @@ function PassSchedulePanel() {
   );
 }
 
-/* ---------------- AWS Contacts PANEL ---------------- */
+/* ---------------- TLE Update panel ---------------- */
+function TleUpdatePanel() {
+  const { t } = useI18n();
+  const [gs, setGs] = React.useState<string>("");
+  const [region, setRegion] = React.useState<string>("");
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [file, setFile] = React.useState<File | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  const [rows, setRows] = React.useState<
+    { gs: "gs1" | "gs2"; region: string; bucket: string }[]
+  >([]);
+  const [gsNew, setGsNew] = React.useState<string>("");
+  const [regionNew, setRegionNew] = React.useState<string>("");
+  const [bucketNew, setBucketNew] = React.useState<string>("");
+
+  const handleSelectFile = () => fileInputRef.current?.click();
+  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const f = e.target.files?.[0] || null;
+    setFile(f);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+  const clearTop = () => setFile(null);
+
+  const findBucket = React.useCallback(
+    () => rows.find((r) => r.gs === gs && r.region === region)?.bucket || "",
+    [rows, gs, region]
+  );
+
+  const handleUpload = async () => {
+    if (!gs) return alert(t("Please select a Ground Station."));
+    if (!region) return alert(t("Please select a Region."));
+    if (!file) return alert(t("Please select a file first."));
+
+    const name = file.name.toLowerCase();
+    const mime = (file as any).type || "";
+    const isTxt = name.endsWith(".txt") || name.endsWith(".tle") || mime === "text/plain";
+    const isJson = name.endsWith(".json") || mime === "application/json";
+    if (!isTxt && !isJson) {
+      return alert(t("Only .txt, .tle or .json files are supported."));
+    }
+
+    try {
+      setUploading(true);
+      const fd = new FormData();
+      fd.append("file", file);
+      const bucket = findBucket();
+      const bucketParam = bucket ? `&bucket=${encodeURIComponent(bucket)}` : "";
+      await api.post(
+        `/api/tle-update/upload?gs=${encodeURIComponent(gs)}&region=${encodeURIComponent(region)}${bucketParam}`,
+        fd
+      );
+      alert(t("TLE uploaded."));
+      clearTop();
+    } catch (e) {
+      console.error(e);
+      alert(t("TLE upload failed."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  type CaptchaAction = "upload";
+  const [captchaOpen, setCaptchaOpen] = React.useState(false);
+  const [captchaAction, setCaptchaAction] = React.useState<CaptchaAction | null>(null);
+  const runAfterCaptcha = React.useCallback(async () => {
+    if (captchaAction === "upload") await handleUpload();
+    setCaptchaAction(null);
+  }, [captchaAction, gs, region, file, rows]);
+
+  const addRow = async () => {
+    if (!gsNew || !regionNew || !bucketNew) return;
+    const row = {
+      gs: gsNew as "gs1" | "gs2",
+      region: regionNew.trim(),
+      bucket: bucketNew.trim(),
+    };
+    setRows((prev) => {
+      const filtered = prev.filter((r) => !(r.gs === row.gs && r.region === row.region));
+      return [row, ...filtered];
+    });
+    try {
+      await api.post("/api/tle-update/regions", row);
+    } catch {}
+    setBucketNew("");
+  };
+  const removeRow = async (idx: number) => {
+    const r = rows[idx];
+    setRows((prev) => prev.filter((_, i) => i !== idx));
+    try {
+      await api.post("/api/tle-update/regions/delete", r);
+    } catch {}
+  };
+
+  const prettyFileName = React.useMemo(
+    () =>
+      file
+        ? file.name
+            .replace(/(\.txt){2}$/i, ".txt")
+            .replace(/(\.tle){2}$/i, ".tle")
+            .replace(/(\.json){2}$/i, ".json")
+        : "",
+    [file]
+  );
+
+  return (
+    <>
+      <Backdrop open={uploading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <CircularProgress color="inherit" />
+          <Typography>Uploading…</Typography>
+        </Box>
+      </Backdrop>
+
+      <Card sx={{ ...CARD_SX, height: "100%" }}>
+        {/* Header */}
+        <Box
+          sx={{
+            px: 1.25,
+            py: 0.7,
+            borderBottom: `1px solid ${vars.border}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
+            TLE Update
+          </Typography>
+          <Box sx={{ ml: "auto" }}>
+            <Button
+              onClick={() => {
+                setGs("");
+                setRegion("");
+              }}
+              size="small"
+              sx={{
+                textTransform: "none",
+                fontWeight: 700,
+                color: COLORS.link,
+                px: 1,
+                minWidth: 0,
+              }}
+            >
+              Clear
+            </Button>
+          </Box>
+        </Box>
+
+        {/* GS / Region */}
+        <Box
+          sx={{
+            p: 1.25,
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+            gap: 1.25,
+          }}
+        >
+          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+            <InputLabel>Select Ground Station *</InputLabel>
+            <Select
+              label="Select Ground Station *"
+              value={gs}
+              onChange={(e) => setGs(String(e.target.value))}
+            >
+              <MenuItem value="gs1">Groundstation 1</MenuItem>
+              <MenuItem value="gs2">Groundstation 2</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+            <InputLabel>Select Region *</InputLabel>
+            <Select
+              label="Select Region *"
+              value={region}
+              onChange={(e) => setRegion(String(e.target.value))}
+              MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+            >
+              {REGION_OPTIONS.map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Upload row */}
+        <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
+        <Box
+          sx={{
+            p: 1,
+            pl: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            flexWrap: { xs: "wrap", lg: "nowrap" },
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              flexWrap: "wrap",
+            }}
+          >
+            <Typography sx={{ fontSize: 12, color: vars.text }}>
+              Select & Upload TLE (.txt / .tle / .json)
+            </Typography>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.tle,.json,text/plain,application/json"
+              hidden
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleSelectFile}
+              disabled={uploading}
+              sx={(t) => ({ ...controlSx, ...filledField(t) })}
+            >
+              Select File
+            </Button>
+
+            {file && (
+              <Chip
+                label={prettyFileName}
+                onDelete={uploading ? undefined : clearTop}
+                sx={(t) => ({
+                  bgcolor: (t as any).palette.mode === "dark" ? "#232325" : "#fff",
+                  color: (t as any).palette.mode === "dark" ? vars.text : "#000",
+                  border: `1px solid ${vars.border}`,
+                  ".MuiChip-deleteIcon": { color: vars.textDim },
+                })}
+              />
+            )}
+          </Box>
+
+          <Button
+            variant="contained"
+            size="medium"
+            startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />}
+            disabled={!file || uploading}
+            onClick={() => {
+              setCaptchaAction("upload");
+              setCaptchaOpen(true);
+            }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              bgcolor: COLORS.purple,
+              "&:hover": { bgcolor: "#6b46f1" },
+              "&.Mui-disabled": {
+                bgcolor: vars.bgCtrl,
+                color: vars.textDim,
+                border: `1px solid ${vars.border}`,
+                boxShadow: "none",
+                opacity: 1,
+              },
+            }}
+          >
+            {uploading ? "Uploading..." : "Upload"}
+          </Button>
+        </Box>
+
+        {/* Regions & Buckets (feature-flagged) */}
+        {SHOW_REGION_BUCKETS && (
+          <>
+            <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
+            <Box
+              sx={{
+                px: 1.25,
+                py: 0.7,
+                borderBottom: `1px solid ${vars.border}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+              }}
+            >
+              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
+                Regions & Buckets
+              </Typography>
+            </Box>
+
+            <Box sx={{ p: 1.25, display: "grid", gap: 1.25 }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "140px 240px 1fr 100px" },
+                  gap: 1,
+                }}
+              >
+                <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+                  <InputLabel>GS</InputLabel>
+                  <Select
+                    label="GS"
+                    value={gsNew}
+                    onChange={(e) => setGsNew(String(e.target.value))}
+                  >
+                    <MenuItem value="gs1">Groundstation 1</MenuItem>
+                    <MenuItem value="gs2">Groundstation 2</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  size="small"
+                  placeholder="Region (e.g., sa-east-1)"
+                  value={regionNew}
+                  onChange={(e) => setRegionNew(e.target.value)}
+                  onBlur={() => setRegionNew((v) => v.trim())}
+                  sx={(t) => ({ ...controlSx, ...filledField(t) })}
+                />
+
+                <TextField
+                  size="small"
+                  placeholder="Bucket name"
+                  value={bucketNew}
+                  onChange={(e) => setBucketNew(e.target.value)}
+                  sx={(t) => ({ ...controlSx, ...filledField(t) })}
+                />
+
+                <Button
+                  onClick={addRow}
+                  variant="contained"
+                  disabled={!gsNew || !regionNew || !bucketNew}
+                  sx={{ textTransform: "none", fontWeight: 700 }}
+                >
+                  Add
+                </Button>
+              </Box>
+
+              <Table
+                size="small"
+                sx={{
+                  borderColor: vars.border,
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  borderRadius: 1,
+                }}
+              >
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ color: vars.textDim }}>GS</TableCell>
+                    <TableCell sx={{ color: vars.textDim }}>Region</TableCell>
+                    <TableCell sx={{ color: vars.textDim }}>Bucket</TableCell>
+                    <TableCell sx={{ color: vars.textDim }} align="right">
+                      Actions
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} sx={{ color: vars.textDim }}>
+                        No custom mappings yet. Add one above (optional).
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((r, i) => (
+                      <TableRow key={`${r.gs}-${r.region}`}>
+                        <TableCell>{r.gs}</TableCell>
+                        <TableCell>
+                          {KNOWN_REGION_LABELS[r.region] || r.region}
+                        </TableCell>
+                        <TableCell>{r.bucket}</TableCell>
+                        <TableCell align="right">
+                          <IconButton onClick={() => removeRow(i)} size="small">
+                            <DeleteOutlineIcon
+                              sx={{ fontSize: 18, color: vars.textDim }}
+                            />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          </>
+        )}
+      </Card>
+
+      <CaptchaDialog
+        open={captchaOpen}
+        onCancel={() => {
+          setCaptchaOpen(false);
+          setCaptchaAction(null);
+        }}
+        onOk={async () => {
+          setCaptchaOpen(false);
+          await runAfterCaptcha();
+        }}
+      />
+    </>
+  );
+}
+
+/* ---------------- AWS Contacts PANEL (unchanged functionally) ---------------- */
 function AwsContactsPanel() {
   const { t } = useI18n();
+
+  // NEW: GS switch for credentials (gs1/gs2)
+  const [gs, setGs] = React.useState<"gs1" | "gs2">("gs1");
 
   // Filters
   const [region, setRegion] = React.useState<string>("sa-east-1");
@@ -817,40 +1222,29 @@ function AwsContactsPanel() {
       .slice(0, 16);
   });
 
-  // Options from backend (already filtered)
   type Opt = { id: string; label?: string; name?: string; arn?: string };
   const [satOptions, setSatOptions] = React.useState<Opt[]>([]);
   const [gsOptions, setGsOptions] = React.useState<Opt[]>([]);
   const [mpOptions, setMpOptions] = React.useState<Opt[]>([]);
   const [optionsReady, setOptionsReady] = React.useState(false);
 
-  // Contacts table
   type ContactRow = {
     contactId: string;
     status: string;
     catalogLabel: string;
     groundStation: string;
-    startTime: string; // ISO
-    endTime: string; // ISO
+    startTime: string;
+    endTime: string;
     maxElevationDeg?: number;
   };
   const [rows, setRows] = React.useState<ContactRow[]>([]);
   const [loading, setLoading] = React.useState(false);
 
-  const STATUSES = [
-    "AVAILABLE",
-    "SCHEDULED",
-    "COMPLETED",
-    "AWS_CANCELLED",
-    "CANCELLED",
-  ];
-
-  // Load options from server (curated to 2 satellites, 5 GS)
   const loadOptions = React.useCallback(async () => {
     setOptionsReady(false);
     try {
       const data = await api.get<any>(`/api/aws-contacts/options`, {
-        params: { region },
+        params: { region, gs },
       });
 
       const sats: Opt[] = (data?.satellites || []).map((s: any) => ({
@@ -873,7 +1267,6 @@ function AwsContactsPanel() {
       }));
       setMpOptions([{ id: "", label: "Any" }, ...mps]);
 
-      // With AVAILABLE: pick first sat + mp so call is valid
       if (status === "AVAILABLE") {
         if (!satelliteArn && sats.length)
           setSatelliteArn(sats[0].arn as string);
@@ -886,14 +1279,13 @@ function AwsContactsPanel() {
     } finally {
       setOptionsReady(true);
     }
-  }, [region, status, satelliteArn, missionProfileArn, t]);
+  }, [region, gs, status, satelliteArn, missionProfileArn, t]);
 
   const badAvailableCombo = React.useMemo(
     () => status === "AVAILABLE" && (!satelliteArn || !missionProfileArn),
     [status, satelliteArn, missionProfileArn]
   );
 
-  // Pretty label for the Catalog number column
   const labelForCatalog = React.useCallback(
     (c: any): string => {
       const fromSelected =
@@ -926,6 +1318,7 @@ function AwsContactsPanel() {
       setLoading(true);
       const body = {
         region,
+        gs,
         filters: {
           satellite: satelliteArn || null,
           groundStation: groundStation || null,
@@ -967,6 +1360,7 @@ function AwsContactsPanel() {
     badAvailableCombo,
     t,
     labelForCatalog,
+    gs,
   ]);
 
   React.useEffect(() => {
@@ -986,6 +1380,7 @@ function AwsContactsPanel() {
     startTime,
     endTime,
     loadContacts,
+    gs,
   ]);
 
   const statusColor = (s: string) => {
@@ -1020,7 +1415,19 @@ function AwsContactsPanel() {
         <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
           AWS Contacts
         </Typography>
-        <Box sx={{ ml: "auto", display: "flex", gap: 1 }}>
+        <Box sx={{ ml: "auto", display: "flex", gap: 1, alignItems: "center" }}>
+          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t), minWidth: 180 })}>
+            <InputLabel>GS</InputLabel>
+            <Select
+              value={gs}
+              label="GS"
+              onChange={(e) => setGs(e.target.value as "gs1" | "gs2")}
+            >
+              <MenuItem value="gs1">Groundstation 1</MenuItem>
+              <MenuItem value="gs2">Groundstation 2</MenuItem>
+            </Select>
+          </FormControl>
+
           <Button
             size="small"
             onClick={() => loadContacts()}
@@ -1050,12 +1457,8 @@ function AwsContactsPanel() {
             onChange={(e) => {
               const newRegion = String(e.target.value);
               setRegion(newRegion);
-
-              // IMPORTANT: clear region-scoped ARNs so next loadOptions picks region-valid ones
               setSatelliteArn("");
               setMissionProfileArn("");
-
-              // Optional convenience: default GS for selected region
               setGroundStation(DEFAULT_GS_FOR_REGION[newRegion] || "");
             }}
           >
@@ -1076,7 +1479,7 @@ function AwsContactsPanel() {
             displayEmpty
             renderValue={(v) =>
               v
-                ? satOptions.find((s) => s.arn === v)?.label || v
+                ? (satOptions.find((s) => s.arn === v)?.label || v)
                 : "Select satellite"
             }
           >
@@ -1131,7 +1534,7 @@ function AwsContactsPanel() {
             displayEmpty
             renderValue={(v) =>
               v
-                ? mpOptions.find((m) => (m.arn || m.id) === v)?.label || v
+                ? (mpOptions.find((m) => (m.arn || m.id) === v)?.label || v)
                 : "Any"
             }
           >
@@ -1169,7 +1572,7 @@ function AwsContactsPanel() {
         </Box>
       </Box>
 
-      {/* Table header (Orbit removed, Max elevation column added) */}
+      {/* Table header */}
       <Box
         sx={{
           px: 1,

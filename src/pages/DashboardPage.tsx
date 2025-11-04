@@ -360,7 +360,7 @@ export default function DashboardPage() {
     return slice.map((r, i) => ({ ...r, sr: start + i + 1 }));
   }, [filteredSorted, page, rowsPerPage]);
 
-  const totalRows = filteredSorted.length;
+  // const totalRows = filteredSorted.length;
 
   return (
     <MainLayout title="">
@@ -488,6 +488,7 @@ export default function DashboardPage() {
           <Box sx={{ borderTop: `1px solid ${vars.border}` }}>
             <TablePagination
               component="div"
+              
               count={filteredSorted.length}
               page={page}
               onPageChange={(_, p) => setPage(p)}

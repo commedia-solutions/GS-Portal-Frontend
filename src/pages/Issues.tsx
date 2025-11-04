@@ -160,7 +160,7 @@ const selectMenu = {
 };
 
 const LABEL_SX = { fontSize: 12, fontWeight: 600, color: TEXT_DIM, mb: 0.5, lineHeight: 1.2 } as const;
-const VALUE_SX = { fontSize: 13, fontWeight: 700, color: TEXT, ml: 0.25, mt: 0.25, lineHeight: 1.4 } as const;
+// const VALUE_SX = { fontSize: 13, fontWeight: 700, color: TEXT, ml: 0.25, mt: 0.25, lineHeight: 1.4 } as const;
 
 const UI = {
   headerPx: 1.25,

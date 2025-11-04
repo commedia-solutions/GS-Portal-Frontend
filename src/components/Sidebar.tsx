@@ -91,12 +91,12 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
               <NavItem to="/satellites" icon={<SatelliteAltIcon />} label={t("Satellites List")} expanded={expanded} />
               <NavItem to="/licenses" icon={<AssignmentIcon />} label={t("License List")} expanded={expanded} />
               <NavItem to="/passes" icon={<RocketLaunchIcon />} label={t("Passes List")} expanded={expanded} />
-              {/* <NavItem
+              <NavItem
                 to="/pass-schedule"
                 icon={<CalendarMonthIcon />}
                 label={t("Pass Schedule")}
                 expanded={expanded}
-              /> */}
+              />
               <NavItem to="/documents" icon={<DescriptionIcon />} label={t("Documents")} expanded={expanded} />
               {isAdmin && <NavItem to="/logs" icon={<ReceiptLongIcon />} label={t("Logs")} expanded={expanded} />}
               <NavItem to="/requests" icon={<AssignmentTurnedInIcon />} label={t("Requests")} expanded={expanded} />

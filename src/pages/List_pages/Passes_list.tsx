@@ -95,14 +95,14 @@ const TOK = {
   SCROLLBAR: "var(--scrollbar)",
 } as const;
 
-const SCROLLER_SX = {
-  scrollbarWidth: "thin",
-  scrollbarColor: `${TOK.SCROLLBAR} transparent`,
-  "&::-webkit-scrollbar": { width: 8, height: 8 },
-  "&::-webkit-scrollbar-thumb": { background: TOK.SCROLLBAR, borderRadius: 8 },
-  "&::-webkit-scrollbar-thumb:hover": { background: TOK.SCROLLBAR },
-  "&::-webkit-scrollbar-track": { background: "transparent" },
-} as const;
+// const SCROLLER_SX = {
+//   scrollbarWidth: "thin",
+//   scrollbarColor: `${TOK.SCROLLBAR} transparent`,
+//   "&::-webkit-scrollbar": { width: 8, height: 8 },
+//   "&::-webkit-scrollbar-thumb": { background: TOK.SCROLLBAR, borderRadius: 8 },
+//   "&::-webkit-scrollbar-thumb:hover": { background: TOK.SCROLLBAR },
+//   "&::-webkit-scrollbar-track": { background: "transparent" },
+// } as const;
 
 /* ==================== UI sizes ==================== */
 const UI = {
