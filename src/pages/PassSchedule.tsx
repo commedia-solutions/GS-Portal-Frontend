@@ -1,5 +1,3 @@
-//  v2
-
 // src/pages/PassSchedule.tsx
 import React from "react";
 import {
@@ -21,6 +19,7 @@ import {
   InputLabel,
   IconButton,
   Table,
+  TableContainer,
   TableHead,
   TableRow,
   TableCell,
@@ -1195,7 +1194,7 @@ function TleUpdatePanel() {
   );
 }
 
-/* ---------------- AWS Contacts PANEL (unchanged functionally) ---------------- */
+/* ---------------- AWS Contacts PANEL (updated UI only) ---------------- */
 function AwsContactsPanel() {
   const { t } = useI18n();
 
@@ -1344,12 +1343,12 @@ function AwsContactsPanel() {
       }));
       setRows(items);
     } catch (e: any) {
-  console.error(e);
-  // Show empty state instead of a popup
-  setRows([]);
-} finally {
-  setLoading(false);
-}
+      console.error(e);
+      // show empty state instead of any popup
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }, [
     region,
     satelliteArn,
@@ -1359,7 +1358,6 @@ function AwsContactsPanel() {
     startTime,
     endTime,
     badAvailableCombo,
-    t,
     labelForCatalog,
     gs,
   ]);
@@ -1573,81 +1571,75 @@ function AwsContactsPanel() {
         </Box>
       </Box>
 
-      {/* Table header */}
-      <Box
-        sx={{
-          px: 1,
-          py: 0.5,
-          borderTop: `1px solid ${vars.border}`,
-          bgcolor: vars.bgCard,
-          fontWeight: 700,
-          display: "grid",
-          gridTemplateColumns:
-            "2fr 1fr 1.5fr 1.4fr 1.4fr 1.1fr 1.2fr",
-          gap: 1,
-          color: vars.text,
-        }}
-      >
-        <Box>Contact Id</Box>
-        <Box>Status</Box>
-        <Box>Catalog number</Box>
-        <Box>Ground station</Box>
-        <Box>Start time (UTC)</Box>
-        <Box>End time (UTC)</Box>
-        <Box>Max elevation (deg)</Box>
-      </Box>
+      {/* Table (centered, compact, sticky header) */}
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <TableContainer
+          sx={{
+            maxHeight: "100%",
+            borderTop: `1px solid ${vars.border}`,
+            borderBottom: `1px solid ${vars.border}`,
+          }}
+        >
+          <Table stickyHeader size="small" sx={{ minWidth: 960 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700 }}>Contact Id</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Status</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Catalog number</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Ground station</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Start time (UTC)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">End time (UTC)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Max elevation (deg)</TableCell>
+              </TableRow>
+            </TableHead>
 
-      {/* Rows */}
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", ...SCROLLER_SX }}>
-        {rows.map((r, idx) => (
-          <Box
-            key={idx + r.startTime}
-            sx={{
-              px: 1,
-              py: 0.75,
-              borderBottom: `1px solid ${vars.border}`,
-              display: "grid",
-              gridTemplateColumns:
-                "2fr 1fr 1.5fr 1.4fr 1.4fr 1.1fr 1.2fr",
-              alignItems: "center",
-              gap: 1,
-            }}
-          >
-            <Typography sx={{ fontSize: 13 }}>{r.contactId}</Typography>
-            <Chip
-              size="small"
-              label={r.status}
-              sx={{
-                height: 22,
-                fontSize: 12,
-                bgcolor: statusColor(r.status),
-                color: "#000",
-                fontWeight: 700,
-              }}
-            />
-            <Typography sx={{ fontSize: 13 }}>{r.catalogLabel}</Typography>
-            <Typography sx={{ fontSize: 13 }}>
-              {r.groundStation || "-"}
-            </Typography>
-            <Typography sx={{ fontSize: 13 }}>
-              {fmtUtc(r.startTime)}
-            </Typography>
-            <Typography sx={{ fontSize: 13 }}>
-              {fmtUtc(r.endTime)}
-            </Typography>
-            <Typography sx={{ fontSize: 13 }}>
-              {typeof r.maxElevationDeg === "number"
-                ? r.maxElevationDeg.toFixed(2)
-                : "-"}
-            </Typography>
-          </Box>
-        ))}
-        {!rows.length && (
-  <Box sx={{ p: 2, color: vars.textDim }}>
-    No Contacts Found
-  </Box>
-)}
+            <TableBody>
+              {rows.map((r, idx) => (
+                <TableRow
+                  key={idx + r.startTime}
+                  hover
+                  sx={{
+                    "&:nth-of-type(odd)": { backgroundColor: (t) => (t.palette.mode === "dark" ? "#17171A" : "#FAFAFA") },
+                    "& td, & th": { borderColor: vars.border, fontSize: 13, py: 1.0 },
+                  }}
+                >
+                  <TableCell>{r.contactId}</TableCell>
 
+                  <TableCell align="center">
+                    <Chip
+                      size="small"
+                      label={r.status}
+                      sx={{
+                        height: 22,
+                        fontSize: 12,
+                        bgcolor: statusColor(r.status),
+                        color: "#000",
+                        fontWeight: 700,
+                      }}
+                    />
+                  </TableCell>
+
+                  <TableCell align="center">{r.catalogLabel}</TableCell>
+                  <TableCell align="center">{r.groundStation || "-"}</TableCell>
+                  <TableCell align="center">{fmtUtc(r.startTime)}</TableCell>
+                  <TableCell align="center">{fmtUtc(r.endTime)}</TableCell>
+                  <TableCell align="center">
+                    {typeof r.maxElevationDeg === "number" ? r.maxElevationDeg.toFixed(2) : "-"}
+                  </TableCell>
+                </TableRow>
+              ))}
+
+              {/* Empty state (centered, no popup) */}
+              {!rows.length && (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ color: vars.textDim, py: 3 }}>
+                    No Contacts Found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Box>
     </Card>
   );
