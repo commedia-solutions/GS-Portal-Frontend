@@ -94,7 +94,7 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
               <NavItem
                 to="/pass-schedule"
                 icon={<CalendarMonthIcon />}
-                label={t("Pass Schedule")}
+                label={t("AWS Operations")}
                 expanded={expanded}
               />
               <NavItem to="/documents" icon={<DescriptionIcon />} label={t("Documents")} expanded={expanded} />

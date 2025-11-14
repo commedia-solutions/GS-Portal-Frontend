@@ -124,7 +124,7 @@ function DualClockRow() {
     return () => clearInterval(id);
   }, []);
   return (
-    <Typography variant="caption" sx={{ color: vars.textDim, fontWeight: 600 }}>
+    <Typography variant="caption" sx={{ color: "white", fontWeight: 600 }}>
       {`UTC : ${formatForTZ(now, "UTC", true)} / IST : ${formatForTZ(
         now,
         "Asia/Kolkata",

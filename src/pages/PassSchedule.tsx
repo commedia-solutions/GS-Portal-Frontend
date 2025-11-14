@@ -72,8 +72,6 @@ const CARD_SX = {
   boxShadow: "none",
 } as const;
 const COLORS = { link: vars.accent, green: "#16a34a", purple: "#7C57F2" };
-const SCROLLER_SX = { ...sxPresets.scroller };
-
 const FIELD_H = 36;
 const CONTENT_H = 32;
 const FONT_PX = 13;
@@ -280,7 +278,8 @@ function CaptchaDialog({
 /* ---------------- Page wrapper ---------------- */
 export default function PassSchedulePage() {
   const { t } = useI18n();
-  const [tab, setTab] = React.useState<"pass" | "tle" | "contacts">("contacts");
+  const [tab, setTab] = React.useState<"contacts" | "pass" | "tle">("contacts");
+
   return (
     <MainLayout title="">
       <Box
@@ -306,18 +305,24 @@ export default function PassSchedulePage() {
             "& .MuiToggleButtonGroup-grouped": { border: "none", mx: 0.25 },
           }}
         >
+          <ToggleButton value="contacts" disableRipple sx={pillSx}>
+            {t("View Contacts")}
+          </ToggleButton>
           <ToggleButton value="pass" disableRipple sx={pillSx}>
-            {t("Pass Schedule")}
+            {t("Schedule Contacts")}
           </ToggleButton>
           <ToggleButton value="tle" disableRipple sx={pillSx}>
-            {t("TLE Update")}
-          </ToggleButton>
-          <ToggleButton value="contacts" disableRipple sx={pillSx}>
-            {t("AWS Contacts")}
+            {t("Update TLE")}
           </ToggleButton>
         </ToggleButtonGroup>
 
-        {tab === "pass" ? <PassSchedulePanel /> : tab === "tle" ? <TleUpdatePanel /> : <AwsContactsPanel />}
+        {tab === "contacts" ? (
+          <AwsContactsPanel />
+        ) : tab === "pass" ? (
+          <PassSchedulePanel />
+        ) : (
+          <TleUpdatePanel />
+        )}
       </Box>
     </MainLayout>
   );
@@ -458,7 +463,7 @@ function PassSchedulePanel() {
           }}
         >
           <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-            Add Schedule Details
+            Bulk Pass Schedule Upload
           </Typography>
           <Box sx={{ ml: "auto" }}>
             <Button
@@ -480,7 +485,7 @@ function PassSchedulePanel() {
           </Box>
         </Box>
 
-                <Box
+        <Box
           sx={{
             p: 1.25,
             display: "grid",
@@ -488,10 +493,7 @@ function PassSchedulePanel() {
             gap: 1.25,
           }}
         >
-          <FormControl
-            size="small"
-            sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-          >
+          <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
             <InputLabel>Select Ground Station *</InputLabel>
             <Select
               label="Select Ground Station *"
@@ -503,10 +505,7 @@ function PassSchedulePanel() {
             </Select>
           </FormControl>
 
-          <FormControl
-            size="small"
-            sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-          >
+          <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
             <InputLabel>Select Region *</InputLabel>
             <Select
               label="Select Region *"
@@ -523,37 +522,11 @@ function PassSchedulePanel() {
           </FormControl>
         </Box>
 
-        {/* Upload row */}
-        <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
         <Box
           sx={{
-            px: 1.25,
-            py: 0.6,
-            borderBottom: `1px solid ${vars.border}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
+            borderTop: `1px solid ${vars.border}`,
           }}
-        >
-          <Typography sx={{ fontWeight: 700, fontSize: 15, color: COLORS.link }}>
-            Bulk Pass Schedule Upload
-          </Typography>
-          <Box sx={{ ml: "auto" }}>
-            <Button
-              onClick={clearTop}
-              size="small"
-              sx={{
-                textTransform: "none",
-                fontWeight: 700,
-                color: COLORS.link,
-                px: 1,
-                minWidth: 0,
-              }}
-            >
-              Clear
-            </Button>
-          </Box>
-        </Box>
+        />
 
         <Box
           sx={{
@@ -566,34 +539,9 @@ function PassSchedulePanel() {
             flexWrap: { xs: "wrap", lg: "nowrap" },
           }}
         >
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              flexWrap: "wrap",
-            }}
-          >
-            <Typography sx={{ fontSize: 12, color: vars.text }}>
-              Step 1: Download the given template
-            </Typography>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<DownloadOutlinedIcon sx={{ fontSize: 14 }} />}
-              onClick={handleDownloadTemplate}
-              sx={{
-                textTransform: "none",
-                fontWeight: 700,
-                bgcolor: COLORS.green,
-                color: "#fff",
-                "&:hover": { bgcolor: "#12853d" },
-              }}
-            >
-              Download Template
-            </Button>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
             <Typography sx={{ fontSize: 12, ml: { lg: 2 }, color: vars.text }}>
-              Step 2: Fill it & Upload
+              Step 1: Fill it & Upload
             </Typography>
 
             <input
@@ -656,7 +604,7 @@ function PassSchedulePanel() {
           </Button>
         </Box>
 
-        {/* Regions & Buckets (feature-flagged) */}
+        {/* Regions & Buckets (optional admin table) */}
         {SHOW_REGION_BUCKETS && (
           <>
             <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
@@ -683,10 +631,7 @@ function PassSchedulePanel() {
                   gap: 1,
                 }}
               >
-                <FormControl
-                  size="small"
-                  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                >
+                <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
                   <InputLabel>GS</InputLabel>
                   <Select
                     label="GS"
@@ -907,7 +852,7 @@ function TleUpdatePanel() {
       </Backdrop>
 
       <Card sx={{ ...CARD_SX, height: "100%" }}>
-        {/* Header */}
+        {/* Header */} 
         <Box
           sx={{
             px: 1.25,
@@ -919,7 +864,7 @@ function TleUpdatePanel() {
           }}
         >
           <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-            TLE Update
+            Update TLE
           </Typography>
           <Box sx={{ ml: "auto" }}>
             <Button
@@ -979,8 +924,11 @@ function TleUpdatePanel() {
           </FormControl>
         </Box>
 
-        {/* Upload row */}
-        <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
+        <Box
+          sx={{
+            borderTop: `1px solid ${vars.border}`,
+          }}
+        />
         <Box
           sx={{
             p: 1,
@@ -992,14 +940,7 @@ function TleUpdatePanel() {
             flexWrap: { xs: "wrap", lg: "nowrap" },
           }}
         >
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              flexWrap: "wrap",
-            }}
-          >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
             <Typography sx={{ fontSize: 12, color: vars.text }}>
               Select & Upload TLE (.txt / .tle / .json)
             </Typography>
@@ -1062,121 +1003,8 @@ function TleUpdatePanel() {
           </Button>
         </Box>
 
-        {/* Regions & Buckets (feature-flagged) */}
-        {SHOW_REGION_BUCKETS && (
-          <>
-            <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
-            <Box
-              sx={{
-                px: 1.25,
-                py: 0.7,
-                borderBottom: `1px solid ${vars.border}`,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-                Regions & Buckets
-              </Typography>
-            </Box>
-
-            <Box sx={{ p: 1.25, display: "grid", gap: 1.25 }}>
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", md: "140px 240px 1fr 100px" },
-                  gap: 1,
-                }}
-              >
-                <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
-                  <InputLabel>GS</InputLabel>
-                  <Select
-                    label="GS"
-                    value={gsNew}
-                    onChange={(e) => setGsNew(String(e.target.value))}
-                  >
-                    <MenuItem value="gs1">Groundstation 1</MenuItem>
-                    <MenuItem value="gs2">Groundstation 2</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  size="small"
-                  placeholder="Region (e.g., sa-east-1)"
-                  value={regionNew}
-                  onChange={(e) => setRegionNew(e.target.value)}
-                  onBlur={() => setRegionNew((v) => v.trim())}
-                  sx={(t) => ({ ...controlSx, ...filledField(t) })}
-                />
-
-                <TextField
-                  size="small"
-                  placeholder="Bucket name"
-                  value={bucketNew}
-                  onChange={(e) => setBucketNew(e.target.value)}
-                  sx={(t) => ({ ...controlSx, ...filledField(t) })}
-                />
-
-                <Button
-                  onClick={addRow}
-                  variant="contained"
-                  disabled={!gsNew || !regionNew || !bucketNew}
-                  sx={{ textTransform: "none", fontWeight: 700 }}
-                >
-                  Add
-                </Button>
-              </Box>
-
-              <Table
-                size="small"
-                sx={{
-                  borderColor: vars.border,
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderRadius: 1,
-                }}
-              >
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: vars.textDim }}>GS</TableCell>
-                    <TableCell sx={{ color: vars.textDim }}>Region</TableCell>
-                    <TableCell sx={{ color: vars.textDim }}>Bucket</TableCell>
-                    <TableCell sx={{ color: vars.textDim }} align="right">
-                      Actions
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} sx={{ color: vars.textDim }}>
-                        No custom mappings yet. Add one above (optional).
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    rows.map((r, i) => (
-                      <TableRow key={`${r.gs}-${r.region}`}>
-                        <TableCell>{r.gs}</TableCell>
-                        <TableCell>
-                          {KNOWN_REGION_LABELS[r.region] || r.region}
-                        </TableCell>
-                        <TableCell>{r.bucket}</TableCell>
-                        <TableCell align="right">
-                          <IconButton onClick={() => removeRow(i)} size="small">
-                            <DeleteOutlineIcon
-                              sx={{ fontSize: 18, color: vars.textDim }}
-                            />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Box>
-          </>
-        )}
+        {/* optional region/bucket admin table hidden by flag */}
+        {SHOW_REGION_BUCKETS && <></>}
       </Card>
 
       <CaptchaDialog
@@ -1194,7 +1022,7 @@ function TleUpdatePanel() {
   );
 }
 
-/* ---------------- AWS Contacts PANEL (updated UI only) ---------------- */
+/* ---------------- AWS Contacts PANEL ---------------- */
 function AwsContactsPanel() {
   const { t } = useI18n();
 
@@ -1204,7 +1032,7 @@ function AwsContactsPanel() {
   // Filters
   const [region, setRegion] = React.useState<string>("sa-east-1");
   const [satelliteArn, setSatelliteArn] = React.useState<string>("");
-  const [groundStation, setGroundStation] = React.useState<string>("");
+  const [groundStation, setGroundStation] = React.useState<string>("any"); // <- "any" for animated floating label
   const [missionProfileArn, setMissionProfileArn] = React.useState<string>("");
   const [status, setStatus] = React.useState<string>("AVAILABLE");
 
@@ -1239,6 +1067,32 @@ function AwsContactsPanel() {
   const [rows, setRows] = React.useState<ContactRow[]>([]);
   const [loading, setLoading] = React.useState(false);
 
+  /* ---------- SAVE FILTERS → localStorage (+ event) ---------- */
+  const saveUpcomingFilters = React.useCallback(
+    (
+      payload?: Partial<{
+        region: string;
+        satelliteArn: string | null;
+        missionProfileArn: string | null;
+        groundStation: string | null;
+      }>
+    ) => {
+      const data = {
+        region,
+        satelliteArn: satelliteArn || null,
+        missionProfileArn: missionProfileArn || null,
+        // store null for "any" so RightPanel stays clean
+        groundStation: groundStation === "any" ? null : groundStation,
+        ...(payload || {}),
+      };
+      try {
+        localStorage.setItem("awsUpcomingFilters", JSON.stringify(data));
+        window.dispatchEvent(new Event("awsUpcomingFiltersChanged"));
+      } catch {}
+    },
+    [region, satelliteArn, missionProfileArn, groundStation]
+  );
+
   const loadOptions = React.useCallback(async () => {
     setOptionsReady(false);
     try {
@@ -1257,7 +1111,8 @@ function AwsContactsPanel() {
         id: g.id,
         label: g.label,
       }));
-      setGsOptions([{ id: "", label: "Any" }, ...gss]);
+      // IMPORTANT: use a real value 'any' so the label floats/animates
+      setGsOptions([{ id: "any", label: "Any" }, ...gss]);
 
       const mps: Opt[] = (data?.missionProfiles || []).map((m: any) => ({
         id: m.arn || m.id,
@@ -1266,11 +1121,23 @@ function AwsContactsPanel() {
       }));
       setMpOptions([{ id: "", label: "Any" }, ...mps]);
 
+      // If we need defaults, set them and persist for the right rail.
       if (status === "AVAILABLE") {
-        if (!satelliteArn && sats.length)
-          setSatelliteArn(sats[0].arn as string);
-        if (!missionProfileArn && mps.length)
-          setMissionProfileArn((mps[0].arn || mps[0].id) as string);
+        let nextSat = satelliteArn;
+        let nextMp = missionProfileArn;
+        if (!nextSat && sats.length) nextSat = sats[0].arn as string;
+        if (!nextMp && mps.length) nextMp = (mps[0].arn || mps[0].id) as string;
+
+        if (nextSat !== satelliteArn) setSatelliteArn(nextSat);
+        if (nextMp !== missionProfileArn) setMissionProfileArn(nextMp);
+
+        saveUpcomingFilters({
+          satelliteArn: nextSat,
+          missionProfileArn: nextMp,
+          groundStation: groundStation === "any" ? null : groundStation,
+        });
+      } else {
+        saveUpcomingFilters();
       }
     } catch (e: any) {
       console.error(e);
@@ -1278,7 +1145,7 @@ function AwsContactsPanel() {
     } finally {
       setOptionsReady(true);
     }
-  }, [region, gs, status, satelliteArn, missionProfileArn, t]);
+  }, [region, gs, status, satelliteArn, missionProfileArn, groundStation, t, saveUpcomingFilters]);
 
   const badAvailableCombo = React.useMemo(
     () => status === "AVAILABLE" && (!satelliteArn || !missionProfileArn),
@@ -1305,8 +1172,39 @@ function AwsContactsPanel() {
     [satOptions, satelliteArn]
   );
 
+  /* ---------- NEW: IST / UTC format helpers ---------- */
   const fmtUtc = (iso?: string | null) =>
     iso ? iso.replace("T", " ").replace("Z", "Z") : "-";
+
+  const toIst = (iso?: string | null) => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    const opts: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    };
+    return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", ...opts }).format(d);
+  };
+
+  const toUtc = (iso?: string | null) => {
+    if (!iso) return "-";
+    // human friendly UTC with short timezone name
+    const d = new Date(iso);
+    const opts: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    };
+    return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", ...opts }).format(d);
+  };
 
   const loadContacts = React.useCallback(async () => {
     if (badAvailableCombo) {
@@ -1320,7 +1218,7 @@ function AwsContactsPanel() {
         gs,
         filters: {
           satellite: satelliteArn || null,
-          groundStation: groundStation || null,
+          groundStation: groundStation === "any" ? null : groundStation, // convert "any" to null
           missionProfileArn: missionProfileArn || null,
           statusList: status ? [status] : [],
           startTime: startTime ? new Date(startTime).toISOString() : null,
@@ -1382,6 +1280,11 @@ function AwsContactsPanel() {
     gs,
   ]);
 
+  // persist filters whenever user changes them so RightPanel stays in sync
+  React.useEffect(() => {
+    saveUpcomingFilters();
+  }, [region, satelliteArn, missionProfileArn, groundStation, saveUpcomingFilters]);
+
   const statusColor = (s: string) => {
     switch (s) {
       case "AVAILABLE":
@@ -1439,7 +1342,7 @@ function AwsContactsPanel() {
       </Box>
 
       {/* Filters */}
-      <Box
+       <Box
         sx={{
           px: 1.25,
           py: 1,
@@ -1448,6 +1351,7 @@ function AwsContactsPanel() {
           gap: 1,
         }}
       >
+        {/* Region */}
         <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
           <InputLabel>Region</InputLabel>
           <Select
@@ -1458,7 +1362,16 @@ function AwsContactsPanel() {
               setRegion(newRegion);
               setSatelliteArn("");
               setMissionProfileArn("");
-              setGroundStation(DEFAULT_GS_FOR_REGION[newRegion] || "");
+              setGroundStation("any"); // reset to Any for the new region
+              // Persist right away
+              setTimeout(() => {
+                saveUpcomingFilters({
+                  region: newRegion,
+                  satelliteArn: null,
+                  missionProfileArn: null,
+                  groundStation: null,
+                });
+              }, 0);
             }}
           >
             {REGION_OPTIONS.map((o) => (
@@ -1469,6 +1382,7 @@ function AwsContactsPanel() {
           </Select>
         </FormControl>
 
+        {/* Satellite number */}
         <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
           <InputLabel>Satellite number</InputLabel>
           <Select
@@ -1477,9 +1391,7 @@ function AwsContactsPanel() {
             onChange={(e) => setSatelliteArn(String(e.target.value))}
             displayEmpty
             renderValue={(v) =>
-              v
-                ? (satOptions.find((s) => s.arn === v)?.label || v)
-                : "Select satellite"
+              v ? (satOptions.find((s) => s.arn === v)?.label || v) : t("Select satellite")
             }
           >
             {satOptions.map((s) => (
@@ -1490,6 +1402,7 @@ function AwsContactsPanel() {
           </Select>
         </FormControl>
 
+        {/* Ground station (with animation even for Any) */}
         <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
           <InputLabel>Ground station</InputLabel>
           <Select
@@ -1497,7 +1410,11 @@ function AwsContactsPanel() {
             label="Ground station"
             onChange={(e) => setGroundStation(String(e.target.value))}
             displayEmpty
-            renderValue={(v) => (v ? v : "Any")}
+            renderValue={(v) =>
+              v === "any"
+                ? t("Any")
+                : (gsOptions.find((g) => g.id === v)?.label || v)
+            }
           >
             {gsOptions.map((g) => (
               <MenuItem key={g.id} value={g.id}>
@@ -1507,6 +1424,7 @@ function AwsContactsPanel() {
           </Select>
         </FormControl>
 
+        {/* Status */}
         <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
           <InputLabel>Status</InputLabel>
           <Select
@@ -1524,6 +1442,7 @@ function AwsContactsPanel() {
           </Select>
         </FormControl>
 
+        {/* Mission profile */}
         <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
           <InputLabel>Mission profile</InputLabel>
           <Select
@@ -1534,7 +1453,7 @@ function AwsContactsPanel() {
             renderValue={(v) =>
               v
                 ? (mpOptions.find((m) => (m.arn || m.id) === v)?.label || v)
-                : "Any"
+                : t("Any")
             }
           >
             {mpOptions.map((m) => (
@@ -1545,6 +1464,7 @@ function AwsContactsPanel() {
           </Select>
         </FormControl>
 
+        {/* Time range */}
         <Box
           sx={{
             display: "grid",
@@ -1571,7 +1491,7 @@ function AwsContactsPanel() {
         </Box>
       </Box>
 
-      {/* Table (centered, compact, sticky header) */}
+      {/* Table */}
       <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
         <TableContainer
           sx={{
@@ -1584,12 +1504,24 @@ function AwsContactsPanel() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Contact Id</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">Status</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">Catalog number</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">Ground station</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">Start time (UTC)</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">End time (UTC)</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">Max elevation (deg)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">
+                  Status
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">
+                  Catalog number
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">
+                  Ground station
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">
+                  IST Start
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">
+                  UTC Start
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">
+                  Max elevation (deg)
+                </TableCell>
               </TableRow>
             </TableHead>
 
@@ -1599,7 +1531,10 @@ function AwsContactsPanel() {
                   key={idx + r.startTime}
                   hover
                   sx={{
-                    "&:nth-of-type(odd)": { backgroundColor: (t) => (t.palette.mode === "dark" ? "#17171A" : "#FAFAFA") },
+                    "&:nth-of-type(odd)": {
+                      backgroundColor: (t) =>
+                        t.palette.mode === "dark" ? "#17171A" : "#FAFAFA",
+                    },
                     "& td, & th": { borderColor: vars.border, fontSize: 13, py: 1.0 },
                   }}
                 >
@@ -1621,10 +1556,17 @@ function AwsContactsPanel() {
 
                   <TableCell align="center">{r.catalogLabel}</TableCell>
                   <TableCell align="center">{r.groundStation || "-"}</TableCell>
-                  <TableCell align="center">{fmtUtc(r.startTime)}</TableCell>
-                  <TableCell align="center">{fmtUtc(r.endTime)}</TableCell>
+
+                  {/* IST Start (derived from startTime) */}
+                  <TableCell align="center">{toIst(r.startTime)}</TableCell>
+
+                  {/* UTC Start (also derived from startTime) */}
+                  <TableCell align="center">{toUtc(r.startTime)}</TableCell>
+
                   <TableCell align="center">
-                    {typeof r.maxElevationDeg === "number" ? r.maxElevationDeg.toFixed(2) : "-"}
+                    {typeof r.maxElevationDeg === "number"
+                      ? r.maxElevationDeg.toFixed(2)
+                      : "-"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -1644,6 +1586,7 @@ function AwsContactsPanel() {
     </Card>
   );
 }
+
 
 /* ---------- tiny style helpers ---------- */
 const pillSx = {
