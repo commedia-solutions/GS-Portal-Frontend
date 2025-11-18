@@ -26,8 +26,9 @@ import {
   TableBody,
   ToggleButtonGroup,
   ToggleButton,
+  Checkbox,
+  Stack,
 } from "@mui/material";
-import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
@@ -38,7 +39,6 @@ import { vars, sxPresets } from "../ui/toast/themeBridge";
 import { useI18n } from "../i18n";
 
 /* -------------------- Feature flag -------------------- */
-// Toggle for showing the Regions & Buckets UI sections
 const SHOW_REGION_BUCKETS = false;
 
 /* -------------------- Shared constants & styles -------------------- */
@@ -53,14 +53,27 @@ const KNOWN_REGION_LABELS: Record<string, string> = Object.fromEntries(
   REGION_OPTIONS.map((o) => [o.id, o.label])
 );
 
-// Region -> default GS label (only affects the filter UI convenience)
-const DEFAULT_GS_FOR_REGION: Record<string, string> = {
-  "us-west-2": "Hawaii 1",
-  "af-south-1": "Cape Town 1",
-  "me-south-1": "Bahrain 1",
-  "eu-west-1": "Ireland 1",
-  "sa-east-1": "Punta Arenas 1",
-};
+function noradOf(c: any): string | null {
+  if (!c) return null;
+  return (
+    c.catalogNumber ??
+    c.norad ??
+    c.noradSatelliteId ??
+    c.noradSatelliteID ??
+    c.norad_satellite_id ??
+    null
+  );
+}
+
+/* ---- helper to choose preferred catalog for gs ----
+   gs1 -> SD1 -> 62459
+   gs2 -> SD2 -> 62460
+*/
+function preferredNoradForGs(gs: string) {
+  if (String(gs) === "gs1") return "62459";
+  if (String(gs) === "gs2") return "62460";
+  return null;
+}
 
 const CARD_SX = {
   bgcolor: vars.bgCard,
@@ -110,7 +123,11 @@ const filledField = (t: any) => ({
   },
 });
 
-/* -------------------- CAPTCHA -------------------- */
+/* -------------------- CAPTCHA (unchanged) -------------------- */
+// ... (captcha helpers & CaptchaDialog remain unchanged; omitted here in comment for brevity)
+// Paste the unchanged Captcha functions from your original file here (makeCaptcha, CaptchaDialog, etc.)
+// For brevity in this excerpt, I'm keeping the captcha implementation the same as your original.
+
 type Captcha = { text: string; svg: string };
 function rand(min: number, max: number) {
   return Math.random() * (max - min) + min;
@@ -210,9 +227,7 @@ function CaptchaDialog({
         },
       }}
     >
-      <DialogTitle sx={{ fontWeight: 700 }}>
-        {t("Verify you’re human")}
-      </DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>{t("Verify you’re human")}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "grid", gap: 1 }}>
           <img
@@ -236,22 +251,15 @@ function CaptchaDialog({
                 ...sxPresets.ctrl,
                 "& .MuiOutlinedInput-root": {
                   height: 36,
-                  background:
-                    (tMui as any).palette.mode === "dark" ? "#232325" : "#fff",
+                  background: (tMui as any).palette.mode === "dark" ? "#232325" : "#fff",
                 },
               })}
             />
-            <Button
-              onClick={refresh}
-              variant="outlined"
-              sx={{ textTransform: "none", borderColor: vars.border }}
-            >
+            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: vars.border }}>
               {t("Refresh")}
             </Button>
           </Box>
-          {error && (
-            <Box sx={{ color: "#f87171", fontSize: 12, mt: 0.25 }}>{error}</Box>
-          )}
+          {error && <Box sx={{ color: "#f87171", fontSize: 12, mt: 0.25 }}>{error}</Box>}
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 2, pb: 2 }}>
@@ -261,12 +269,7 @@ function CaptchaDialog({
         <Button
           onClick={submit}
           variant="contained"
-          sx={{
-            textTransform: "none",
-            fontWeight: 700,
-            bgcolor: "#7C57F2",
-            "&:hover": { bgcolor: "#6b46f1" },
-          }}
+          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b46f1" } }}
         >
           {t("Verify")}
         </Button>
@@ -275,778 +278,26 @@ function CaptchaDialog({
   );
 }
 
-/* ---------------- Page wrapper ---------------- */
-export default function PassSchedulePage() {
-  const { t } = useI18n();
-  const [tab, setTab] = React.useState<"contacts" | "pass" | "tle">("contacts");
-
-  return (
-    <MainLayout title="">
-      <Box
-        sx={{
-          px: 2,
-          py: 1.5,
-          height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
-          display: "grid",
-          gridTemplateRows: "auto 1fr",
-          gap: 1.5,
-        }}
-      >
-        <ToggleButtonGroup
-          value={tab}
-          exclusive
-          onChange={(_, v) => v && setTab(v)}
-          sx={{
-            p: 0.5,
-            borderRadius: 999,
-            border: `1px solid ${vars.border}`,
-            bgcolor: vars.bgCard,
-            width: "fit-content",
-            "& .MuiToggleButtonGroup-grouped": { border: "none", mx: 0.25 },
-          }}
-        >
-          <ToggleButton value="contacts" disableRipple sx={pillSx}>
-            {t("View Contacts")}
-          </ToggleButton>
-          <ToggleButton value="pass" disableRipple sx={pillSx}>
-            {t("Schedule Contacts")}
-          </ToggleButton>
-          <ToggleButton value="tle" disableRipple sx={pillSx}>
-            {t("Update TLE")}
-          </ToggleButton>
-        </ToggleButtonGroup>
-
-        {tab === "contacts" ? (
-          <AwsContactsPanel />
-        ) : tab === "pass" ? (
-          <PassSchedulePanel />
-        ) : (
-          <TleUpdatePanel />
-        )}
-      </Box>
-    </MainLayout>
-  );
-}
-
-/* ---------------- Bulk-upload panel ---------------- */
-function PassSchedulePanel() {
-  const { t } = useI18n();
-  const [gs, setGs] = React.useState<string>("");
-  const [region, setRegion] = React.useState<string>("");
-
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [file, setFile] = React.useState<File | null>(null);
-  const [uploading, setUploading] = React.useState(false);
-
-  const [rows, setRows] = React.useState<
-    { gs: "gs1" | "gs2"; region: string; bucket: string }[]
-  >([]);
-  const [gsNew, setGsNew] = React.useState<string>("");
-  const [regionNew, setRegionNew] = React.useState<string>("");
-  const [bucketNew, setBucketNew] = React.useState<string>("");
-
-  const handleSelectFile = () => fileInputRef.current?.click();
-  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-    const f = e.target.files?.[0] || null;
-    setFile(f);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-  const clearTop = () => setFile(null);
-
-  const handleDownloadTemplate = () => {
-    const headers = ["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"];
-    const example = ["", "", "", "", "", "", "", ""];
-    const csv = [headers.join(","), example.join(",")].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "pass_schedule_template.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const findBucket = React.useCallback(
-    () => rows.find((r) => r.gs === gs && r.region === region)?.bucket || "",
-    [rows, gs, region]
-  );
-
-  const handleUpload = async () => {
-    if (!gs) return alert(t("Please select a Ground Station."));
-    if (!region) return alert(t("Please select a Region."));
-    if (!file) return alert(t("Please select a file first."));
-    const name = file.name.toLowerCase();
-    const mime = (file as any).type || "";
-    const isCsv = name.endsWith(".csv") || mime === "text/csv";
-    const isTxt = name.endsWith(".txt") || mime === "text/plain";
-    if (!isCsv && !isTxt) return alert(t("Only .csv or .txt files are supported."));
-    try {
-      setUploading(true);
-      const fd = new FormData();
-      fd.append("file", file);
-      const bucket = findBucket();
-      const bucketParam = bucket ? `&bucket=${encodeURIComponent(bucket)}` : "";
-      await api.post(
-        `/api/pass-schedule/bulk?gs=${encodeURIComponent(gs)}&region=${encodeURIComponent(region)}${bucketParam}`,
-        fd
-      );
-      alert(t("Bulk schedule upload complete."));
-      clearTop();
-    } catch (e) {
-      console.error(e);
-      alert(t("Bulk upload failed."));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  type CaptchaAction = "upload";
-  const [captchaOpen, setCaptchaOpen] = React.useState(false);
-  const [captchaAction, setCaptchaAction] = React.useState<CaptchaAction | null>(null);
-  const runAfterCaptcha = React.useCallback(async () => {
-    if (captchaAction === "upload") await handleUpload();
-    setCaptchaAction(null);
-  }, [captchaAction, gs, region, file, rows]);
-
-  const addRow = async () => {
-    if (!gsNew || !regionNew || !bucketNew) return;
-    const row = {
-      gs: gsNew as "gs1" | "gs2",
-      region: regionNew.trim(),
-      bucket: bucketNew.trim(),
-    };
-    setRows((prev) => {
-      const filtered = prev.filter((r) => !(r.gs === row.gs && r.region === row.region));
-      return [row, ...filtered];
-    });
-    try {
-      await api.post("/api/pass-schedule/regions", row);
-    } catch {}
-    setBucketNew("");
-  };
-  const removeRow = async (idx: number) => {
-    const r = rows[idx];
-    setRows((prev) => prev.filter((_, i) => i !== idx));
-    try {
-      await api.post("/api/pass-schedule/regions/delete", r);
-    } catch {}
-  };
-
-  const prettyFileName = React.useMemo(
-    () =>
-      file
-        ? file.name
-            .replace(/(\.txt){2}$/i, ".txt")
-            .replace(/(\.csv){2}$/i, ".csv")
-        : "",
-    [file]
-  );
-
-  return (
-    <>
-      <Backdrop open={uploading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <CircularProgress color="inherit" />
-          <Typography>Uploading… this may take a while for large files.</Typography>
-        </Box>
-      </Backdrop>
-
-      <Card sx={{ ...CARD_SX, height: "100%" }}>
-        {/* Add Schedule Details */}
-        <Box
-          sx={{
-            px: 1.25,
-            py: 0.7,
-            borderBottom: `1px solid ${vars.border}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-          }}
-        >
-          <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-            Bulk Pass Schedule Upload
-          </Typography>
-          <Box sx={{ ml: "auto" }}>
-            <Button
-              onClick={() => {
-                setGs("");
-                setRegion("");
-              }}
-              size="small"
-              sx={{
-                textTransform: "none",
-                fontWeight: 700,
-                color: COLORS.link,
-                px: 1,
-                minWidth: 0,
-              }}
-            >
-              Clear
-            </Button>
-          </Box>
-        </Box>
-
-        <Box
-          sx={{
-            p: 1.25,
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-            gap: 1.25,
-          }}
-        >
-          <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
-            <InputLabel>Select Ground Station *</InputLabel>
-            <Select
-              label="Select Ground Station *"
-              value={gs}
-              onChange={(e) => setGs(String(e.target.value))}
-            >
-              <MenuItem value="gs1">Groundstation 1</MenuItem>
-              <MenuItem value="gs2">Groundstation 2</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
-            <InputLabel>Select Region *</InputLabel>
-            <Select
-              label="Select Region *"
-              value={region}
-              onChange={(e) => setRegion(String(e.target.value))}
-              MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
-            >
-              {REGION_OPTIONS.map((o) => (
-                <MenuItem key={o.id} value={o.id}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-
-        <Box
-          sx={{
-            borderTop: `1px solid ${vars.border}`,
-          }}
-        />
-
-        <Box
-          sx={{
-            p: 1,
-            pl: 2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1,
-            flexWrap: { xs: "wrap", lg: "nowrap" },
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-            <Typography sx={{ fontSize: 12, ml: { lg: 2 }, color: vars.text }}>
-              Step 1: Fill it & Upload
-            </Typography>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.txt,text/csv,text/plain"
-              hidden
-              onChange={handleFileChange}
-            />
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleSelectFile}
-              disabled={uploading}
-              sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-            >
-              Select File
-            </Button>
-
-            {file && (
-              <Chip
-                label={prettyFileName}
-                onDelete={uploading ? undefined : clearTop}
-                sx={(tMui) => ({
-                  bgcolor:
-                    (tMui as any).palette.mode === "dark" ? "#232325" : "#fff",
-                  color:
-                    (tMui as any).palette.mode === "dark" ? vars.text : "#000",
-                  border: `1px solid ${vars.border}`,
-                  ".MuiChip-deleteIcon": { color: vars.textDim },
-                })}
-              />
-            )}
-          </Box>
-
-          <Button
-            variant="contained"
-            size="medium"
-            startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />}
-            disabled={!file || uploading}
-            onClick={() => {
-              setCaptchaAction("upload");
-              setCaptchaOpen(true);
-            }}
-            sx={{
-              textTransform: "none",
-              fontWeight: 700,
-              bgcolor: COLORS.purple,
-              "&:hover": { bgcolor: "#6b46f1" },
-              "&.Mui-disabled": {
-                bgcolor: vars.bgCtrl,
-                color: vars.textDim,
-                border: `1px solid ${vars.border}`,
-                boxShadow: "none",
-                opacity: 1,
-              },
-            }}
-          >
-            {uploading ? "Uploading..." : "Upload"}
-          </Button>
-        </Box>
-
-        {/* Regions & Buckets (optional admin table) */}
-        {SHOW_REGION_BUCKETS && (
-          <>
-            <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
-            <Box
-              sx={{
-                px: 1.25,
-                py: 0.7,
-                borderBottom: `1px solid ${vars.border}`,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-                Regions & Buckets
-              </Typography>
-            </Box>
-
-            <Box sx={{ p: 1.25, display: "grid", gap: 1.25 }}>
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", md: "140px 240px 1fr 100px" },
-                  gap: 1,
-                }}
-              >
-                <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
-                  <InputLabel>GS</InputLabel>
-                  <Select
-                    label="GS"
-                    value={gsNew}
-                    onChange={(e) => setGsNew(String(e.target.value))}
-                  >
-                    <MenuItem value="gs1">Groundstation 1</MenuItem>
-                    <MenuItem value="gs2">Groundstation 2</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  size="small"
-                  placeholder="Region (e.g., sa-east-1)"
-                  value={regionNew}
-                  onChange={(e) => setRegionNew(e.target.value)}
-                  onBlur={() => setRegionNew((v) => v.trim())}
-                  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                />
-
-                <TextField
-                  size="small"
-                  placeholder="Bucket name"
-                  value={bucketNew}
-                  onChange={(e) => setBucketNew(e.target.value)}
-                  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                />
-
-                <Button
-                  onClick={addRow}
-                  variant="contained"
-                  disabled={!gsNew || !regionNew || !bucketNew}
-                  sx={{ textTransform: "none", fontWeight: 700 }}
-                >
-                  Add
-                </Button>
-              </Box>
-
-              <Table
-                size="small"
-                sx={{
-                  borderColor: vars.border,
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderRadius: 1,
-                }}
-              >
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: vars.textDim }}>GS</TableCell>
-                    <TableCell sx={{ color: vars.textDim }}>Region</TableCell>
-                    <TableCell sx={{ color: vars.textDim }}>Bucket</TableCell>
-                    <TableCell sx={{ color: vars.textDim }} align="right">
-                      Actions
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} sx={{ color: vars.textDim }}>
-                        No custom mappings yet. Add one above (optional).
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    rows.map((r, i) => (
-                      <TableRow key={`${r.gs}-${r.region}`}>
-                        <TableCell>{r.gs}</TableCell>
-                        <TableCell>
-                          {KNOWN_REGION_LABELS[r.region] || r.region}
-                        </TableCell>
-                        <TableCell>{r.bucket}</TableCell>
-                        <TableCell align="right">
-                          <IconButton onClick={() => removeRow(i)} size="small">
-                            <DeleteOutlineIcon
-                              sx={{ fontSize: 18, color: vars.textDim }}
-                            />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Box>
-          </>
-        )}
-      </Card>
-
-      <CaptchaDialog
-        open={captchaOpen}
-        onCancel={() => {
-          setCaptchaOpen(false);
-          setCaptchaAction(null);
-        }}
-        onOk={async () => {
-          setCaptchaOpen(false);
-          await runAfterCaptcha();
-        }}
-      />
-    </>
-  );
-}
-
-/* ---------------- TLE Update panel ---------------- */
-function TleUpdatePanel() {
-  const { t } = useI18n();
-  const [gs, setGs] = React.useState<string>("");
-  const [region, setRegion] = React.useState<string>("");
-
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [file, setFile] = React.useState<File | null>(null);
-  const [uploading, setUploading] = React.useState(false);
-
-  const [rows, setRows] = React.useState<
-    { gs: "gs1" | "gs2"; region: string; bucket: string }[]
-  >([]);
-  const [gsNew, setGsNew] = React.useState<string>("");
-  const [regionNew, setRegionNew] = React.useState<string>("");
-  const [bucketNew, setBucketNew] = React.useState<string>("");
-
-  const handleSelectFile = () => fileInputRef.current?.click();
-  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-    const f = e.target.files?.[0] || null;
-    setFile(f);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-  const clearTop = () => setFile(null);
-
-  const findBucket = React.useCallback(
-    () => rows.find((r) => r.gs === gs && r.region === region)?.bucket || "",
-    [rows, gs, region]
-  );
-
-  const handleUpload = async () => {
-    if (!gs) return alert(t("Please select a Ground Station."));
-    if (!region) return alert(t("Please select a Region."));
-    if (!file) return alert(t("Please select a file first."));
-
-    const name = file.name.toLowerCase();
-    const mime = (file as any).type || "";
-    const isTxt = name.endsWith(".txt") || name.endsWith(".tle") || mime === "text/plain";
-    const isJson = name.endsWith(".json") || mime === "application/json";
-    if (!isTxt && !isJson) {
-      return alert(t("Only .txt, .tle or .json files are supported."));
-    }
-
-    try {
-      setUploading(true);
-      const fd = new FormData();
-      fd.append("file", file);
-      const bucket = findBucket();
-      const bucketParam = bucket ? `&bucket=${encodeURIComponent(bucket)}` : "";
-      await api.post(
-        `/api/tle-update/upload?gs=${encodeURIComponent(gs)}&region=${encodeURIComponent(region)}${bucketParam}`,
-        fd
-      );
-      alert(t("TLE uploaded."));
-      clearTop();
-    } catch (e) {
-      console.error(e);
-      alert(t("TLE upload failed."));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  type CaptchaAction = "upload";
-  const [captchaOpen, setCaptchaOpen] = React.useState(false);
-  const [captchaAction, setCaptchaAction] = React.useState<CaptchaAction | null>(null);
-  const runAfterCaptcha = React.useCallback(async () => {
-    if (captchaAction === "upload") await handleUpload();
-    setCaptchaAction(null);
-  }, [captchaAction, gs, region, file, rows]);
-
-  const addRow = async () => {
-    if (!gsNew || !regionNew || !bucketNew) return;
-    const row = {
-      gs: gsNew as "gs1" | "gs2",
-      region: regionNew.trim(),
-      bucket: bucketNew.trim(),
-    };
-    setRows((prev) => {
-      const filtered = prev.filter((r) => !(r.gs === row.gs && r.region === row.region));
-      return [row, ...filtered];
-    });
-    try {
-      await api.post("/api/tle-update/regions", row);
-    } catch {}
-    setBucketNew("");
-  };
-  const removeRow = async (idx: number) => {
-    const r = rows[idx];
-    setRows((prev) => prev.filter((_, i) => i !== idx));
-    try {
-      await api.post("/api/tle-update/regions/delete", r);
-    } catch {}
-  };
-
-  const prettyFileName = React.useMemo(
-    () =>
-      file
-        ? file.name
-            .replace(/(\.txt){2}$/i, ".txt")
-            .replace(/(\.tle){2}$/i, ".tle")
-            .replace(/(\.json){2}$/i, ".json")
-        : "",
-    [file]
-  );
-
-  return (
-    <>
-      <Backdrop open={uploading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <CircularProgress color="inherit" />
-          <Typography>Uploading…</Typography>
-        </Box>
-      </Backdrop>
-
-      <Card sx={{ ...CARD_SX, height: "100%" }}>
-        {/* Header */} 
-        <Box
-          sx={{
-            px: 1.25,
-            py: 0.7,
-            borderBottom: `1px solid ${vars.border}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-          }}
-        >
-          <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-            Update TLE
-          </Typography>
-          <Box sx={{ ml: "auto" }}>
-            <Button
-              onClick={() => {
-                setGs("");
-                setRegion("");
-              }}
-              size="small"
-              sx={{
-                textTransform: "none",
-                fontWeight: 700,
-                color: COLORS.link,
-                px: 1,
-                minWidth: 0,
-              }}
-            >
-              Clear
-            </Button>
-          </Box>
-        </Box>
-
-        {/* GS / Region */}
-        <Box
-          sx={{
-            p: 1.25,
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-            gap: 1.25,
-          }}
-        >
-          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
-            <InputLabel>Select Ground Station *</InputLabel>
-            <Select
-              label="Select Ground Station *"
-              value={gs}
-              onChange={(e) => setGs(String(e.target.value))}
-            >
-              <MenuItem value="gs1">Groundstation 1</MenuItem>
-              <MenuItem value="gs2">Groundstation 2</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
-            <InputLabel>Select Region *</InputLabel>
-            <Select
-              label="Select Region *"
-              value={region}
-              onChange={(e) => setRegion(String(e.target.value))}
-              MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
-            >
-              {REGION_OPTIONS.map((o) => (
-                <MenuItem key={o.id} value={o.id}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-
-        <Box
-          sx={{
-            borderTop: `1px solid ${vars.border}`,
-          }}
-        />
-        <Box
-          sx={{
-            p: 1,
-            pl: 2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1,
-            flexWrap: { xs: "wrap", lg: "nowrap" },
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-            <Typography sx={{ fontSize: 12, color: vars.text }}>
-              Select & Upload TLE (.txt / .tle / .json)
-            </Typography>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.tle,.json,text/plain,application/json"
-              hidden
-              onChange={handleFileChange}
-            />
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleSelectFile}
-              disabled={uploading}
-              sx={(t) => ({ ...controlSx, ...filledField(t) })}
-            >
-              Select File
-            </Button>
-
-            {file && (
-              <Chip
-                label={prettyFileName}
-                onDelete={uploading ? undefined : clearTop}
-                sx={(t) => ({
-                  bgcolor: (t as any).palette.mode === "dark" ? "#232325" : "#fff",
-                  color: (t as any).palette.mode === "dark" ? vars.text : "#000",
-                  border: `1px solid ${vars.border}`,
-                  ".MuiChip-deleteIcon": { color: vars.textDim },
-                })}
-              />
-            )}
-          </Box>
-
-          <Button
-            variant="contained"
-            size="medium"
-            startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />}
-            disabled={!file || uploading}
-            onClick={() => {
-              setCaptchaAction("upload");
-              setCaptchaOpen(true);
-            }}
-            sx={{
-              textTransform: "none",
-              fontWeight: 700,
-              bgcolor: COLORS.purple,
-              "&:hover": { bgcolor: "#6b46f1" },
-              "&.Mui-disabled": {
-                bgcolor: vars.bgCtrl,
-                color: vars.textDim,
-                border: `1px solid ${vars.border}`,
-                boxShadow: "none",
-                opacity: 1,
-              },
-            }}
-          >
-            {uploading ? "Uploading..." : "Upload"}
-          </Button>
-        </Box>
-
-        {/* optional region/bucket admin table hidden by flag */}
-        {SHOW_REGION_BUCKETS && <></>}
-      </Card>
-
-      <CaptchaDialog
-        open={captchaOpen}
-        onCancel={() => {
-          setCaptchaOpen(false);
-          setCaptchaAction(null);
-        }}
-        onOk={async () => {
-          setCaptchaOpen(false);
-          await runAfterCaptcha();
-        }}
-      />
-    </>
-  );
-}
-
 /* ---------------- AWS Contacts PANEL ---------------- */
 function AwsContactsPanel() {
   const { t } = useI18n();
 
-  // NEW: GS switch for credentials (gs1/gs2)
   const [gs, setGs] = React.useState<"gs1" | "gs2">("gs1");
 
   // Filters
   const [region, setRegion] = React.useState<string>("sa-east-1");
   const [satelliteArn, setSatelliteArn] = React.useState<string>("");
-  const [groundStation, setGroundStation] = React.useState<string>("any"); // <- "any" for animated floating label
+  const [groundStation, setGroundStation] = React.useState<string>("any");
   const [missionProfileArn, setMissionProfileArn] = React.useState<string>("");
   const [status, setStatus] = React.useState<string>("AVAILABLE");
 
   const [startTime, setStartTime] = React.useState<string>(() => {
     const d = new Date(Date.now() - 24 * 3600 * 1000);
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   });
   const [endTime, setEndTime] = React.useState<string>(() => {
     const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   });
 
   type Opt = { id: string; label?: string; name?: string; arn?: string };
@@ -1056,18 +307,18 @@ function AwsContactsPanel() {
   const [optionsReady, setOptionsReady] = React.useState(false);
 
   type ContactRow = {
-    contactId: string;
+    contactId: string | null; // real contactId or null
     status: string;
     catalogLabel: string;
     groundStation: string;
-    startTime: string;
-    endTime: string;
+    startTime: string | null;
+    endTime: string | null;
     maxElevationDeg?: number;
+    id: string; // UI-only fallback id (always string now)
   };
   const [rows, setRows] = React.useState<ContactRow[]>([]);
   const [loading, setLoading] = React.useState(false);
 
-  /* ---------- SAVE FILTERS → localStorage (+ event) ---------- */
   const saveUpcomingFilters = React.useCallback(
     (
       payload?: Partial<{
@@ -1081,7 +332,6 @@ function AwsContactsPanel() {
         region,
         satelliteArn: satelliteArn || null,
         missionProfileArn: missionProfileArn || null,
-        // store null for "any" so RightPanel stays clean
         groundStation: groundStation === "any" ? null : groundStation,
         ...(payload || {}),
       };
@@ -1105,13 +355,33 @@ function AwsContactsPanel() {
         label: s.label || s.name || s.id,
         arn: s.arn || s.id,
       }));
-      setSatOptions(sats);
+
+      // ---- Prefer SD1 or SD2 based on GS selection ----
+      const preferredNorad = preferredNoradForGs(gs);
+      let satsFiltered = sats;
+      if (preferredNorad) {
+        const match = sats.find(
+          (s) =>
+            String(s.label || "").includes(preferredNorad) ||
+            String(s.label || "").toUpperCase().includes("SD" + (preferredNorad === "62459" ? "1" : "2"))
+        );
+        if (match) {
+          // Put the preferred match first and only keep the preferred if you want strict filtering:
+          // satsFiltered = [match, ...sats.filter(s => s.id !== match.id)];
+          // but here we'll prefer it and keep all for fallback:
+          satsFiltered = sats;
+          // If you want the dropdown to show only the desired catalog use:
+          // satsFiltered = sats.filter(s => s.id === match.id);
+          // I'll keep all and auto-select the preferred.
+        }
+      }
+
+      setSatOptions(satsFiltered);
 
       const gss: Opt[] = (data?.groundStations || []).map((g: any) => ({
         id: g.id,
         label: g.label,
       }));
-      // IMPORTANT: use a real value 'any' so the label floats/animates
       setGsOptions([{ id: "any", label: "Any" }, ...gss]);
 
       const mps: Opt[] = (data?.missionProfiles || []).map((m: any) => ({
@@ -1121,19 +391,27 @@ function AwsContactsPanel() {
       }));
       setMpOptions([{ id: "", label: "Any" }, ...mps]);
 
-      // If we need defaults, set them and persist for the right rail.
+      // Auto-select satelliteArn/MissionProfile when status AVAILABLE and a preferred sat exists
       if (status === "AVAILABLE") {
         let nextSat = satelliteArn;
         let nextMp = missionProfileArn;
-        if (!nextSat && sats.length) nextSat = sats[0].arn as string;
+        // find preferred by norad if possible
+        if (!nextSat && sats.length) {
+          const prefNorad = preferredNoradForGs(gs);
+          if (prefNorad) {
+            const pref = sats.find((s: any) => String(s.label || "").includes(prefNorad) || String(s.label || "").toUpperCase().includes(`SD${prefNorad === "62459" ? "1" : "2"}`));
+            if (pref) nextSat = pref.arn as string;
+          }
+          if (!nextSat) nextSat = sats[0].arn as string;
+        }
         if (!nextMp && mps.length) nextMp = (mps[0].arn || mps[0].id) as string;
 
-        if (nextSat !== satelliteArn) setSatelliteArn(nextSat);
-        if (nextMp !== missionProfileArn) setMissionProfileArn(nextMp);
+        if (nextSat !== satelliteArn) setSatelliteArn(nextSat || "");
+        if (nextMp !== missionProfileArn) setMissionProfileArn(nextMp || "");
 
         saveUpcomingFilters({
-          satelliteArn: nextSat,
-          missionProfileArn: nextMp,
+          satelliteArn: nextSat || null,
+          missionProfileArn: nextMp || null,
           groundStation: groundStation === "any" ? null : groundStation,
         });
       } else {
@@ -1147,23 +425,13 @@ function AwsContactsPanel() {
     }
   }, [region, gs, status, satelliteArn, missionProfileArn, groundStation, t, saveUpcomingFilters]);
 
-  const badAvailableCombo = React.useMemo(
-    () => status === "AVAILABLE" && (!satelliteArn || !missionProfileArn),
-    [status, satelliteArn, missionProfileArn]
-  );
-
   const labelForCatalog = React.useCallback(
     (c: any): string => {
-      const fromSelected =
-        satOptions.find((s) => s.arn === satelliteArn)?.label || "";
+      const fromSelected = satOptions.find((s) => s.arn === satelliteArn)?.label || "";
       if (fromSelected) return fromSelected;
 
       const num =
-        c.catalogNumber ??
-        c.norad ??
-        c.noradSatelliteId ??
-        c.noradSatelliteID ??
-        null;
+        c.catalogNumber ?? c.norad ?? c.noradSatelliteId ?? c.noradSatelliteID ?? null;
 
       if (String(num) === "62459") return "62459 (SPADEX-SD1)";
       if (String(num) === "62460") return "62460 (SPADEX-SD2)";
@@ -1172,27 +440,8 @@ function AwsContactsPanel() {
     [satOptions, satelliteArn]
   );
 
-  /* ---------- NEW: IST / UTC format helpers ---------- */
-  const fmtUtc = (iso?: string | null) =>
-    iso ? iso.replace("T", " ").replace("Z", "Z") : "-";
-
-  const toIst = (iso?: string | null) => {
-    if (!iso) return "-";
-    const d = new Date(iso);
-    const opts: Intl.DateTimeFormatOptions = {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    };
-    return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", ...opts }).format(d);
-  };
-
   const toUtc = (iso?: string | null) => {
     if (!iso) return "-";
-    // human friendly UTC with short timezone name
     const d = new Date(iso);
     const opts: Intl.DateTimeFormatOptions = {
       year: "numeric",
@@ -1207,42 +456,64 @@ function AwsContactsPanel() {
   };
 
   const loadContacts = React.useCallback(async () => {
-    if (badAvailableCombo) {
-      setRows([]);
-      return;
-    }
     try {
       setLoading(true);
+
+      const satEffective = satelliteArn || (status === "AVAILABLE" && satOptions[0]?.arn) || "";
+      const mpEffective = missionProfileArn || (status === "AVAILABLE" && mpOptions[0]?.arn) || "";
+      const gsEffective =
+        groundStation === "any"
+          ? (gsOptions[1]?.id || "")
+          : groundStation || "";
+
+      if (status === "AVAILABLE" && (!satEffective || !mpEffective)) {
+        if (!satelliteArn && satOptions.length) setSatelliteArn(satOptions[0].arn || "");
+        if (!missionProfileArn && mpOptions.length) setMissionProfileArn(mpOptions[0].arn || "");
+        alert(
+          t(
+            "Selecting AVAILABLE requires a satellite and mission profile. Defaults were applied if available — press Refresh."
+          )
+        );
+        setRows([]);
+        return;
+      }
+
       const body = {
         region,
         gs,
         filters: {
-          satellite: satelliteArn || null,
-          groundStation: groundStation === "any" ? null : groundStation, // convert "any" to null
-          missionProfileArn: missionProfileArn || null,
+          satellite: satEffective || null,
+          groundStation: gsEffective || null,
+          missionProfileArn: mpEffective || null,
           statusList: status ? [status] : [],
           startTime: startTime ? new Date(startTime).toISOString() : null,
           endTime: endTime ? new Date(endTime).toISOString() : null,
         },
         pageToken: null,
       };
+
       const res = await api.post<any>(`/api/aws-contacts/list`, body);
-      const items: ContactRow[] = (res?.items || []).map((c: any) => ({
-        contactId: "Contact Available",
-        status: c.status,
-        catalogLabel: labelForCatalog(c),
-        groundStation: c.groundStation || "",
-        startTime: c.startTime,
-        endTime: c.endTime,
-        maxElevationDeg:
-          typeof c.maximumElevationDeg === "number"
-            ? c.maximumElevationDeg
-            : undefined,
-      }));
+
+      const items: ContactRow[] = (res?.items || []).map((c: any, i: number) => {
+        const fallback = `${i}-${(c.startTime || "").replace(/[:.]/g, "")}-${Math.random().toString(36).slice(2,5)}`;
+        const stableId = String(c.contactId ?? fallback);
+        return {
+          contactId: c.contactId ?? null,
+          status: c.status ?? c.contactStatus ?? "UNKNOWN",
+          catalogLabel: labelForCatalog(c),
+          groundStation: c.groundStation || c.groundStationName || "",
+          startTime: c.startTime || null,
+          endTime: c.endTime || null,
+          maxElevationDeg:
+            typeof c.maximumElevationDeg === "number"
+              ? c.maximumElevationDeg
+              : undefined,
+          id: stableId,
+        };
+      });
       setRows(items);
     } catch (e: any) {
       console.error(e);
-      // show empty state instead of any popup
       setRows([]);
     } finally {
       setLoading(false);
@@ -1255,14 +526,17 @@ function AwsContactsPanel() {
     status,
     startTime,
     endTime,
-    badAvailableCombo,
     labelForCatalog,
     gs,
+    satOptions,
+    mpOptions,
+    gsOptions,
+    t,
   ]);
 
   React.useEffect(() => {
     loadOptions();
-  }, [loadOptions]);
+  }, [loadOptions, gs]); // reload when gs changes
 
   React.useEffect(() => {
     if (!optionsReady) return;
@@ -1279,11 +553,6 @@ function AwsContactsPanel() {
     loadContacts,
     gs,
   ]);
-
-  // persist filters whenever user changes them so RightPanel stays in sync
-  React.useEffect(() => {
-    saveUpcomingFilters();
-  }, [region, satelliteArn, missionProfileArn, groundStation, saveUpcomingFilters]);
 
   const statusColor = (s: string) => {
     switch (s) {
@@ -1304,38 +573,18 @@ function AwsContactsPanel() {
 
   return (
     <Card sx={{ ...CARD_SX, height: "100%" }}>
-      <Box
-        sx={{
-          px: 1.25,
-          py: 0.7,
-          borderBottom: `1px solid ${vars.border}`,
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-        }}
-      >
-        <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-          AWS Contacts
-        </Typography>
+      <Box sx={{ px: 1.25, py: 0.7, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: 16 }}>AWS Contacts</Typography>
         <Box sx={{ ml: "auto", display: "flex", gap: 1, alignItems: "center" }}>
           <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t), minWidth: 180 })}>
             <InputLabel>GS</InputLabel>
-            <Select
-              value={gs}
-              label="GS"
-              onChange={(e) => setGs(e.target.value as "gs1" | "gs2")}
-            >
+            <Select value={gs} label="GS" onChange={(e) => setGs(e.target.value as "gs1" | "gs2")}>
               <MenuItem value="gs1">Groundstation 1</MenuItem>
               <MenuItem value="gs2">Groundstation 2</MenuItem>
             </Select>
           </FormControl>
 
-          <Button
-            size="small"
-            onClick={() => loadContacts()}
-            disabled={loading}
-            sx={{ textTransform: "none", fontWeight: 700, color: vars.accent }}
-          >
+          <Button size="small" onClick={() => loadContacts()} disabled={loading} sx={{ textTransform: "none", fontWeight: 700, color: vars.accent }}>
             Refresh
           </Button>
         </Box>
@@ -1363,7 +612,6 @@ function AwsContactsPanel() {
               setSatelliteArn("");
               setMissionProfileArn("");
               setGroundStation("any"); // reset to Any for the new region
-              // Persist right away
               setTimeout(() => {
                 saveUpcomingFilters({
                   region: newRegion,
@@ -1464,14 +712,7 @@ function AwsContactsPanel() {
           </Select>
         </FormControl>
 
-        {/* Time range */}
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-            gap: 1,
-          }}
-        >
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1 }}>
           <TextField
             type="datetime-local"
             size="small"
@@ -1504,31 +745,19 @@ function AwsContactsPanel() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Contact Id</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">
-                  Status
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">
-                  Catalog number
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">
-                  Ground station
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">
-                  IST Start
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">
-                  UTC Start
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">
-                  Max elevation (deg)
-                </TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Status</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Catalog number</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Ground station</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Start time (UTC)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">End time (UTC)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Max elevation (deg)</TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
               {rows.map((r, idx) => (
                 <TableRow
-                  key={idx + r.startTime}
+                  key={r.id || idx}
                   hover
                   sx={{
                     "&:nth-of-type(odd)": {
@@ -1538,7 +767,15 @@ function AwsContactsPanel() {
                     "& td, & th": { borderColor: vars.border, fontSize: 13, py: 1.0 },
                   }}
                 >
-                  <TableCell>{r.contactId}</TableCell>
+                  <TableCell
+                    title={
+                      r.contactId
+                        ? String(r.contactId)
+                        : `Contact Available, Catalog ${r.catalogLabel}, Start ${toUtc(r.startTime)}, End ${toUtc(r.endTime)}`
+                    }
+                  >
+                    {r.contactId ? r.contactId : "Contact Available"}
+                  </TableCell>
 
                   <TableCell align="center">
                     <Chip
@@ -1557,11 +794,8 @@ function AwsContactsPanel() {
                   <TableCell align="center">{r.catalogLabel}</TableCell>
                   <TableCell align="center">{r.groundStation || "-"}</TableCell>
 
-                  {/* IST Start (derived from startTime) */}
-                  <TableCell align="center">{toIst(r.startTime)}</TableCell>
-
-                  {/* UTC Start (also derived from startTime) */}
                   <TableCell align="center">{toUtc(r.startTime)}</TableCell>
+                  <TableCell align="center">{toUtc(r.endTime)}</TableCell>
 
                   <TableCell align="center">
                     {typeof r.maxElevationDeg === "number"
@@ -1571,7 +805,6 @@ function AwsContactsPanel() {
                 </TableRow>
               ))}
 
-              {/* Empty state (centered, no popup) */}
               {!rows.length && (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ color: vars.textDim, py: 3 }}>
@@ -1587,8 +820,864 @@ function AwsContactsPanel() {
   );
 }
 
+/* ---------------- Bulk-upload panel (unchanged except tiny safe tweaks) ---------------- */
+// ... (PassSchedulePanel stays unchanged from original, copy/paste your existing code here)
+function PassSchedulePanel() {
+  const { t } = useI18n();
+  const [gs, setGs] = React.useState<string>("");
+  const [region, setRegion] = React.useState<string>("");
 
-/* ---------- tiny style helpers ---------- */
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [file, setFile] = React.useState<File | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  const [rows, setRows] = React.useState<{ gs: "gs1" | "gs2"; region: string; bucket: string }[]>([]);
+  const [gsNew, setGsNew] = React.useState<string>("");
+  const [regionNew, setRegionNew] = React.useState<string>("");
+  const [bucketNew, setBucketNew] = React.useState<string>("");
+
+  const handleSelectFile = () => fileInputRef.current?.click();
+  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const f = e.target.files?.[0] || null;
+    setFile(f);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+  const clearTop = () => setFile(null);
+
+  const findBucket = React.useCallback(() => rows.find((r) => r.gs === gs && r.region === region)?.bucket || "", [rows, gs, region]);
+
+  const handleUpload = async () => {
+    if (!gs) return alert(t("Please select a Ground Station."));
+    if (!region) return alert(t("Please select a Region."));
+    if (!file) return alert(t("Please select a file first."));
+    const name = file.name.toLowerCase();
+    const mime = (file as any).type || "";
+    const isCsv = name.endsWith(".csv") || mime === "text/csv";
+    const isTxt = name.endsWith(".txt") || mime === "text/plain";
+    if (!isCsv && !isTxt) return alert(t("Only .csv or .txt files are supported."));
+    try {
+      setUploading(true);
+      const fd = new FormData();
+      fd.append("file", file);
+      const bucket = findBucket();
+      const bucketParam = bucket ? `&bucket=${encodeURIComponent(bucket)}` : "";
+      await api.post(`/api/pass-schedule/bulk?gs=${encodeURIComponent(gs)}&region=${encodeURIComponent(region)}${bucketParam}`, fd);
+      alert(t("Bulk schedule upload complete."));
+      clearTop();
+    } catch (e) {
+      console.error(e);
+      alert(t("Bulk upload failed."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  type CaptchaAction = "upload";
+  const [captchaOpen, setCaptchaOpen] = React.useState(false);
+  const [captchaAction, setCaptchaAction] = React.useState<CaptchaAction | null>(null);
+  const runAfterCaptcha = React.useCallback(async () => {
+    if (captchaAction === "upload") await handleUpload();
+    setCaptchaAction(null);
+  }, [captchaAction, gs, region, file, rows]);
+
+  const addRow = async () => {
+    if (!gsNew || !regionNew || !bucketNew) return;
+    const row = { gs: gsNew as "gs1" | "gs2", region: regionNew.trim(), bucket: bucketNew.trim() };
+    setRows((prev) => {
+      const filtered = prev.filter((r) => !(r.gs === row.gs && r.region === row.region));
+      return [row, ...filtered];
+    });
+    try {
+      await api.post("/api/pass-schedule/regions", row);
+    } catch {}
+    setBucketNew("");
+  };
+  const removeRow = async (idx: number) => {
+    const r = rows[idx];
+    setRows((prev) => prev.filter((_, i) => i !== idx));
+    try {
+      await api.post("/api/pass-schedule/regions/delete", r);
+    } catch {}
+  };
+
+  const prettyFileName = React.useMemo(() => (file ? file.name.replace(/(\.txt){2}$/i, ".txt").replace(/(\.csv){2}$/i, ".csv") : ""), [file]);
+
+  return (
+    <>
+      <Backdrop open={uploading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <CircularProgress color="inherit" />
+          <Typography>Uploading… this may take a while for large files.</Typography>
+        </Box>
+      </Backdrop>
+
+      <Card sx={{ ...CARD_SX, height: "100%" }}>
+        <Box sx={{ px: 1.25, py: 0.7, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Bulk Pass Schedule Upload</Typography>
+          <Box sx={{ ml: "auto" }}>
+            <Button onClick={() => { setGs(""); setRegion(""); }} size="small" sx={{ textTransform: "none", fontWeight: 700, color: COLORS.link, px: 1, minWidth: 0 }}>
+              Clear
+            </Button>
+          </Box>
+        </Box>
+
+        <Box sx={{ p: 1.25, display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.25 }}>
+          <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
+            <InputLabel>Select Ground Station *</InputLabel>
+            <Select label="Select Ground Station *" value={gs} onChange={(e) => setGs(String(e.target.value))}>
+              <MenuItem value="gs1">Groundstation 1</MenuItem>
+              <MenuItem value="gs2">Groundstation 2</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
+            <InputLabel>Select Region *</InputLabel>
+            <Select label="Select Region *" value={region} onChange={(e) => setRegion(String(e.target.value))} MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}>
+              {REGION_OPTIONS.map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
+
+        <Box sx={{ p: 1, pl: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: { xs: "wrap", lg: "nowrap" } }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography sx={{ fontSize: 12, ml: { lg: 2 }, color: vars.text }}>Step 1: Fill it & Upload</Typography>
+
+            <input ref={fileInputRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={handleFileChange} />
+            <Button variant="contained" size="small" onClick={handleSelectFile} disabled={uploading} sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
+              Select File
+            </Button>
+
+            {file && (
+              <Chip label={prettyFileName} onDelete={uploading ? undefined : clearTop} sx={(tMui) => ({
+                bgcolor: (tMui as any).palette.mode === "dark" ? "#232325" : "#fff",
+                color: (tMui as any).palette.mode === "dark" ? vars.text : "#000",
+                border: `1px solid ${vars.border}`,
+                ".MuiChip-deleteIcon": { color: vars.textDim },
+              })} />
+            )}
+          </Box>
+
+          <Button variant="contained" size="medium" startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />} disabled={!file || uploading} onClick={() => { setCaptchaAction("upload"); setCaptchaOpen(true); }} sx={{ textTransform: "none", fontWeight: 700, bgcolor: COLORS.purple, "&:hover": { bgcolor: "#6b46f1" }, "&.Mui-disabled": { bgcolor: vars.bgCtrl, color: vars.textDim, border: `1px solid ${vars.border}`, boxShadow: "none", opacity: 1 } }}>
+            {uploading ? "Uploading..." : "Upload"}
+          </Button>
+        </Box>
+
+        {SHOW_REGION_BUCKETS && (
+          <>
+            <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
+            <Box sx={{ px: 1.25, py: 0.7, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Regions & Buckets</Typography>
+            </Box>
+
+            <Box sx={{ p: 1.25, display: "grid", gap: 1.25 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "140px 240px 1fr 100px" }, gap: 1 }}>
+                <FormControl size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}>
+                  <InputLabel>GS</InputLabel>
+                  <Select label="GS" value={gsNew} onChange={(e) => setGsNew(String(e.target.value))}>
+                    <MenuItem value="gs1">Groundstation 1</MenuItem>
+                    <MenuItem value="gs2">Groundstation 2</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField size="small" placeholder="Region (e.g., sa-east-1)" value={regionNew} onChange={(e) => setRegionNew(e.target.value)} onBlur={() => setRegionNew((v) => v.trim())} sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
+
+                <TextField size="small" placeholder="Bucket name" value={bucketNew} onChange={(e) => setBucketNew(e.target.value)} sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
+
+                <Button onClick={addRow} variant="contained" disabled={!gsNew || !regionNew || !bucketNew} sx={{ textTransform: "none", fontWeight: 700 }}>Add</Button>
+              </Box>
+
+              <Table size="small" sx={{ borderColor: vars.border, borderWidth: 1, borderStyle: "solid", borderRadius: 1 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ color: vars.textDim }}>GS</TableCell>
+                    <TableCell sx={{ color: vars.textDim }}>Region</TableCell>
+                    <TableCell sx={{ color: vars.textDim }}>Bucket</TableCell>
+                    <TableCell sx={{ color: vars.textDim }} align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} sx={{ color: vars.textDim }}>No custom mappings yet. Add one above (optional).</TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((r, i) => (
+                      <TableRow key={`${r.gs}-${r.region}`}>
+                        <TableCell>{r.gs}</TableCell>
+                        <TableCell>{KNOWN_REGION_LABELS[r.region] || r.region}</TableCell>
+                        <TableCell>{r.bucket}</TableCell>
+                        <TableCell align="right">
+                          <IconButton onClick={() => removeRow(i)} size="small">
+                            <DeleteOutlineIcon sx={{ fontSize: 18, color: vars.textDim }} />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          </>
+        )}
+      </Card>
+
+      <CaptchaDialog open={captchaOpen} onCancel={() => { setCaptchaOpen(false); setCaptchaAction(null); }} onOk={async () => { setCaptchaOpen(false); await runAfterCaptcha(); }} />
+    </>
+  );
+}
+
+/* ---------------- TLE Update panel (unchanged) ---------------- */
+// ... (TleUpdatePanel stays unchanged from original - copy/paste original implementation)
+function TleUpdatePanel() {
+  const { t } = useI18n();
+  const [gs, setGs] = React.useState<string>("");
+  const [region, setRegion] = React.useState<string>("");
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [file, setFile] = React.useState<File | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  const [rows, setRows] = React.useState<{ gs: "gs1" | "gs2"; region: string; bucket: string }[]>([]);
+  const [gsNew, setGsNew] = React.useState<string>("");
+  const [regionNew, setRegionNew] = React.useState<string>("");
+  const [bucketNew, setBucketNew] = React.useState<string>("");
+
+  const handleSelectFile = () => fileInputRef.current?.click();
+  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const f = e.target.files?.[0] || null;
+    setFile(f);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+  const clearTop = () => setFile(null);
+
+  const findBucket = React.useCallback(() => rows.find((r) => r.gs === gs && r.region === region)?.bucket || "", [rows, gs, region]);
+
+  const handleUpload = async () => {
+    if (!gs) return alert(t("Please select a Ground Station."));
+    if (!region) return alert(t("Please select a Region."));
+    if (!file) return alert(t("Please select a file first."));
+
+    const name = file.name.toLowerCase();
+    const mime = (file as any).type || "";
+    const isTxt = name.endsWith(".txt") || name.endsWith(".tle") || mime === "text/plain";
+    const isJson = name.endsWith(".json") || mime === "application/json";
+    if (!isTxt && !isJson) {
+      return alert(t("Only .txt, .tle or .json files are supported."));
+    }
+
+    try {
+      setUploading(true);
+      const fd = new FormData();
+      fd.append("file", file);
+      const bucket = findBucket();
+      const bucketParam = bucket ? `&bucket=${encodeURIComponent(bucket)}` : "";
+      await api.post(`/api/tle-update/upload?gs=${encodeURIComponent(gs)}&region=${encodeURIComponent(region)}${bucketParam}`, fd);
+      alert(t("TLE uploaded."));
+      clearTop();
+    } catch (e) {
+      console.error(e);
+      alert(t("TLE upload failed."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  type CaptchaAction = "upload";
+  const [captchaOpen, setCaptchaOpen] = React.useState(false);
+  const [captchaAction, setCaptchaAction] = React.useState<CaptchaAction | null>(null);
+  const runAfterCaptcha = React.useCallback(async () => {
+    if (captchaAction === "upload") await handleUpload();
+    setCaptchaAction(null);
+  }, [captchaAction, gs, region, file, rows]);
+
+  const addRow = async () => {
+    if (!gsNew || !regionNew || !bucketNew) return;
+    const row = { gs: gsNew as "gs1" | "gs2", region: regionNew.trim(), bucket: bucketNew.trim() };
+    setRows((prev) => {
+      const filtered = prev.filter((r) => !(r.gs === row.gs && r.region === row.region));
+      return [row, ...filtered];
+    });
+    try {
+      await api.post("/api/tle-update/regions", row);
+    } catch {}
+    setBucketNew("");
+  };
+  const removeRow = async (idx: number) => {
+    const r = rows[idx];
+    setRows((prev) => prev.filter((_, i) => i !== idx));
+    try {
+      await api.post("/api/tle-update/regions/delete", r);
+    } catch {}
+  };
+
+  const prettyFileName = React.useMemo(() => (file ? file.name.replace(/(\.txt){2}$/i, ".txt").replace(/(\.tle){2}$/i, ".tle").replace(/(\.json){2}$/i, ".json") : ""), [file]);
+
+  return (
+    <>
+      <Backdrop open={uploading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.modal + 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <CircularProgress color="inherit" />
+          <Typography>Uploading…</Typography>
+        </Box>
+      </Backdrop>
+
+      <Card sx={{ ...CARD_SX, height: "100%" }}>
+        <Box sx={{ px: 1.25, py: 0.7, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Update TLE</Typography>
+          <Box sx={{ ml: "auto" }}>
+            <Button onClick={() => { setGs(""); setRegion(""); }} size="small" sx={{ textTransform: "none", fontWeight: 700, color: COLORS.link, px: 1, minWidth: 0 }}>
+              Clear
+            </Button>
+          </Box>
+        </Box>
+
+        <Box sx={{ p: 1.25, display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.25 }}>
+          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+            <InputLabel>Select Ground Station *</InputLabel>
+            <Select label="Select Ground Station *" value={gs} onChange={(e) => setGs(String(e.target.value))}>
+              <MenuItem value="gs1">Groundstation 1</MenuItem>
+              <MenuItem value="gs2">Groundstation 2</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+            <InputLabel>Select Region *</InputLabel>
+            <Select label="Select Region *" value={region} onChange={(e) => setRegion(String(e.target.value))} MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}>
+              {REGION_OPTIONS.map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        <Box sx={{ borderTop: `1px solid ${vars.border}` }} />
+        <Box sx={{ p: 1, pl: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: { xs: "wrap", lg: "nowrap" } }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography sx={{ fontSize: 12, color: vars.text }}>Select & Upload TLE (.txt / .tle / .json)</Typography>
+
+            <input ref={fileInputRef} type="file" accept=".txt,.tle,.json,text/plain,application/json" hidden onChange={handleFileChange} />
+            <Button variant="contained" size="small" onClick={handleSelectFile} disabled={uploading} sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+              Select File
+            </Button>
+
+            {file && (
+              <Chip label={prettyFileName} onDelete={uploading ? undefined : clearTop} sx={(t) => ({ bgcolor: (t as any).palette.mode === "dark" ? "#232325" : "#fff", color: (t as any).palette.mode === "dark" ? vars.text : "#000", border: `1px solid ${vars.border}`, ".MuiChip-deleteIcon": { color: vars.textDim } })} />
+            )}
+          </Box>
+
+          <Button variant="contained" size="medium" startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />} disabled={!file || uploading} onClick={() => { setCaptchaAction("upload"); setCaptchaOpen(true); }} sx={{ textTransform: "none", fontWeight: 700, bgcolor: COLORS.purple, "&:hover": { bgcolor: "#6b46f1" }, "&.Mui-disabled": { bgcolor: vars.bgCtrl, color: vars.textDim, border: `1px solid ${vars.border}`, boxShadow: "none", opacity: 1 } }}>
+            {uploading ? "Uploading..." : "Upload"}
+          </Button>
+        </Box>
+      </Card>
+
+      <CaptchaDialog open={captchaOpen} onCancel={() => { setCaptchaOpen(false); setCaptchaAction(null); }} onOk={async () => { setCaptchaOpen(false); await runAfterCaptcha(); }} />
+    </>
+  );
+}
+
+/* ---------------- NEW: AWS Manual Panel (select + Schedule / Cancel) ---------------- */
+function AwsManualPanel() {
+  const { t } = useI18n();
+
+  const [gs, setGs] = React.useState<"gs1" | "gs2">("gs1");
+  const [region, setRegion] = React.useState<string>("sa-east-1");
+  const [satelliteArn, setSatelliteArn] = React.useState<string>("");
+  const [groundStation, setGroundStation] = React.useState<string>("any");
+  const [missionProfileArn, setMissionProfileArn] = React.useState<string>("");
+  const [status, setStatus] = React.useState<string>("AVAILABLE");
+
+  const [startTime, setStartTime] = React.useState<string>(() => {
+    const d = new Date(Date.now() - 24 * 3600 * 1000);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
+  const [endTime, setEndTime] = React.useState<string>(() => {
+    const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
+
+  type Opt = { id: string; label?: string; arn?: string };
+  const [satOptions, setSatOptions] = React.useState<Opt[]>([]);
+  const [gsOptions, setGsOptions] = React.useState<Opt[]>([]);
+  const [mpOptions, setMpOptions] = React.useState<Opt[]>([]);
+  const [optionsReady, setOptionsReady] = React.useState(false);
+
+  type ContactRow = {
+    contactId: string | null;
+    status: string;
+    catalogLabel: string;
+    groundStation: string;
+    startTime: string | null;
+    endTime: string | null;
+    maxElevationDeg?: number;
+    id: string;
+  };
+  const [rows, setRows] = React.useState<ContactRow[]>([]);
+  const [loading, setLoading] = React.useState(false);
+
+  const [selected, setSelected] = React.useState<Record<string, boolean>>({});
+  const [selectAll, setSelectAll] = React.useState(false);
+  const [actionLoading, setActionLoading] = React.useState(false);
+
+  const loadOptions = React.useCallback(async () => {
+    setOptionsReady(false);
+    try {
+      const data = await api.get<any>(`/api/aws-contacts/options`, { params: { region, gs } });
+      const sats: Opt[] = (data?.satellites || []).map((s: any) => ({ id: s.arn || s.id, label: s.label || s.name || s.id, arn: s.arn || s.id }));
+      // Prefer the SD bird that matches GS
+      const preferredNorad = preferredNoradForGs(gs);
+      if (preferredNorad) {
+        // attempt to auto-select the matching bird if present
+        const pref = sats.find((s) => String(s.label || "").includes(preferredNorad) || String(s.label || "").toUpperCase().includes(`SD${preferredNorad === "62459" ? "1" : "2"}`));
+        if (pref) {
+          // keep all options but auto-select pref unless user already chose
+          setSatOptions(sats);
+          if (!satelliteArn) setSatelliteArn(pref.arn || "");
+        } else {
+          setSatOptions(sats);
+        }
+      } else {
+        setSatOptions(sats);
+      }
+
+      const gss: Opt[] = (data?.groundStations || []).map((g: any) => ({ id: g.id, label: g.label }));
+      setGsOptions([{ id: "any", label: "Any" }, ...gss]);
+
+      const mps: Opt[] = (data?.missionProfiles || []).map((m: any) => ({ id: m.arn || m.id, label: m.name || m.id, arn: m.arn || m.id }));
+      setMpOptions([{ id: "", label: "Any" }, ...mps]);
+
+      if (status === "AVAILABLE") {
+        let nextSat = satelliteArn;
+        let nextMp = missionProfileArn;
+        if (!nextSat && sats.length) {
+          const prefNorad = preferredNoradForGs(gs);
+          if (prefNorad) {
+            const pref = sats.find((s: any) => String(s.label || "").includes(prefNorad) || String(s.label || "").toUpperCase().includes(`SD${prefNorad === "62459" ? "1" : "2"}`));
+            if (pref) nextSat = pref.arn as string;
+          }
+          if (!nextSat) nextSat = sats[0].arn as string;
+        }
+        if (!nextMp && mps.length) nextMp = (mps[0].arn || mps[0].id) as string;
+
+        if (nextSat !== satelliteArn) setSatelliteArn(nextSat || "");
+        if (nextMp !== missionProfileArn) setMissionProfileArn(nextMp || "");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setOptionsReady(true);
+    }
+  }, [region, gs, status, satelliteArn, missionProfileArn]);
+
+  const loadContacts = React.useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const satEffective = satelliteArn || (status === "AVAILABLE" && satOptions[0]?.arn) || "";
+      const mpEffective = missionProfileArn || (status === "AVAILABLE" && mpOptions[0]?.arn) || "";
+      const gsEffective = groundStation === "any" ? (gsOptions[1]?.id || "") : groundStation || "";
+
+      if (status === "AVAILABLE" && (!satEffective || !mpEffective)) {
+        if (!satelliteArn && satOptions.length) setSatelliteArn(satOptions[0].arn || "");
+        if (!missionProfileArn && mpOptions.length) setMissionProfileArn(mpOptions[0].arn || "");
+        alert(t("AVAILABLE requires satellite + mission profile. Defaults applied if available. Press Refresh."));
+        setRows([]);
+        return;
+      }
+
+      const body = {
+        region,
+        gs,
+        filters: {
+          satellite: satEffective || null,
+          groundStation: gsEffective || null,
+          missionProfileArn: mpEffective || null,
+          statusList: status ? [status] : [],
+          startTime: startTime ? new Date(startTime).toISOString() : null,
+          endTime: endTime ? new Date(endTime).toISOString() : null,
+        },
+        pageToken: null,
+      };
+      const res = await api.post<any>(`/api/aws-contacts/list`, body);
+      const items: ContactRow[] = (res?.items || []).map((c: any, i: number) => {
+        const fallback = `${i}-${(c.startTime || "").replace(/[:.]/g, "")}-${Math.random().toString(36).slice(2,5)}`;
+        const stableId = String(c.contactId ?? fallback);
+        return {
+          contactId: c.contactId ?? null,
+          status: c.contactStatus ?? c.status ?? "UNKNOWN",
+          catalogLabel: c.catalogNumber ?? (c.satellite || "—"),
+          groundStation: c.groundStation || c.groundStationName || "",
+          startTime: c.startTime || null,
+          endTime: c.endTime || null,
+          maxElevationDeg: typeof c.maximumElevationDeg === "number" ? c.maximumElevationDeg : undefined,
+          id: stableId,
+        };
+      });
+      setRows(items);
+      setSelected({});
+      setSelectAll(false);
+    } catch (e) {
+      console.error(e);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [region, gs, satelliteArn, groundStation, missionProfileArn, status, startTime, endTime, satOptions, mpOptions, gsOptions, t]);
+
+  React.useEffect(() => {
+    loadOptions();
+  }, [loadOptions, gs]); // reload when gs changes
+
+  React.useEffect(() => {
+    if (!optionsReady) return;
+    loadContacts();
+  }, [optionsReady, loadContacts]);
+
+  const statusColor = (s: string) => {
+    switch (s) {
+      case "AVAILABLE":
+        return "#10b981";
+      case "SCHEDULED":
+        return "#38bdf8";
+      case "COMPLETED":
+        return "#a78bfa";
+      case "CANCELLED":
+        return "#f97316";
+      case "AWS_CANCELLED":
+        return "#f59e0b";
+      default:
+        return vars.textDim;
+    }
+  };
+
+  // selection helpers
+  const toggleRow = (id?: string | null) => {
+    if (!id) return;
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    setSelected((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      const allSelected = rows.length > 0 && rows.every((r) => next[r.id] === true);
+      setSelectAll(allSelected);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (!selectAll) {
+      const sel: Record<string, boolean> = {};
+      rows.forEach((r) => {
+        if (r.id) sel[r.id] = true;
+      });
+      setSelected(sel);
+      setSelectAll(true);
+    } else {
+      setSelected({});
+      setSelectAll(false);
+    }
+  };
+
+  const selectedIds = React.useMemo(() => Object.keys(selected).filter((k) => selected[k]), [selected]);
+
+  const performAction = async (action: "reserve" | "cancel") => {
+    if (!selectedIds.length) return alert("Select at least one contact.");
+
+    const selectedRows = selectedIds
+      .map((id) => rows.find((r) => r.id === id) || null)
+      .filter(Boolean) as typeof rows;
+
+    if (!selectedRows.length) {
+      alert("No valid rows selected.");
+      return;
+    }
+
+    if (action === "reserve") {
+      const payloadItems = selectedRows.map((r) => {
+        if (r.contactId) return r.contactId;
+        return {
+          startTime: r.startTime,
+          endTime: r.endTime,
+          satelliteArn: satelliteArn || undefined,
+          groundStation: r.groundStation || undefined,
+          missionProfileArn: missionProfileArn || undefined,
+        };
+      });
+
+      if (!window.confirm(`Schedule ${payloadItems.length} selected contact(s)?`)) return;
+
+      try {
+        setActionLoading(true);
+        const res = await api.post(`/api/aws-contacts/action`, { action: "reserve", contactIds: payloadItems, gs, region, groundStation });
+        const results = res?.data?.results || res?.results || null;
+        console.log("[awsManualPanel] reserve results:", results || res);
+        if (results && Array.isArray(results)) {
+          const success = results.filter((r: any) => r.success).length;
+          const failed = results.length - success;
+          alert(`Schedule done: ${success} succeeded, ${failed} failed. Check console/AWS for details.`);
+        } else {
+          alert("Schedule request sent; check console/AWS for results.");
+        }
+        await new Promise((r) => setTimeout(r, 900));
+        await loadContacts();
+      } catch (e) {
+        console.error(e);
+        alert("Failed to schedule contacts. See console for details.");
+      } finally {
+        setActionLoading(false);
+      }
+      return;
+    }
+
+    // CANCEL path
+    try {
+      setActionLoading(true);
+      const realIds = selectedRows.map((r) => r.contactId).filter(Boolean) as string[];
+      const skipped = selectedRows.filter((r) => !r.contactId);
+
+      if (!realIds.length) {
+        alert("No selected rows have valid Contact IDs to cancel. Rows without a Contact ID were skipped.");
+        setActionLoading(false);
+        return;
+      }
+
+      if (!window.confirm(`Cancel ${realIds.length} contact(s)? ${skipped.length ? `\n${skipped.length} selected row(s) will be skipped because they lack Contact Id.` : ""}`)) {
+        setActionLoading(false);
+        return;
+      }
+
+      const res = await api.post(`/api/aws-contacts/action`, { action: "cancel", contactIds: realIds, gs, region, groundStation });
+      const results = res?.data?.results || res?.results || null;
+      console.log("[awsManualPanel] cancel results:", results || res);
+
+      if (results && Array.isArray(results)) {
+        const removedIds: string[] = [];
+        const failed: any[] = [];
+        for (const r of results) {
+          if (r.success === true) {
+            removedIds.push(String(r.contactId || r.contactId === 0 ? r.contactId : ""));
+          } else if (r.treatAsCancelled === true) {
+            removedIds.push(String(r.contactId || ""));
+          } else {
+            failed.push(r);
+          }
+        }
+
+        if (removedIds.length) {
+          setRows((prev) => prev.filter((row) => !removedIds.includes(String(row.contactId || row.id))));
+          setSelected((prev) => {
+            const next = { ...prev };
+            removedIds.forEach((id) => delete next[id]);
+            return next;
+          });
+          setSelectAll(false);
+        }
+
+        if (failed.length) {
+          alert(`Cancel completed with ${removedIds.length} removed, ${failed.length} failed. See console for details.`);
+        } else {
+          alert(`Cancel completed: ${removedIds.length} removed.`);
+        }
+      } else {
+        alert("Cancel request sent. Check AWS console for results.");
+      }
+
+      await new Promise((r) => setTimeout(r, 1100));
+      await loadContacts();
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to cancel contacts.`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toUtcLocal = (iso?: string | null) => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    const opts: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    };
+    return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", ...opts }).format(d);
+  };
+
+  return (
+    <Card sx={{ ...CARD_SX, height: "100%" }}>
+      <Box sx={{ px: 1.25, py: 0.7, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: 16 }}>AWS Contact (Manual)</Typography>
+
+        <Box sx={{ ml: "auto", display: "flex", gap: 1, alignItems: "center" }}>
+          <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t), minWidth: 180 })}>
+            <InputLabel>GS</InputLabel>
+            <Select value={gs} label="GS" onChange={(e) => setGs(e.target.value as "gs1" | "gs2")}>
+              <MenuItem value="gs1">Groundstation 1</MenuItem>
+              <MenuItem value="gs2">Groundstation 2</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button size="small" onClick={() => loadContacts()} disabled={loading} sx={{ textTransform: "none", fontWeight: 700, color: vars.accent }}>
+            Refresh
+          </Button>
+        </Box>
+      </Box>
+
+      <Box sx={{ px: 1.25, py: 1, display: "flex", gap: 1, alignItems: "center" }}>
+        <Stack direction="row" spacing={1}>
+          <Button variant="contained" disabled={actionLoading || selectedIds.length === 0} onClick={() => performAction("reserve")} sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#ff9800" }}>
+            Schedule contact
+          </Button>
+          <Button variant="outlined" disabled={actionLoading || selectedIds.length === 0} onClick={() => performAction("cancel")} sx={{ textTransform: "none", fontWeight: 700 }}>
+            Cancel contact
+          </Button>
+        </Stack>
+
+        <Box sx={{ ml: "auto", color: vars.textDim }}>{selectedIds.length ? `${selectedIds.length} selected` : "No selection"}</Box>
+      </Box>
+
+      <Box sx={{ px: 1.25, py: 0.5, display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(6, minmax(0,1fr))" }, gap: 1 }}>
+        <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+          <InputLabel>Region</InputLabel>
+          <Select value={region} label="Region" onChange={(e) => { const newRegion = String(e.target.value); setRegion(newRegion); }}>
+            {REGION_OPTIONS.map((o) => (
+              <MenuItem key={o.id} value={o.id}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+          <InputLabel>Satellite number</InputLabel>
+          <Select value={satelliteArn} label="Satellite number" onChange={(e) => setSatelliteArn(String(e.target.value))} displayEmpty renderValue={(v) => (v ? (satOptions.find((s) => s.arn === v)?.label || v) : "Select satellite")}>
+            {satOptions.map((s) => (
+              <MenuItem key={s.id} value={s.arn as string}>
+                {s.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+          <InputLabel>Ground station</InputLabel>
+          <Select value={groundStation} label="Ground station" onChange={(e) => setGroundStation(String(e.target.value))} displayEmpty renderValue={(v) => (v === "any" ? "Any" : (gsOptions.find((g) => g.id === v)?.label || v))}>
+            {gsOptions.map((g) => (
+              <MenuItem key={g.id} value={g.id}>
+                {g.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+          <InputLabel>Status</InputLabel>
+          <Select value={status} label="Status" onChange={(e) => setStatus(String(e.target.value))}>
+            {["AVAILABLE", "SCHEDULED", "COMPLETED", "AWS_CANCELLED", "CANCELLED"].map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={(t) => ({ ...controlSx, ...filledField(t) })}>
+          <InputLabel>Mission profile</InputLabel>
+          <Select value={missionProfileArn} label="Mission profile" onChange={(e) => setMissionProfileArn(String(e.target.value))} displayEmpty renderValue={(v) => (v ? (mpOptions.find((m) => m.arn === v)?.label || v) : "Any")}>
+            {mpOptions.map((m) => (
+              <MenuItem key={m.id} value={(m.arn || m.id) as string}>
+                {m.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1 }}>
+          <TextField type="datetime-local" size="small" label={t("Start time")} value={startTime} onChange={(e) => setStartTime(e.target.value)} sx={(t) => ({ ...controlSx, ...filledField(t) })} />
+          <TextField type="datetime-local" size="small" label={t("End time")} value={endTime} onChange={(e) => setEndTime(e.target.value)} sx={(t) => ({ ...controlSx, ...filledField(t) })} />
+        </Box>
+      </Box>
+
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <TableContainer sx={{ maxHeight: "100%", borderTop: `1px solid ${vars.border}`, borderBottom: `1px solid ${vars.border}` }}>
+          <Table stickyHeader size="small" sx={{ minWidth: 960 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, width: 40 }}>
+                  <Checkbox checked={selectAll} onChange={toggleAll} inputProps={{ "aria-label": "select all contacts" }} />
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Contact Id</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Status</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Catalog number</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Ground station</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Start time (UTC)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">End time (UTC)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Max elevation (deg)</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {rows.map((r, idx) => (
+                <TableRow key={r.id || idx} hover sx={{ "&:nth-of-type(odd)": { backgroundColor: (t) => (t.palette.mode === "dark" ? "#17171A" : "#FAFAFA") }, "& td, & th": { borderColor: vars.border, fontSize: 13, py: 1.0 } }}>
+                  <TableCell>
+                    <Checkbox
+                      checked={!!(r.id && selected[r.id])}
+                      onChange={() => toggleRow(r.id)}
+                      inputProps={{ "aria-label": `select ${r.contactId ?? r.id}` }}
+                    />
+                  </TableCell>
+
+                  <TableCell
+                    title={
+                      r.contactId
+                        ? String(r.contactId)
+                        : `Contact Available, Catalog ${r.catalogLabel}, Start ${toUtcLocal(r.startTime)}, End ${toUtcLocal(r.endTime)}`
+                    }
+                  >
+                    {r.contactId ? r.contactId : "Contact Available"}
+                  </TableCell>
+
+                  <TableCell align="center">
+                    <Chip size="small" label={r.status} sx={{ height: 22, fontSize: 12, bgcolor: statusColor(r.status), color: "#000", fontWeight: 700 }} />
+                  </TableCell>
+
+                  <TableCell align="center">{r.catalogLabel}</TableCell>
+                  <TableCell align="center">{r.groundStation || "-"}</TableCell>
+
+                  <TableCell align="center">{toUtcLocal(r.startTime)}</TableCell>
+                  <TableCell align="center">{toUtcLocal(r.endTime)}</TableCell>
+
+                  <TableCell align="center">{typeof r.maxElevationDeg === "number" ? r.maxElevationDeg.toFixed(2) : "-"}</TableCell>
+                </TableRow>
+              ))}
+
+              {!rows.length && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ color: vars.textDim, py: 3 }}>
+                    No Contacts Found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    </Card>
+  );
+}
+
+/* ---------------- Page wrapper (default export) ---------------- */
 const pillSx = {
   textTransform: "none",
   fontWeight: 700,
@@ -1603,9 +1692,7 @@ const pillSx = {
     color: "#7CFF8D",
     bgcolor: (t: any) => (t.palette.mode === "dark" ? "#1D1D20" : "#FFFFFF"),
     border: (t: any) =>
-      `1px solid ${
-        t.palette.mode === "dark" ? "rgba(124,255,141,0.18)" : "#7CFF8D"
-      }`,
+      `1px solid ${t.palette.mode === "dark" ? "rgba(124,255,141,0.18)" : "#7CFF8D"}`,
     boxShadow: (t: any) =>
       t.palette.mode === "dark"
         ? "inset 0 0 0 1px rgba(124,255,141,0.06)"
@@ -1615,3 +1702,31 @@ const pillSx = {
     bgcolor: (t: any) => (t.palette.mode === "dark" ? vars.bgHover : "#FFFFFF"),
   },
 } as const;
+
+export default function PassSchedulePage() {
+  const { t } = useI18n();
+  const [tab, setTab] = React.useState<"contacts" | "pass" | "tle" | "awscontact">("contacts");
+
+  return (
+    <MainLayout title="">
+      <Box sx={{ px: 2, py: 1.5, height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`, display: "grid", gridTemplateRows: "auto 1fr", gap: 1.5 }}>
+        <ToggleButtonGroup value={tab} exclusive onChange={(_, v) => v && setTab(v)} sx={{ p: 0.5, borderRadius: 999, border: `1px solid ${vars.border}`, bgcolor: vars.bgCard, width: "fit-content", "& .MuiToggleButtonGroup-grouped": { border: "none", mx: 0.25 } }}>
+          <ToggleButton value="contacts" disableRipple sx={pillSx}>{t("View Contacts")}</ToggleButton>
+          <ToggleButton value="pass" disableRipple sx={pillSx}>{t("Schedule Contacts")}</ToggleButton>
+          <ToggleButton value="tle" disableRipple sx={pillSx}>{t("Update TLE")}</ToggleButton>
+          <ToggleButton value="awscontact" disableRipple sx={pillSx}>{t("AWS Contact")}</ToggleButton>
+        </ToggleButtonGroup>
+
+        {tab === "contacts" ? (
+          <AwsContactsPanel />
+        ) : tab === "pass" ? (
+          <PassSchedulePanel />
+        ) : tab === "tle" ? (
+          <TleUpdatePanel />
+        ) : (
+          <AwsManualPanel />
+        )}
+      </Box>
+    </MainLayout>
+  );
+}
