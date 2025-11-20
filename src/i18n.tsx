@@ -503,7 +503,57 @@ const dict = {
 "Profile saved": "Profile saved",
 "Failed to save profile": "Failed to save profile",
 "Failed to load profile": "Failed to load profile",
-"Missing token. Please log in again.": "Missing token. Please log in again."
+"Missing token. Please log in again.": "Missing token. Please log in again.",
+
+
+// PassSchedule / AWS panels
+"AWS Contacts": "AWS Contacts",
+"View Contacts": "View Contacts",
+"Schedule Contacts": "Schedule Contacts",
+"Update TLE": "Update TLE",
+"AWS Contact": "AWS Contact",
+"Contact Available": "Contact Available",
+"No Contacts Found": "No Contacts Found",
+"Contact Id": "Contact Id",
+"Catalog number": "Catalog number",
+"Start time (UTC)": "Start time (UTC)",
+"End time (UTC)": "End time (UTC)",
+"Max elevation (deg)": "Max elevation (deg)",
+"Region": "Region",
+"Satellite number": "Satellite number",
+"Select satellite": "Select satellite",
+"Ground station": "Ground station",
+"Mission profile": "Mission profile",
+
+"Any": "Any",
+
+"Select Ground Station *": "Select Ground Station *",
+"Select Region *": "Select Region *",
+
+"Bulk schedule upload complete.": "Bulk schedule upload complete.",
+
+"Only .csv or .txt files are supported.": "Only .csv or .txt files are supported.",
+
+"Regions & Buckets": "Regions & Buckets",
+"Bucket name": "Bucket name",
+"No custom mappings yet. Add one above (optional).": "No custom mappings yet. Add one above (optional).",
+"TLE uploaded.": "TLE uploaded.",
+"TLE upload failed.": "TLE upload failed.",
+"Select & Upload TLE (.txt / .tle / .json)": "Select & Upload TLE (.txt / .tle / .json)",
+"Schedule contact": "Schedule contact",
+"Cancel contact": "Cancel contact",
+"Select at least one contact.": "Select at least one contact.",
+"No valid rows selected.": "No valid rows selected.",
+"AVAILABLE": "AVAILABLE",
+"SCHEDULED": "SCHEDULED",
+"COMPLETED": "COMPLETED",
+"AWS_CANCELLED": "AWS_CANCELLED",
+"CANCELLED": "CANCELLED",
+"Select": "Select",
+"selected": "selected",
+"No selection": "No selection",
+
+"AWS Operations": "AWS Operations",
 
 
 
@@ -1006,9 +1056,56 @@ const dict = {
 "Profile saved": "प्रोफ़ाइल सहेजी गई",
 "Failed to save profile": "प्रोफ़ाइल सहेजने में विफल",
 "Failed to load profile": "प्रोफ़ाइल लोड करने में विफल",
-"Missing token. Please log in again.": "टोकन नहीं मिला। कृपया दोबारा लॉग इन करें।"
+"Missing token. Please log in again.": "टोकन नहीं मिला। कृपया दोबारा लॉग इन करें।",
+
+// PassSchedule / AWS panels (Hindi)
+"AWS Contacts": "AWS संपर्क",
+"View Contacts": "संपर्क देखें",
+"Schedule Contacts": "कॉन्टैक्ट शेड्यूल करें",
+"Update TLE": "TLE अपडेट करें",
+"AWS Contact": "AWS कॉन्टैक्ट",
+"Contact Available": "संपर्क उपलब्ध",
+"No Contacts Found": "कोई संपर्क नहीं मिला",
+"Contact Id": "संपर्क आईडी",
+"Catalog number": "कैटलॉग नंबर",
+"Start time (UTC)": "प्रारम्भ समय (UTC)",
+"End time (UTC)": "समाप्ति समय (UTC)",
+"Max elevation (deg)": "अधिकतम एलेवेशन (°)",
+"Region": "रीजन",
+"Satellite number": "उपग्रह संख्या",
+"Select satellite": "उपग्रह चुनें",
+"Ground station": "ग्राउंड स्टेशन",
+"Mission profile": "मिशन प्रोफ़ाइल",
+
+"Any": "कोई भी",
+
+"Select Ground Station *": "ग्राउंड स्टेशन चुनें *",
+"Select Region *": "रीजन चुनें *",
+
+"Bulk schedule upload complete.": "बल्क शेड्यूल अपलोड पूरा हुआ।",
+
+"Only .csv or .txt files are supported.": "केवल .csv या .txt फाइलें समर्थित हैं।",
 
 
+"Regions & Buckets": "रीजन और बकेट",
+"Bucket name": "बकेट नाम",
+"No custom mappings yet. Add one above (optional).": "अभी कोई कस्टम मैपिंग नहीं। ऊपर जोड़ें (वैकल्पिक)।",
+"TLE uploaded.": "TLE अपलोड हो गया।",
+"TLE upload failed.": "TLE अपलोड विफल।",
+"Select & Upload TLE (.txt / .tle / .json)": "TLE चुनें और अपलोड करें (.txt / .tle / .json)",
+"Schedule contact": "कॉन्टैक्ट शेड्यूल करें",
+"Cancel contact": "कॉन्टैक्ट रद्द करें",
+"Select at least one contact.": "कृपया कम से कम एक संपर्क चुनें।",
+"No valid rows selected.": "कोई मान्य पंक्तियाँ नहीं चुनीं।",
+"AVAILABLE": "उपलब्ध",
+"SCHEDULED": "निर्धारित",
+"COMPLETED": "पूर्ण",
+"AWS_CANCELLED": "AWS_रद्द",
+"CANCELLED": "रद्द",
+"Select": "चुनें",
+"selected": "चुना गया",
+"No selection": "कोई चयन नहीं",
+"AWS Operations": "AWS ऑपरेशन्स",
 
   },
 } as const;
