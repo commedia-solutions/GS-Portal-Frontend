@@ -73,6 +73,7 @@ type ApiPass = {
   date_text: string;
   satellite_name: string;
   supporting_station: string;
+  band_carrier?: string | null;   // ✅ ADD
   orbit_no?: string;
   max_el_deg?: string;
   aos_ut: string;
@@ -118,6 +119,42 @@ const parseMMDDYYYY = (s: string) => {
 const reqNum = (req: string): number => {
   const m = String(req).match(/(\d+)\s*$/);
   return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+};
+
+// 🎯 Dashboard Pass status color styles (same as Passes list)
+const getPassStatusStyle = (status: string) => {
+  switch (status) {
+    case "Pending":
+      return {
+        bgcolor: "#FEF3C7",   // light yellow
+        color: "#92400E",     // dark amber
+        border: "1px solid #FCD34D",
+      };
+    case "Completed":
+      return {
+        bgcolor: "#DCFCE7",   // light green
+        color: "#166534",     // dark green
+        border: "1px solid #86EFAC",
+      };
+    case "Failed":
+      return {
+        bgcolor: "#FFE4E6",   // light pink/red
+        color: "#9F1239",     // dark red
+        border: "1px solid #FDA4AF",
+      };
+    case "Canceled":
+      return {
+        bgcolor: "#FEE2E2",   // light red
+        color: "#991B1B",     // dark red
+        border: "1px solid #FCA5A5",
+      };
+    default:
+      return {
+        bgcolor: "transparent",
+        color: vars.textDim,
+        border: "none",
+      };
+  }
 };
 
 /* -------------------- table scaffold -------------------- */
@@ -229,6 +266,7 @@ export default function DashboardPage() {
   const [rows, setRows] = React.useState<Row[]>([]);
   const [loading, setLoading] = React.useState(false);
 
+  
   // translated columns
   const COLUMNS: Column[] = React.useMemo(
     () => [
@@ -236,6 +274,8 @@ export default function DashboardPage() {
       { key: "date", label: t("Date"), width: 110, align: "center" },
       { key: "sat", label: t("Satellite"), width: 120, align: "center" },
       { key: "stn", label: t("Station"), width: 130, align: "center" },
+      { key: "band", label: t("Band / Carrier"), width: 230, align: "center" }, // ✅ ADD
+
       /** NEW column */
       { key: "type", label: t("Pass Type"), width: 110, align: "center" },
       { key: "orb", label: t("Orbit"), width: 90, align: "center" },
@@ -244,26 +284,88 @@ export default function DashboardPage() {
       { key: "ops", label: t("Operations"), width: 130, align: "center" },
       { key: "opsReq", label: t("Ops requester / supporter"), width: 240, align: "center", render: (r) => `${r.opsReq || "—"} / ${r.opsSup || "—"}` },
       { key: "sched", label: t("Schedule"), width: 120, align: "center" },
-      { key: "pass", label: t("Pass"), width: 100, align: "center" },
+{
+  key: "pass",
+  label: t("Pass"),
+  width: 110,
+  align: "center",
+  render: (r) => (
+    <Box
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        px: 1.2,
+        py: 0.4,
+        borderRadius: 999,     // pill shape
+        fontSize: 12.5,
+        fontWeight: 600,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+        ...getPassStatusStyle(String(r.pass)),
+      }}
+    >
+      {t(String(r.pass))}
+    </Box>
+  ),
+},
       { key: "remarks", label: t("Remarks"), width: 180, align: "center" },
     ],
     [t]
   );
 
-  // fetch passes
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const j = await api.get<any>("/api/passes");
-        const data: ApiPass[] = Array.isArray(j) ? j : Array.isArray(j?.rows) ? j.rows : [];
-        const mapped: Row[] = data.map((p) => ({
+React.useEffect(() => {
+  const load = async () => {
+    try {
+      setLoading(true);
+
+const token =
+  localStorage.getItem("auth_token") ||
+  sessionStorage.getItem("auth_token") ||
+  localStorage.getItem("token") ||
+  sessionStorage.getItem("token");
+
+
+
+      if (!token) {
+        console.warn("No token found yet, skipping fetch...");
+        return;
+      }
+
+      const j = await api.get<any>("/api/passes");
+
+      const data: ApiPass[] = Array.isArray(j)
+        ? j
+        : Array.isArray(j?.rows)
+        ? j.rows
+        : [];
+
+      const mapped: Row[] = data.map((p) => {
+        let band = "—";
+        if (p.band_carrier) {
+          const parts = p.band_carrier.split("|").map((s) => s.trim());
+          const base = parts[0];
+          const upl = parts.find((s) =>
+            s.toLowerCase().includes("uplink:true")
+          );
+          const dwn = parts.find((s) =>
+            s.toLowerCase().includes("downlink:true")
+          );
+
+          if (upl && dwn) band = `${base} / Uplink & Downlink`;
+          else if (upl) band = `${base} / Uplink`;
+          else if (dwn) band = `${base} / Downlink`;
+          else band = base;
+        }
+
+        return {
           sr: 0,
           req: p.pass_req_no,
           date: p.date_text,
           sat: p.satellite_name,
           stn: p.supporting_station,
-          type: (p.pass_type as any) || "Normal", // NEW
+          band,
+          type: (p.pass_type as any) || "Normal",
           orb: p.orbit_no ?? "",
           maxEl: p.max_el_deg ?? "",
           aos: p.aos_ut,
@@ -274,17 +376,32 @@ export default function DashboardPage() {
           sched: p.schedule_status,
           pass: p.pass_status,
           remarks: p.remarks ?? "—",
-        }));
-        setRows(mapped);
-        setPage(0);
-      } catch (e) {
-        console.error("Failed to fetch passes", e);
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+        };
+      });
+
+      setRows(mapped);
+      setPage(0);
+    } catch (e) {
+      console.error("Failed to fetch passes", e);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ first load
+  load();
+
+  // ✅ reload after login dispatch
+  const fn = () => load();
+  window.addEventListener("pmgt:page-access-updated", fn);
+
+  return () => {
+    window.removeEventListener("pmgt:page-access-updated", fn);
+  };
+}, []);
+
+
 
   const clearFilters = () => {
     setSearch("");
@@ -439,35 +556,79 @@ export default function DashboardPage() {
 
               {/* NEW: Pass Type filter */}
               <Labeled label={t("Pass Type")} width={UI.selectW}>
-                <FormControl size="small" fullWidth>
-                  <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} MenuProps={darkMenu} sx={compactCtrlSx}>
-                    <MenuItem value="">{t("All")}</MenuItem>
-                    <MenuItem value="Normal">{t("Normal")}</MenuItem>
-                    <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Labeled>
+  <FormControl size="small" fullWidth>
+    <Select
+      value={typeFilter}
+      onChange={(e) => setTypeFilter(e.target.value as any)}
+      displayEmpty
+      renderValue={(value) => {
+        if (!value) return t("All");
+        return value;
+      }}
+      MenuProps={darkMenu}
+      sx={compactCtrlSx}
+    >
+      <MenuItem value="">{t("All")}</MenuItem>
+      <MenuItem value="Normal">{t("Normal")}</MenuItem>
+      <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
+    </Select>
+  </FormControl>
+</Labeled>
 
-              <Labeled label={t("Date")} width={150}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    value={date}
-                    onChange={(v: Date | null) => setDate(v)}
-                    slotProps={{
-                      textField: { size: "small", placeholder: "MM/DD/YYYY", sx: { width: 150, ...compactCtrlSx } },
-                      openPickerButton: { sx: { color: vars.text } },
-                      popper: {
-                        sx: {
-                          "& .MuiPaper-root": { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` },
-                          "& .MuiPickersDay-root": { color: vars.text },
-                          "& .MuiPickersDay-root.Mui-selected": { bgcolor: `${vars.accent} !important`, color: "#fff" },
-                          "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label": { color: vars.text },
-                        },
-                      },
-                    }}
-                  />
-                </LocalizationProvider>
-              </Labeled>
+
+             <Labeled label={t("Date")} width={150}>
+  <LocalizationProvider dateAdapter={AdapterDateFns}>
+    <DatePicker
+      value={date}
+      onChange={(v: Date | null) => setDate(v)}
+      slotProps={{
+        textField: {
+          size: "small",
+          placeholder: "MM/DD/YYYY",
+          sx: {
+            width: 150,
+            ...compactCtrlSx,
+
+            /* 🔥 FIX MUI PICKER ROOT */
+            "& .MuiPickersInputBase-root": {
+              height: `${UI.ctrlH}px`,
+              display: "flex",
+              alignItems: "center",
+              padding: "0 10px",
+            },
+
+            /* 🔥 FIX SECTION CONTAINER */
+            "& .MuiPickersSectionList-root": {
+              height: `${UI.ctrlH - 2}px`,
+              display: "flex",
+              alignItems: "center",
+            },
+
+            /* 🔥 FIX EACH SECTION */
+            "& .MuiPickersSectionList-section": {
+              fontSize: UI.font,
+              lineHeight: `${UI.ctrlH - 2}px`,
+              padding: 0,
+            },
+
+            /* remove extra outlines impact */
+            "& .MuiOutlinedInput-notchedOutline": {
+              top: 0,
+            },
+          },
+        },
+        openPickerButton: {
+          sx: {
+            color: vars.text,
+            height: `${UI.ctrlH}px`,
+          },
+        },
+      }}
+    />
+  </LocalizationProvider>
+</Labeled>
+
+
 
               <Button onClick={clearFilters} size="small" sx={{ mt: 2.1, color: vars.accent, textTransform: "none", fontWeight: 700 }}>
                 {t("Clear")}
@@ -495,7 +656,7 @@ export default function DashboardPage() {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
               labelRowsPerPage={t("Rows per page:")}
-              rowsPerPageOptions={[10, 50, 150, 200]}
+              rowsPerPageOptions={[10, 50, 150, 200, 500, 1000, 2000, 5000]} 
               sx={{
                 px: 1,
                 color: vars.text,

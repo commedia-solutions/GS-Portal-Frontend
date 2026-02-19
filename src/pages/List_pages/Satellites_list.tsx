@@ -17,6 +17,9 @@ import UpdateSatelliteModal from "../../components/Models/UpdateSatelliteModal";
 import api, { getAuthToken } from "../../api/http"; // ✅ use same client + fresh token
 import { useI18n } from "../../i18n";
 
+import { useActionAccess } from "../../auth/useActionAccess";
+
+
 /* ---------- API base (safe fallback for fetch-based export) ---------- */
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 const API = API_BASE ? `${API_BASE}/api` : `/api`;
@@ -83,6 +86,8 @@ type Row = {
   itu: string;
   station: string;
   pol: string;
+   addedBy: string;
+  dateTime: string;
 };
 
 type Column = {
@@ -101,12 +106,15 @@ function ThemedScrollTable({
   columns,
   onEdit,
   emptyText,
+  isEditor,
 }: {
   rows: Row[];
   columns: Column[];
   onEdit: (r: Row) => void;
   emptyText: string;
+  isEditor: boolean;
 }) {
+
   const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 120), 0) + 16;
   const colTemplate = columns
     .map((c) => (c.width != null ? `${c.width}px` : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`))
@@ -163,6 +171,7 @@ function ThemedScrollTable({
                     key={`action-${idx}`}
                     sx={{ px: CELL_PX, py: 0.75, display: "flex", justifyContent: "center", alignItems: "center" }}
                   >
+                    {isEditor && (
                     <Button
                       size="small"
                       variant="contained"
@@ -178,8 +187,11 @@ function ThemedScrollTable({
                       }}
                       onClick={() => onEdit(r)}
                     >
-                      Update
+                      Edit
                     </Button>
+                    )}
+
+                    
                   </Box>
                 );
               }
@@ -226,6 +238,10 @@ export default function SatellitesList() {
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
+const { hasWriteAccess } = useActionAccess();
+const canEdit = hasWriteAccess("satellites");
+
+
   const fetchRows = React.useCallback(async () => {
     try {
       setLoading(true);
@@ -242,15 +258,29 @@ export default function SatellitesList() {
         : [];
 
       const mapped: Row[] = arr.map((x: any, i: number) => ({
-        id: Number(x.id ?? i + 1),
-        sr: i + 1,
-        satId: String(x.satellite_id ?? ""),
-        satName: String(x.satellite_name ?? ""),
-        norad: String(x.norad_id ?? ""),
-        itu: String(x.itu_name ?? ""),
-        station: String(x.station_name ?? ""),
-        pol: String(x.polarization ?? ""),
-      }));
+  id: Number(x.id),
+
+  sr: i + 1,
+  satId: String(x.satellite_id ?? ""),
+  satName: String(x.satellite_name ?? ""),
+  norad: String(x.norad_id ?? ""),
+  itu: String(x.itu_name ?? ""),
+  station: String(x.station_name ?? ""),
+  pol: String(x.polarization ?? ""),
+  addedBy: String(x.added_by ?? ""),
+dateTime: x.date_time
+  ? new Date(x.date_time).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    })
+  : "—",
+}));
+
 
       setRows(mapped);
       setPage(0);
@@ -313,10 +343,12 @@ export default function SatellitesList() {
 
   const doPrint = React.useCallback(() => window.print(), []);
 
-  const handleEdit = (r: Row) => {
-    setEditing(r);
-    setModalOpen(true);
-  };
+const handleEdit = (r: Row) => {
+  if (!canEdit) return;
+  setEditing(r);
+  setModalOpen(true);
+};
+
   const handleSave = async () => {
     await fetchRows();
     setModalOpen(false);
@@ -326,19 +358,25 @@ export default function SatellitesList() {
     setModalOpen(false);
   };
 
-  const COLUMNS: Column[] = React.useMemo(
-    () => [
-      { key: "sr",       label: t("Sr No"),          width: 72,  align: "center" },
-      { key: "satId",    label: t("Satellite ID"),   min: 120,   flex: 1,   align: "center" },
-      { key: "satName",  label: t("Satellite Name"), min: 160,   flex: 1.1, align: "center" },
-      { key: "norad",    label: t("Norad ID"),       min: 120,   flex: 0.9, align: "center" },
-      { key: "itu",      label: t("ITU Name"),       min: 120,   flex: 0.9, align: "center" },
-      { key: "station",  label: t("Station"),        min: 160,   flex: 1.1, align: "center" },
-      { key: "pol",      label: t("Polarization"),   min: 140,   flex: 1,   align: "center" },
-      { key: "action",   label: t("Action"),         width: 120,               align: "center" },
-    ],
-    [t]
-  );
+ const COLUMNS: Column[] = React.useMemo(() => {
+  const cols: Column[] = [
+    { key: "sr", label: t("Sr No"), width: 72, align: "center" },
+    { key: "satId", label: t("Satellite ID"), min: 120, flex: 1, align: "center" },
+    { key: "satName", label: t("Satellite Name"), min: 160, flex: 1.1, align: "center" },
+    { key: "norad", label: t("Norad ID"), min: 120, flex: 0.9, align: "center" },
+    { key: "itu", label: t("ITU Name"), min: 120, flex: 0.9, align: "center" },
+    { key: "station", label: t("Station"), min: 160, flex: 1.1, align: "center" },
+    { key: "pol", label: t("Polarization"), min: 140, flex: 1, align: "center" },
+    { key: "addedBy", label: t("Added By"), min: 140, flex: 1, align: "center" },
+    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1.2, align: "center" },
+  ];
+
+  if (canEdit) {
+    cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
+  }
+
+  return cols;
+}, [t, canEdit]);
 
   return (
     <MainLayout title="">
@@ -451,12 +489,14 @@ export default function SatellitesList() {
                   "&::-webkit-scrollbar-track": { background: "transparent" },
                 }}
               >
-                <ThemedScrollTable
-                  rows={paged}
-                  columns={COLUMNS}
-                  onEdit={handleEdit}
-                  emptyText={t("No satellites found.")}
-                />
+               <ThemedScrollTable
+  rows={paged}
+  columns={COLUMNS}
+  onEdit={handleEdit}
+  emptyText={t("No satellites found.")}
+isEditor={canEdit}
+/>
+
               </Box>
             </Box>
           </Box>
@@ -500,6 +540,8 @@ export default function SatellitesList() {
             row={
               editing
                 ? {
+                            id: editing.id, // ✅ ADD THIS
+
                     satId: editing.satId,
                     satName: editing.satName,
                     norad: editing.norad,

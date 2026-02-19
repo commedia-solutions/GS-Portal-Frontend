@@ -15,22 +15,32 @@ import {
 } from "@mui/material";
 import Select from "@mui/material/Select";
 import type { SelectChangeEvent } from "@mui/material/Select";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 
-export type AntBand = { band: string; uplink: string; downlink: string };
-export type AntGT = { band: string; gt: string };
+export type AntBand = {
+  band: string;
+  gt: string;
+  uplink: boolean;
+  downlink: boolean;
+};
+
+// export type AntGT = { band: string; gt: string };
 
 export type AntennaDialogRow = {
   id: number;
   type: string;
+  location: string;
   size_m: string;
   eirp_dbw: string;
-  tx_polarization: string;
+   tx_polarization: string[];   // ✅ FIX
+  rx_polarization: string[];  
   travel_range: string;
   tracking_velocity: string;
   tracking_acceleration: string;
   tracking_modes: string;
   bands: AntBand[];
-  gts: AntGT[];
+  // gts: AntGT[];
 };
 
 type Props = {
@@ -38,7 +48,7 @@ type Props = {
   row: AntennaDialogRow | null;
   onClose: () => void;
   onSave: (updated: AntennaDialogRow) => void;
-  onDelete: (row: AntennaDialogRow) => void;
+onDelete?: (row: AntennaDialogRow) => void;
 };
 
 const PRIMARY = "#7C57F2";
@@ -76,7 +86,7 @@ const darkMenu = {
   },
 };
 
-const BAND_OPTIONS = ["UHF", "VHF", "L", "S", "C", "X", "Ku", "Ka"];
+const BAND_OPTIONS = ["UHF (300 MHz – 3 GHz)", "VHF (30 MHz – 300 MHz)", "L (1-2 GHz)", "S (2.0 – 2.3 GHz)", "C (4 – 8 GHz)", "X (8 – 12 GHz)", "Ku (12-18 GHz)", "Ka (26.5 to 40 GHz)"];
 
 export default function UpdateAntennaDialog({
   open,
@@ -90,8 +100,12 @@ export default function UpdateAntennaDialog({
   // core fields
   const [type, setType] = React.useState("");
   const [size_m, setSize] = React.useState("");
+  const [location, setLocation] = React.useState(""); // ✅ ADD
+
   const [eirp_dbw, setEirp] = React.useState("");
-  const [tx_polarization, setTxPol] = React.useState("");
+const [tx_polarization, setTxPol] = React.useState<string[]>([]);
+const [rx_polarization, setRxPol] = React.useState<string[]>([]);
+
   const [travel_range, setTravel] = React.useState("");
   const [tracking_velocity, setVel] = React.useState("");
   const [tracking_acceleration, setAcc] = React.useState("");
@@ -99,50 +113,77 @@ export default function UpdateAntennaDialog({
 
   // bands
   const [bands, setBands] = React.useState<AntBand[]>([]);
-  const [curBand, setCurBand] = React.useState("");
-  const [curUplink, setCurUplink] = React.useState("");
-  const [curDownlink, setCurDownlink] = React.useState("");
+ const [curBand, setCurBand] = React.useState("");
+const [curGT, setCurGT] = React.useState("");
+const [isUplink, setIsUplink] = React.useState(false);
+const [isDownlink, setIsDownlink] = React.useState(false);
+
 
   // gts
-  const [gts, setGts] = React.useState<AntGT[]>([]);
-  const [gtBand, setGtBand] = React.useState("");
-  const [gtVal, setGtVal] = React.useState("");
+  // const [gts, setGts] = React.useState<AntGT[]>([]);
+  // const [gtBand, setGtBand] = React.useState("");
+  // const [gtVal, setGtVal] = React.useState("");
 
   React.useEffect(() => {
     setBusy(false);
     setType(row?.type ?? "");
+    setLocation(row?.location ?? ""); // ✅ ADD
+
     setSize(row?.size_m ?? "");
     setEirp(row?.eirp_dbw ?? "");
-    setTxPol(row?.tx_polarization ?? "");
+
+    setTxPol(row?.tx_polarization ?? []);
+    setRxPol(row?.rx_polarization ?? []);
+
     setTravel(row?.travel_range ?? "");
     setVel(row?.tracking_velocity ?? "");
     setAcc(row?.tracking_acceleration ?? "");
     setModes(row?.tracking_modes ?? "");
-    setBands(row?.bands ?? []);
-    setGts(row?.gts ?? []);
-    setCurBand("");
-    setCurUplink("");
-    setCurDownlink("");
-    setGtBand("");
-    setGtVal("");
+    setBands(
+  (row?.bands ?? []).map((b: any) => ({
+    band: b.band,
+    gt: String(b.gt ?? b.g_t ?? b.gt_value ?? ""),
+    uplink: Boolean(b.uplink),
+    downlink: Boolean(b.downlink),
+  }))
+);
+
+   setCurBand("");
+setCurGT("");
+setIsUplink(false);
+setIsDownlink(false);
+
+   
   }, [row, open]);
 
   const canSave = type.trim().length > 0;
 
-  const addBand = () => {
-    if (!curBand || !curUplink || !curDownlink) return;
-    setBands((b) => [...b, { band: curBand, uplink: curUplink, downlink: curDownlink }]);
-    setCurUplink("");
-    setCurDownlink("");
-  };
+const addBand = () => {
+  if (!curBand || !curGT || (!isUplink && !isDownlink)) return;
+
+  setBands((b) => [
+    ...b,
+    {
+      band: curBand,
+      gt: curGT,
+      uplink: isUplink,
+      downlink: isDownlink,
+    },
+  ]);
+
+  setCurGT("");
+  setIsUplink(false);
+  setIsDownlink(false);
+};
+
   const removeBand = (idx: number) => setBands((b) => b.filter((_, i) => i !== idx));
 
-  const addGT = () => {
-    if (!gtBand || !gtVal) return;
-    setGts((g) => [...g, { band: gtBand, gt: gtVal }]);
-    setGtVal("");
-  };
-  const removeGT = (idx: number) => setGts((g) => g.filter((_, i) => i !== idx));
+  // const addGT = () => {
+  //   if (!gtBand || !gtVal) return;
+  //   setGts((g) => [...g, { band: gtBand, gt: gtVal }]);
+  //   setGtVal("");
+  // };
+  // const removeGT = (idx: number) => setGts((g) => g.filter((_, i) => i !== idx));
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -152,15 +193,17 @@ export default function UpdateAntennaDialog({
       onSave({
         id: row.id,
         type: type.trim(),
+         location: location.trim(),
         size_m: size_m.trim(),
         eirp_dbw: eirp_dbw.trim(),
-        tx_polarization: tx_polarization.trim(),
+        tx_polarization,
+rx_polarization,
         travel_range: travel_range.trim(),
         tracking_velocity: tracking_velocity.trim(),
         tracking_acceleration: tracking_acceleration.trim(),
         tracking_modes: tracking_modes.trim(),
         bands,
-        gts,
+        // gts,
       });
     } finally {
       setBusy(false);
@@ -172,7 +215,8 @@ export default function UpdateAntennaDialog({
     if (!confirm("Delete this Antenna?")) return;
     try {
       setBusy(true);
-      onDelete(row);
+      onDelete?.(row);
+
     } finally {
       setBusy(false);
     }
@@ -208,9 +252,20 @@ export default function UpdateAntennaDialog({
             }}
           >
             <Stack spacing={0.75}>
-              <Typography sx={LABEL_SX}>Antenna Type *</Typography>
+              <Typography sx={LABEL_SX}>Antenna Name *</Typography>
               <TextField value={type} onChange={(e) => setType(e.target.value)} size="small" fullWidth sx={controlSx} />
             </Stack>
+            <Stack spacing={0.75}>
+  <Typography sx={LABEL_SX}>Location</Typography>
+  <TextField
+    value={location}
+    onChange={(e) => setLocation(e.target.value)}
+    size="small"
+    fullWidth
+    sx={controlSx}
+  />
+</Stack>
+
             <Stack spacing={0.75}>
               <Typography sx={LABEL_SX}>Antenna Size (m)</Typography>
               <TextField value={size_m} onChange={(e) => setSize(e.target.value)} size="small" fullWidth sx={controlSx} />
@@ -222,8 +277,45 @@ export default function UpdateAntennaDialog({
 
             <Stack spacing={0.75}>
               <Typography sx={LABEL_SX}>Transmit Polarization</Typography>
-              <TextField value={tx_polarization} onChange={(e) => setTxPol(e.target.value)} size="small" fullWidth sx={controlSx} />
+<FormControl fullWidth size="small">
+  <Select
+    multiple
+    value={tx_polarization}
+    onChange={(e) => setTxPol(e.target.value as string[])}
+    renderValue={(selected) => (selected as string[]).join(", ")}
+    sx={darkSelectSx}
+    MenuProps={darkMenu}
+  >
+    {["RHCP", "LHCP", "Linear"].map((pol) => (
+      <MenuItem key={pol} value={pol}>
+        <Checkbox checked={tx_polarization.includes(pol)} />
+        <ListItemText primary={pol} />
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
             </Stack>
+            <Stack spacing={0.75}>
+              <Typography sx={LABEL_SX}>Receive Polarization</Typography>
+<FormControl fullWidth size="small">
+  <Select
+    multiple
+    value={rx_polarization}
+    onChange={(e) => setRxPol(e.target.value as string[])}
+    renderValue={(selected) => (selected as string[]).join(", ")}
+    sx={darkSelectSx}
+    MenuProps={darkMenu}
+  >
+    {["RHCP", "LHCP", "Linear"].map((pol) => (
+      <MenuItem key={pol} value={pol}>
+        <Checkbox checked={rx_polarization.includes(pol)} />
+        <ListItemText primary={pol} />
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+            </Stack>
+
             <Stack spacing={0.75}>
               <Typography sx={LABEL_SX}>Antenna Travel Range</Typography>
               <TextField value={travel_range} onChange={(e) => setTravel(e.target.value)} size="small" fullWidth sx={controlSx} />
@@ -239,7 +331,34 @@ export default function UpdateAntennaDialog({
             </Stack>
             <Stack spacing={0.75} sx={{ gridColumn: { md: "span 2" } }}>
               <Typography sx={LABEL_SX}>Tracking Modes</Typography>
-              <TextField value={tracking_modes} onChange={(e) => setModes(e.target.value)} size="small" fullWidth sx={controlSx} />
+  <FormControl fullWidth size="small">
+  <Select
+    value={tracking_modes}
+    onChange={(e) => setModes(e.target.value)}
+    displayEmpty
+    renderValue={(v) => v || "Select Tracking Mode"}
+    sx={darkSelectSx}
+    MenuProps={darkMenu}
+  >
+    <MenuItem disabled value="">
+      Select Tracking Mode
+    </MenuItem>
+
+    {[
+      "TLE",
+      "Auto Track",
+      "Program",
+      "Step Track",
+      "Others",
+    ].map((mode) => (
+      <MenuItem key={mode} value={mode}>
+        {mode}
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+
+
             </Stack>
           </Box>
 
@@ -249,7 +368,8 @@ export default function UpdateAntennaDialog({
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "200px 1fr 1fr auto" },
+                gridTemplateColumns: { xs: "1fr", md: "200px 1fr auto auto auto" },
+
                 gap: 1,
                 alignItems: "center",
               }}
@@ -271,8 +391,34 @@ export default function UpdateAntennaDialog({
                   ))}
                 </Select>
               </FormControl>
-              <TextField value={curUplink} onChange={(e) => setCurUplink(e.target.value)} placeholder="Uplink" size="small" sx={controlSx} />
-              <TextField value={curDownlink} onChange={(e) => setCurDownlink(e.target.value)} placeholder="Downlink" size="small" sx={controlSx} />
+             <TextField
+  value={curGT}
+  onChange={(e) => setCurGT(e.target.value)}
+  placeholder="Enter G/T"
+  size="small"
+  sx={controlSx}
+/>
+
+<FormControlLabel
+  control={
+    <Checkbox
+      checked={isUplink}
+      onChange={(e) => setIsUplink(e.target.checked)}
+    />
+  }
+  label="Uplink"
+/>
+
+<FormControlLabel
+  control={
+    <Checkbox
+      checked={isDownlink}
+      onChange={(e) => setIsDownlink(e.target.checked)}
+    />
+  }
+  label="Downlink"
+/>
+
               <Button variant="contained" onClick={addBand} sx={{ textTransform: "none", height: 32, bgcolor: "#e03f3f", "&:hover": { bgcolor: "#cc3535" } }}>
                 Add
               </Button>
@@ -295,8 +441,16 @@ export default function UpdateAntennaDialog({
                   }}
                 >
                   <Box sx={{ fontSize: 13 }}><b>Band:</b> {b.band}</Box>
-                  <Box sx={{ fontSize: 13 }}><b>Uplink:</b> {b.uplink}</Box>
-                  <Box sx={{ fontSize: 13 }}><b>Downlink:</b> {b.downlink}</Box>
+                <Box sx={{ fontSize: 13 }}>
+  <b>G/T:</b> {b.gt}
+</Box>
+<Box sx={{ fontSize: 13 }}>
+  <b>Link:</b>{" "}
+  {[b.uplink && "Uplink", b.downlink && "Downlink"]
+    .filter(Boolean)
+    .join("/")}
+</Box>
+
                   <Button size="small" onClick={() => removeBand(i)} sx={{ color: "#ff9a9a", textTransform: "none" }}>
                     Remove
                   </Button>
@@ -307,7 +461,7 @@ export default function UpdateAntennaDialog({
           </Box>
 
           {/* Receive G/T */}
-          <Box sx={{ mt: 2, p: 1.25, border: BORDER, borderRadius: 1 }}>
+          {/* <Box sx={{ mt: 2, p: 1.25, border: BORDER, borderRadius: 1 }}>
             <Typography sx={{ fontWeight: 700, mb: 1 }}>Receive G/T</Typography>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "200px 1fr auto" }, gap: 1, alignItems: "center" }}>
               <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -358,54 +512,67 @@ export default function UpdateAntennaDialog({
               ))}
               {!gts.length && <Typography sx={{ color: "#9aa", fontSize: 13, mt: 0.5 }}>No G/T rows added.</Typography>}
             </Box>
-          </Box>
+          </Box> */}
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2.25 }}>
-        <Box sx={{ mr: "auto" }}>
-          <Button
-            onClick={handleDelete}
-            variant="contained"
-            sx={{
-              bgcolor: "#E24B4B",
-              textTransform: "none",
-              fontWeight: 500,
-              px: 2.5,
-              borderRadius: 1.5,
-              "&:hover": { bgcolor: "#c63c3c" },
-            }}
-            disabled={!row || busy}
-          >
-            Delete
-          </Button>
-        </Box>
+<DialogActions
+  sx={{
+    px: 3,
+    pb: 2.25,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  }}
+>
+  {onDelete && (
+    <Button
+      onClick={handleDelete}
+      variant="contained"
+      sx={{
+        bgcolor: "#E24B4B",
+        textTransform: "none",
+        fontWeight: 500,
+        px: 2.5,
+        borderRadius: 1.5,
+        "&:hover": { bgcolor: "#c63c3c" },
+      }}
+      disabled={!row || busy}
+    >
+      Delete
+    </Button>
+  )}
 
-        <Button
-          onClick={onClose}
-          variant="text"
-          sx={{ color: "rgba(255,255,255,0.9)", textTransform: "none", fontWeight: 700, mr: 0.5 }}
-          disabled={busy}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSave}
-          type="submit"
-          variant="contained"
-          disabled={!canSave || busy}
-          sx={{
-            bgcolor: PRIMARY,
-            textTransform: "none",
-            fontWeight: 500,
-            px: 3,
-            borderRadius: 1.5,
-            "&:hover": { bgcolor: "#6b46f1" },
-            "&.Mui-disabled": { bgcolor: "#2f2f33", color: "#b5b7bd" },
-          }}
-        >
-          Update
-        </Button>
+
+<Box sx={{ display: "flex", gap: 1 }}>
+  <Button
+    onClick={onClose}
+    variant="text"
+    sx={{ color: "rgba(255,255,255,0.9)", textTransform: "none", fontWeight: 700 }}
+    disabled={busy}
+  >
+    Cancel
+  </Button>
+
+  <Button
+    onClick={handleSave}
+    type="submit"
+    variant="contained"
+    disabled={!canSave || busy}
+    sx={{
+      bgcolor: PRIMARY,
+      textTransform: "none",
+      fontWeight: 500,
+      px: 3,
+      borderRadius: 1.5,
+      "&:hover": { bgcolor: "#6b46f1" },
+      "&.Mui-disabled": { bgcolor: "#2f2f33", color: "#b5b7bd" },
+    }}
+  >
+    Edit
+  </Button>
+</Box>
+
       </DialogActions>
     </Dialog>
   );

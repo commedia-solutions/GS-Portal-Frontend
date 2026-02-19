@@ -93,9 +93,16 @@ export async function apiFetch<T = any>(
     ? path
     : `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 
-  const headers: Record<string, string> = {
-    ...(opts.headers as Record<string, string> | undefined),
-  };
+ const headers: Record<string, string> = {
+  ...(opts.headers as Record<string, string> | undefined),
+
+  // ✅ stop browser caching (fix 304 issue)
+  // "Cache-Control": "no-cache",
+  // Pragma: "no-cache",
+  // Expires: "0",
+
+
+};
 
   const isFormData =
     typeof FormData !== "undefined" && opts.body instanceof FormData;
@@ -106,22 +113,37 @@ export async function apiFetch<T = any>(
   }
 
   // Attach token unless explicitly disabled or calling public routes
-  const token = getAuthToken();
+   const token = getAuthToken();
   if (opts.auth !== false && token && !isPublicPath(path)) {
     headers.Authorization = `Bearer ${token}`;
   }
 
+  // ✅ Auto send module + page from current route
+  // Example: /licenses => module=licenses, page=licenses
+  if (!headers["x-module-name"]) {
+    headers["x-module-name"] = window.location.pathname.split("/")[1] || "portal";
+  }
+
+  if (!headers["x-page-name"]) {
+    headers["x-page-name"] = window.location.pathname || "portal";
+  }
+
+
   // Avoid sending cookies/credentials to public endpoints (prevents 431/500)
-  const credentials: RequestCredentials = isPublicPath(path) ? "omit" : "include";
+const credentials: RequestCredentials = "include";
 
   // Serialize non-FormData bodies
   const body =
     opts.body && typeof opts.body !== "string" && !(opts.body instanceof FormData)
       ? JSON.stringify(opts.body)
       : opts.body;
-
-  const res = await fetch(url, { ...opts, headers, credentials, body });
-
+const res = await fetch(url, {
+  ...opts,
+  headers,
+  credentials,
+  body,
+  cache: "no-store",
+});
   if (res.status === 401) {
     // let the app react (e.g., force logout)
     window.dispatchEvent(new CustomEvent("auth:unauthorized"));

@@ -10,6 +10,8 @@ import {
   TextField,
   Select,
   MenuItem,
+    Checkbox,          // ✅ ADD THIS
+
   Button,
   CircularProgress,
   Alert,
@@ -28,6 +30,7 @@ export type PassLike = {
   date: string; // MM/DD/YYYY
   sat: string;
   stn: string;
+    band: string; 
   orb: string;
   maxEl: string;
   aos: string;
@@ -159,7 +162,8 @@ async function fetchList(url: string): Promise<any[]> {
 
 export default function UpdatePassModal({ open, row, onClose, onSave, onDelete }: Props) {
   const [form, setForm] = React.useState<PassLike | null>(row);
-  const [dateVal, setDateVal] = React.useState<Date | null>(row ? parseMMDDYYYY(row.date) : null);
+const [dateText, setDateText] = React.useState<string>(row?.date ?? "");
+const [dateVal, setDateVal] = React.useState<Date | null>(row ? parseMMDDYYYY(row.date) : null);
   const [busy, setBusy] = React.useState<"put" | "del" | null>(null);
   const [err, setErr] = React.useState<string>("");
 
@@ -205,10 +209,20 @@ export default function UpdatePassModal({ open, row, onClose, onSave, onDelete }
     setForm(row);
     setErr("");
     setBusy(null);
-    setDateVal(row ? parseMMDDYYYY(row.date) : null);
-  }, [row]);
+setDateText(row?.date ?? "");
+setDateVal(row ? parseMMDDYYYY(row.date) : null);  }, [row]);
 
   if (!form) return null;
+  // convert "SAT1, SAT2" -> ["SAT1", "SAT2"]
+const satArray = form.sat
+  ? form.sat.split(",").map(s => s.trim())
+  : [];
+
+// update string value from multi-select
+const setSatMulti = (vals: string[]) => {
+  setForm({ ...form, sat: vals.join(", ") });
+};
+
 
   const set = (k: keyof PassLike) => (e: any) => setForm({ ...form, [k]: e.target.value });
 
@@ -233,9 +247,11 @@ export default function UpdatePassModal({ open, row, onClose, onSave, onDelete }
 
       const payload = {
         pass_req_no: form.req,
-        date_text: fmtMMDDYYYY(dateVal) || form.date,
+date_text: dateText || form.date,
         satellite_name: form.sat,
         supporting_station: form.stn,
+          band_carrier: form.band,     // ✅ ADD THIS
+
         orbit_no: form.orb,
         max_el_deg: form.maxEl,
         aos_ut: form.aos,
@@ -257,6 +273,8 @@ export default function UpdatePassModal({ open, row, onClose, onSave, onDelete }
         date: updated.date_text,
         sat: updated.satellite_name,
         stn: updated.supporting_station,
+          band: updated.band_carrier ?? form.band,   // ✅ ADD THIS
+
         orb: updated.orbit_no ?? "",
         maxEl: updated.max_el_deg ?? "",
         aos: updated.aos_ut ?? "",
@@ -331,37 +349,75 @@ export default function UpdatePassModal({ open, row, onClose, onSave, onDelete }
             <Typography sx={labelSx}>Date</Typography>
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               <DatePicker
-                value={dateVal}
-                onChange={(v) => {
-                  setDateVal(v);
-                  setForm({ ...form, date: fmtMMDDYYYY(v) });
-                }}
-                slotProps={dateSlots as any}
-              />
+  value={dateVal}
+  onChange={(v) => {
+    setDateVal(v);
+
+    const formatted = fmtMMDDYYYY(v);
+    setDateText(formatted);
+    setForm({ ...form, date: formatted });
+  }}
+  slotProps={dateSlots as any}
+/>
+
             </LocalizationProvider>
           </Box>
 
           {/* Row 2 */}
-          <Box>
-            <Typography sx={labelSx}>Satellite</Typography>
-            <Select size="small" fullWidth value={form.sat} onChange={set("sat")} sx={compactCtrlSx}>
-              {addCurrent(satOpts, form.sat).map((s) => (
-                <MenuItem key={s} value={s}>
-                  {s}
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
-          <Box>
-            <Typography sx={labelSx}>Station</Typography>
-            <Select size="small" fullWidth value={form.stn} onChange={set("stn")} sx={compactCtrlSx}>
-              {addCurrent(stationOpts, form.stn).map((s) => (
-                <MenuItem key={s} value={s}>
-                  {s}
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
+          {/* Row 2 */}
+<Box>
+  <Typography sx={labelSx}>Station</Typography>
+  <Select
+    size="small"
+    fullWidth
+    value={form.stn}
+    onChange={set("stn")}
+    sx={compactCtrlSx}
+  >
+    {addCurrent(stationOpts, form.stn).map((s) => (
+      <MenuItem key={s} value={s}>
+        {s}
+      </MenuItem>
+    ))}
+  </Select>
+</Box>
+
+<Box>
+  <Typography sx={labelSx}>Satellite</Typography>
+  <Select
+    multiple
+    size="small"
+    fullWidth
+    value={satArray}
+    onChange={(e) => {
+      const v = e.target.value;
+      setSatMulti(typeof v === "string" ? v.split(",") : v);
+    }}
+    renderValue={(selected) => (selected as string[]).join(", ")}
+    sx={compactCtrlSx}
+  >
+    {satOpts.map((s) => (
+      <MenuItem key={s} value={s}>
+        <Checkbox checked={satArray.indexOf(s) > -1} />
+        <Typography sx={{ fontSize: 13 }}>{s}</Typography>
+      </MenuItem>
+    ))}
+  </Select>
+</Box>
+
+{/* Band / Carrier */}
+<Box sx={{ gridColumn: "1 / -1" }}>
+  <Typography sx={labelSx}>Band / Carrier</Typography>
+  <TextField
+    size="small"
+    fullWidth
+    value={form.band}
+    onChange={set("band")}
+    sx={compactCtrlSx}
+    placeholder="e.g. S (2.0 – 2.1 GHz)"
+  />
+</Box>
+
 
           {/* Row 3 */}
           <Box>

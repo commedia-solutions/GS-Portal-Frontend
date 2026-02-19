@@ -9,7 +9,8 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 import type { Theme } from "@mui/material/styles";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import { createUser } from "../../api/iam";
+import { createUser, updateAssignmentForUser } from "../../api/iam";
+
 import { useToast } from "../../ui/toast/ToastProvider";
 
 /* theme bridge (for colors consistent with the app) */
@@ -92,15 +93,28 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onCreated?: (newUserId: string) => void;
+  entities: { id: string; name: string }[];
+  roles: { id: string; name: string }[];
 };
 
-export default function AddUserModal({ open, onClose, onCreated }: Props) {
+
+export default function AddUserModal({
+  open,
+  onClose,
+  onCreated,
+  entities,
+  roles,
+}: Props) {
+
   const { t } = useI18n();
   const toast = useToast();
 
   const [username, setUsername] = React.useState("");
   const [fullName, setFullName] = React.useState("");
   const [userType, setUserType] = React.useState<"" | "ldap" | "local">("");
+  const [assignEntityId, setAssignEntityId] = React.useState<string>("");
+const [assignRoleId, setAssignRoleId] = React.useState<string>("");
+
   const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState(""); // optional
   const [password, setPassword] = React.useState("");
@@ -113,7 +127,9 @@ export default function AddUserModal({ open, onClose, onCreated }: Props) {
 
   React.useEffect(() => {
     if (!open) {
-      setUsername(""); setFullName(""); setUserType(""); setEmail(""); setPhone("");
+      setUsername(""); setFullName(""); setUserType(""); setAssignEntityId("");
+setAssignRoleId("");
+setEmail(""); setPhone("");
       setPassword(""); setConfirm(""); setLdapDn(""); setShowPw(false); setShowConfirm(false);
       setBusy(false); setErr("");
     }
@@ -151,7 +167,17 @@ export default function AddUserModal({ open, onClose, onCreated }: Props) {
       if (isLDAP) payload.ldapDn = ldapDn.trim();
 
       const { id } = await createUser(payload);
-      onCreated?.(id);
+
+      await updateAssignmentForUser(id, {
+  roleId: assignRoleId || null,
+  entityIds: assignEntityId ? [assignEntityId] : [],
+});
+
+// auto-assign role & entity
+
+
+onCreated?.(id);
+
       if (!onCreated) toast.success(t("User created successfully"));
       onClose();
     } catch (e: any) {
@@ -256,6 +282,61 @@ export default function AddUserModal({ open, onClose, onCreated }: Props) {
                 </Select>
               </FormControl>
             </Box>
+
+            {/* Assign Entity */}
+<Box>
+  <Typography sx={labelSx}>{t("Assign Entity")}</Typography>
+  <FormControl size="small" fullWidth>
+    <Select
+      value={assignEntityId}
+      onChange={(e: SelectChangeEvent) => setAssignEntityId(e.target.value)}
+      sx={controlSx}
+      MenuProps={darkLightMenu}
+      displayEmpty
+      disabled={busy}
+      renderValue={(val) =>
+        val ? entities.find((x) => x.id === val)?.name : t("Global")
+      }
+    >
+      <MenuItem value="">
+        <em>{t("Global")}</em>
+      </MenuItem>
+      {entities.map((e) => (
+        <MenuItem key={e.id} value={e.id}>
+          {e.name}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Box>
+
+{/* Assign Role */}
+<Box>
+  <Typography sx={labelSx}>{t("Assign Role")}</Typography>
+  <FormControl size="small" fullWidth>
+    <Select
+      value={assignRoleId}
+      onChange={(e: SelectChangeEvent) => setAssignRoleId(e.target.value)}
+      sx={controlSx}
+      MenuProps={darkLightMenu}
+      displayEmpty
+      disabled={busy}
+      renderValue={(val) =>
+        val ? roles.find((r) => r.id === val)?.name : t("Select Role")
+      }
+    >
+      <MenuItem disabled value="">
+        {t("Select Role")}
+      </MenuItem>
+      {roles.map((r) => (
+        <MenuItem key={r.id} value={r.id}>
+          {r.name}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Box>
+
 
             <Box>
               <Typography sx={labelSx}>{t("Email")}</Typography>

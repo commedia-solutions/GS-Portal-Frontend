@@ -24,6 +24,8 @@ import UpdatePassModal from "../../components/Models/UpdatePassModal";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { useI18n } from "../../i18n";
+import { useActionAccess } from "../../auth/useActionAccess";
+
 import { getAuthToken } from "../../api/http"; // ✅ use the same auth source as the rest of the app
 
 /* ==================== API wiring ==================== */
@@ -40,6 +42,8 @@ type ApiPass = {
   date_text: string;
   satellite_name: string;
   supporting_station: string;
+  band_carrier?: string | null;
+
   orbit_no: string;
   max_el_deg: string;
   aos_ut: string;
@@ -49,6 +53,8 @@ type ApiPass = {
   operations_supporter?: string | null;
   schedule_status: string;
   pass_status: string;
+    created_at?: string | null;
+  updated_at?: string | null;
   remarks?: string | null;
   added_by?: string | null;
   pass_type?: "Normal" | "Emergency" | string | null;
@@ -114,7 +120,7 @@ const UI = {
   headerPy: 0.6,
   searchW: 150,
   selectW: 120,
-  dateW: 130,
+  dateW: 150,
   paginationH: 36,
 };
 
@@ -197,6 +203,36 @@ const lightMenu = {
   },
 };
 
+// 🎯 Pass status color styles (offline-safe)
+const getPassStatusStyle = (status: string) => {
+  switch (status) {
+    case "Pending":
+      return {
+        bgcolor: "#FEF3C7",   // light yellow
+        color: "#92400E",     // dark amber
+        border: "1px solid #FCD34D",
+      };
+    case "Completed":
+      return {
+        bgcolor: "#DCFCE7",   // light green
+        color: "#166534",     // dark green
+        border: "1px solid #86EFAC",
+      };
+    case "Canceled":
+      return {
+        bgcolor: "#FEE2E2",   // light red
+        color: "#991B1B",     // dark red
+        border: "1px solid #FCA5A5",
+      };
+    default:
+      return {
+        bgcolor: "transparent",
+        color: TOK.TEXT_DIM,
+        border: "none",
+      };
+  }
+};
+
 /* ==================== table scaffold ==================== */
 type UIRow = {
   id?: number;            // ✅ include id so the modal can PUT/DELETE
@@ -205,6 +241,8 @@ type UIRow = {
   date: string;
   sat: string;
   stn: string;
+  band: string;
+
   type: "Normal" | "Emergency" | string;
   orb: string;
   maxEl: string;
@@ -215,6 +253,8 @@ type UIRow = {
   opsSup: string;
   sched: string;
   pass: string;
+  addedBy: string;      // ✅ NEW
+  dateTime: string;     // ✅ NEW
   remarks: string;
 };
 
@@ -240,12 +280,15 @@ function ScrollTable({
   columns,
   totalWidth,
   onEdit,
+  isEditor,
 }: {
   rows: UIRow[];
   columns: Column[];
   totalWidth: number;
   onEdit: (r: UIRow) => void;
+  isEditor: boolean;
 }) {
+
   return (
     <Box sx={TABLE_SCROLL_SX}>
       <Box sx={{ width: totalWidth, minWidth: "100%" }}>
@@ -291,32 +334,33 @@ function ScrollTable({
             }}
           >
             {columns.map((c) => {
-              if (c.key === "action") {
-                return (
-                  <Box
-                    key={`action-${idx}`}
-                    sx={{ px: 0.75, py: 0.75, display: "flex", justifyContent: "center", alignItems: "center" }}
-                  >
-                    <Button
-                      size="small"
-                      variant="contained"
-                      sx={{
-                        textTransform: "none",
-                        fontWeight: 700,
-                        fontSize: 12,
-                        px: 1.25,
-                        bgcolor: TOK.ACCENT,
-                        color: "#fff",
-                        "& .MuiSvgIcon-root": { color: "#fff" },
-                        "&:hover": { filter: "brightness(0.95)" },
-                      }}
-                      onClick={() => onEdit(r)}
-                    >
-                      Update
-                    </Button>
-                  </Box>
-                );
-              }
+             if (c.key === "action") {
+  return (
+    <Box
+      key={`action-${idx}`}
+      sx={{ px: 0.75, py: 0.75, display: "flex", justifyContent: "center" }}
+    >
+      {isEditor && (
+        <Button
+          size="small"
+          variant="contained"
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            fontSize: 12,
+            px: 1.25,
+            bgcolor: TOK.ACCENT,
+            color: "#fff",
+          }}
+          onClick={() => onEdit(r)}
+        >
+          Edit
+        </Button>
+      )}
+    </Box>
+  );
+}
+
 
               const renderer = (c as any).render as undefined | ((row: UIRow) => React.ReactNode);
               const content = renderer ? renderer(r) : (r as any)[c.key];
@@ -361,6 +405,9 @@ function reqNum(req: string): number {
 export default function PassesList() {
   const { t } = useI18n();
 
+    const { hasWriteAccess } = useActionAccess();
+const canEdit = hasWriteAccess("passes");
+
   type Mode = "filter" | "export";
   const [mode, setMode] = React.useState<Mode>("filter");
 
@@ -403,47 +450,116 @@ export default function PassesList() {
     setToDate(null);
   };
 
-  const COLUMNS: Column[] = React.useMemo(
-    () => [
-      { key: "sr", label: t("Sr"), width: 60, align: "center" },
-      { key: "date", label: t("Date"), width: 110, align: "center" },
-      { key: "sat", label: t("Satellite"), width: 120, align: "center" },
-      { key: "stn", label: t("Station"), width: 130, align: "center" },
-      { key: "type", label: t("Pass Type"), width: 110, align: "center" },
-      { key: "orb", label: t("Orbit"), width: 90, align: "center" },
-      { key: "maxEl", label: t("Max (El)°"), width: 110, align: "center" },
-      { key: "aos", label: t("AOS / LOS (UT)"), width: 180, align: "center", render: (r) => `${r.aos || "—"} / ${r.los || "—"}` },
-      { key: "ops", label: t("Operations"), width: 130, align: "center" },
-      { key: "opsReq", label: t("Ops requester / supporter"), width: 240, align: "center", render: (r) => `${r.opsReq || "—"} / ${r.opsSup || "—"}` },
-      { key: "sched", label: t("Schedule"), width: 120, align: "center", render: (r) => t(String(r.sched || "")) },
-      { key: "pass", label: t("Pass"), width: 100, align: "center", render: (r) => t(String(r.pass || "")) },
-      { key: "remarks", label: t("Remarks"), width: 180, align: "center" },
-      { key: "action", label: t("Action"), width: 120, align: "center" },
-    ],
-    [t]
-  );
+  const COLUMNS: Column[] = React.useMemo(() => {
+  const cols: Column[] = [
+    { key: "sr", label: t("Sr"), width: 60, align: "center" },
+    { key: "date", label: t("Date"), width: 110, align: "center" },
+    { key: "sat", label: t("Satellite"), width: 100, align: "center" },
+    { key: "stn", label: t("Station"), width: 100, align: "center" },
+     { key: "band", label: t("Band / Carrier"), width: 200, align: "center" },
+    { key: "type", label: t("Pass Type"), width: 110, align: "center" },
+    { key: "orb", label: t("Orbit"), width: 90, align: "center" },
+    { key: "maxEl", label: t("Max (El)°"), width: 90, align: "center" },
+    { key: "aos", label: t("AOS / LOS (UT)"), width: 180, align: "center",
+      render: (r) => `${r.aos || "—"} / ${r.los || "—"}` },
+    { key: "ops", label: t("Operations"), width: 130, align: "center" },
+    { key: "opsReq", label: t("Ops requester / supporter"), width: 240, align: "center",
+      render: (r) => `${r.opsReq || "—"} / ${r.opsSup || "—"}` },
+    { key: "sched", label: t("Schedule"), width: 120, align: "center" },
+{
+  key: "pass",
+  label: t("Pass"),
+  width: 110,
+  align: "center",
+  render: (r) => (
+    <Box
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        px: 1.2,
+        py: 0.4,
+        borderRadius: 999,     // pill shape
+        fontSize: 12.5,
+        fontWeight: 600,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+        ...getPassStatusStyle(r.pass),
+      }}
+    >
+      {t(r.pass)}
+    </Box>
+  ),
+},
+{ key: "addedBy", label: t("Added By"), width: 140, align: "center" },
+{ key: "dateTime", label: t("Date/Time"), width: 180, align: "center" },
+{ key: "remarks", label: t("Remarks"), width: 180, align: "center" },
+  ];
+
+  if (canEdit) {
+  cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
+}
+
+  return cols;
+}, [t, canEdit]);
+
 
   const totalWidth = COLUMNS.reduce((acc, c) => acc + (c.width ?? 120), 0) + 16;
 
-  const dateSlots = {
-    textField: { size: "small" as const, sx: { width: UI.dateW, ...compactCtrlSx }, placeholder: t("MM/DD/YY") },
-    openPickerButton: { sx: { color: TOK.ICON } },
-    popper: {
-      sx: {
-        "& .MuiPaper-root": { bgcolor: TOK.CONTROL_BG, color: TOK.TEXT, border: TOK.BORDER_STR },
-        "& .MuiPickersDay-root": { color: TOK.TEXT },
-        "& .MuiPickersDay-root.Mui-selected": { bgcolor: "var(--accent) !important", color: "#fff" },
-        "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label, & .MuiPickersYear-yearButton": {
-          color: TOK.TEXT,
-        },
+ const dateSlots = {
+  textField: {
+    size: "small" as const,
+    sx: {
+      width: UI.dateW,
+      bgcolor: TOK.CONTROL_BG,
+      borderRadius: 1,
+      color: TOK.TEXT,
+
+      "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
+      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
+      "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
+
+      "& .MuiOutlinedInput-root": {
+        height: `${UI.ctrlH}px`,
+        backgroundColor: TOK.CONTROL_BG,
+        color: TOK.TEXT,
+        paddingLeft: 0,
+      },
+
+      "& input": {
+        height: `${UI.ctrlH - 2}px`,
+        padding: "0 10px !important",
+        fontSize: UI.font,
+        lineHeight: 1,
+        color: TOK.TEXT,
+      },
+
+      "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
+    },
+    placeholder: "MM/DD/YYYY",
+  },
+
+  openPickerButton: { sx: { color: TOK.ICON } },
+
+  popper: {
+    sx: {
+      "& .MuiPaper-root": { bgcolor: TOK.CONTROL_BG, color: TOK.TEXT, border: TOK.BORDER_STR },
+      "& .MuiPickersDay-root": { color: TOK.TEXT },
+      "& .MuiPickersDay-root.Mui-selected": { bgcolor: "var(--accent) !important", color: "#fff" },
+      "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label, & .MuiPickersYear-yearButton": {
+        color: TOK.TEXT,
       },
     },
-  };
+  },
+};
 
-  const openModal = (r: UIRow) => {
-    setEditing(r);
-    setModalOpen(true);
-  };
+
+ const openModal = (r: UIRow) => {
+  if (!canEdit) return;
+  setEditing(r);
+  setModalOpen(true);
+};
+
 
   const fetchStations = React.useCallback(async () => {
     try {
@@ -489,28 +605,56 @@ export default function PassesList() {
     setLoadErr("");
     try {
       const data = await api.list();
-      if (!Array.isArray(data)) throw new Error("API /api/passes did not return an array.");
-      const ui: UIRow[] = data.map((p, idx) => ({
-        id: p.id, // ✅ keep id for modal actions
-        sr: idx + 1,
-        req: p.pass_req_no,
-        date: p.date_text,
-        sat: p.satellite_name,
-        stn: p.supporting_station,
-        type: (p.pass_type as any) || "Normal",
-        orb: p.orbit_no ?? "",
-        maxEl: p.max_el_deg ?? "",
-        aos: p.aos_ut,
-        los: p.los_ut,
-        ops: p.operations ?? "",
-        opsReq: p.operations_requester ?? "",
-        opsSup: p.operations_supporter ?? "",
-        sched: p.schedule_status,
-        pass: p.pass_status,
-        remarks: p.remarks ?? "—",
-      }));
-      setRows(ui);
-      setPage(0);
+     if (!Array.isArray(data)) throw new Error("API /api/passes did not return an array.");
+
+const ui: UIRow[] = data.map((p, idx) => {
+  // Format band carrier nicely
+  let formattedBand = "—";
+  if (p.band_carrier) {
+    const parts = p.band_carrier.split("|").map(s => s.trim());
+    const band = parts[0];
+    const upl = parts.find(s => s.toLowerCase().includes("uplink:true"));
+    const dwn = parts.find(s => s.toLowerCase().includes("downlink:true"));
+
+    if (upl && dwn) formattedBand = `${band} / Uplink & Downlink`;
+    else if (upl) formattedBand = `${band} / Uplink`;
+    else if (dwn) formattedBand = `${band} / Downlink`;
+    else formattedBand = band;
+  }
+
+  return {
+    id: p.id,
+    sr: idx + 1,
+    req: p.pass_req_no,
+    date: p.date_text,
+    sat: p.satellite_name,
+    stn: p.supporting_station,
+    band: formattedBand,
+    type: (p.pass_type as any) || "Normal",
+    orb: p.orbit_no ?? "",
+    maxEl: p.max_el_deg ?? "",
+    aos: p.aos_ut,
+    los: p.los_ut,
+    ops: p.operations ?? "",
+    opsReq: p.operations_requester ?? "",
+    opsSup: p.operations_supporter ?? "",
+    sched: p.schedule_status,
+    pass: p.pass_status,
+
+  addedBy: p.added_by ?? "—",   // ✅ NEW
+
+  // ✅ show updated_at (because it changes when edit)
+  dateTime: p.updated_at
+    ? new Date(p.updated_at).toLocaleString("en-IN")
+    : "—",
+
+  remarks: p.remarks ?? "—",
+};
+});
+
+setRows(ui);
+setPage(0);
+
     } catch (e: any) {
       setLoadErr(e?.message || "Failed to fetch passes");
     } finally {
@@ -714,16 +858,22 @@ export default function PassesList() {
 
                   <Labeled label={t("Pass Type")} width={UI.selectW}>
                     <FormControl size="small" fullWidth>
-                      <Select
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value as any)}
-                        MenuProps={lightMenu}
-                        sx={compactSelectSx}
-                      >
-                        <MenuItem value="">{t("All")}</MenuItem>
-                        <MenuItem value="Normal">{t("Normal")}</MenuItem>
-                        <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
-                      </Select>
+                     <Select
+  value={typeFilter}
+  onChange={(e) => setTypeFilter(e.target.value as any)}
+  MenuProps={lightMenu}
+  sx={compactSelectSx}
+  displayEmpty
+  renderValue={(selected) => {
+    if (!selected) return t("All");   // ✅ show All when ""
+    return t(selected);
+  }}
+>
+  <MenuItem value="">{t("All")}</MenuItem>
+  <MenuItem value="Normal">{t("Normal")}</MenuItem>
+  <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
+</Select>
+
                     </FormControl>
                   </Labeled>
 
@@ -812,7 +962,14 @@ export default function PassesList() {
               ) : filtered.length === 0 ? (
                 <Box sx={{ p: 2, color: TOK.TEXT_DIM }}>{t("No results")}</Box>
               ) : (
-                <ScrollTable rows={paged} columns={COLUMNS} totalWidth={totalWidth} onEdit={openModal} />
+                <ScrollTable
+  rows={paged}
+  columns={COLUMNS}
+  totalWidth={totalWidth}
+  onEdit={openModal}
+  isEditor={canEdit}
+/>
+
               )}
             </Box>
           </Box>
@@ -829,7 +986,7 @@ export default function PassesList() {
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
-              rowsPerPageOptions={[10, 50, 150, 200]}
+rowsPerPageOptions={[10, 50, 150, 200, 500, 1000, 2000, 5000]}
               labelRowsPerPage={t("Rows per page:")}
               sx={{
                 px: 1,
@@ -872,6 +1029,7 @@ export default function PassesList() {
                 date: editing.date,
                 sat: editing.sat,
                 stn: editing.stn,
+                band: editing.band,
                 orb: editing.orb,
                 maxEl: editing.maxEl,
                 aos: editing.aos,

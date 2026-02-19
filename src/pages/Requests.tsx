@@ -26,6 +26,8 @@ import {
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import SearchIcon from "@mui/icons-material/Search";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+
 import MainLayout from "../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../components/TopNav";
 import { api } from "../api/http";
@@ -257,15 +259,18 @@ function DarkScrollTable({
   rows,
   columns,
   onUpdate,
+  onDelete,
   scope,
   t,
 }: {
   rows: ReqRow[];
   columns: Column[];
   onUpdate: (row: ReqRow) => void;
+  onDelete: (row: ReqRow) => void;
   scope: "inbox" | "sent";
   t: (k: string) => string;
 }) {
+
   const totalW = columns.reduce((acc, c) => acc + (c.width ?? 120), 0) + 16;
 
   return (
@@ -315,36 +320,53 @@ function DarkScrollTable({
             }}
           >
             {columns.map((c) => {
-              if (c.key === "action") {
-                const canUpdate = scope === "inbox";
-                return (
-                  <Box
-                    key={`action-${idx}`}
-                    sx={{ px: 1.25, py: 0.75, display: "flex", justifyContent: "center", alignItems: "center" }}
-                  >
-                    {canUpdate ? (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        sx={{
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          px: 1.25,
-                          bgcolor: ACCENT,
-                          color: "#fff",
-                          "&:hover": { filter: "brightness(0.95)" },
-                        }}
-                        onClick={() => onUpdate(r)}
-                      >
-                        {t("Update")}
-                      </Button>
-                    ) : (
-                      <Box sx={{ fontSize: 12, color: TEXT_DIM }}>—</Box>
-                    )}
-                  </Box>
-                );
-              }
+            if (c.key === "action") {
+  return (
+    <Box
+      key={`action-${idx}`}
+      sx={{
+        px: 1.25,
+        py: 0.75,
+        display: "flex",
+        gap: 0.75,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      {/* Update button only for Inbox */}
+{scope === "inbox" && (
+  <Button
+    size="small"
+    variant="contained"
+    sx={{
+      textTransform: "none",
+      fontWeight: 700,
+      fontSize: 12,
+      px: 1.25,
+      bgcolor: ACCENT,
+      color: "#fff",
+    }}
+    onClick={() => onUpdate(r)}
+  >
+    {t("Update")}
+  </Button>
+)}
+
+{/* Delete button for BOTH Inbox and Sent */}
+<Button
+  size="small"
+  variant="outlined"
+  color="error"
+  sx={{ minWidth: 32, px: 0.75 }}
+  onClick={() => onDelete(r)}
+>
+  <DeleteOutlineIcon fontSize="small" />
+</Button>
+
+    </Box>
+  );
+}
+
               if (c.key === "status") {
                 return (
                   <Box key={`status-${idx}`} sx={{ px: 1.25, py: 0.9, textAlign: "center" }}>
@@ -791,11 +813,25 @@ export default function RequestsPage() {
       setUpdLoading(false);
     }
   };
+const handleDelete = async (row: ReqRow) => {
+  const ok = window.confirm(`Delete request ${row.ticketNo}?`);
+  if (!ok) return;
 
-  const columnsForScope = React.useMemo(
-    () => (scope === "sent" ? COLUMNS.filter((c) => c.key !== "action") : COLUMNS),
-    [scope]
-  );
+  try {
+await api.del(`/api/tickets/${row.id}`);
+    fetchList(page, rowsPerPage);
+  } catch (e: any) {
+    console.error(e);
+    alert(e?.message || t("Failed to delete request"));
+  }
+};
+
+  // const columnsForScope = React.useMemo(
+  //   () => (scope === "sent" ? COLUMNS.filter((c) => c.key !== "action") : COLUMNS),
+  //   [scope]
+  // );
+
+  const columnsForScope = React.useMemo(() => COLUMNS, []);
 
   return (
     <MainLayout title="">
@@ -1077,7 +1113,14 @@ export default function RequestsPage() {
             {tab === "list" && (
               <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden" }}>
                 <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX }}>
-                  <DarkScrollTable rows={paged} columns={columnsForScope} onUpdate={openUpdate} scope={scope} t={t} />
+<DarkScrollTable
+  rows={paged}
+  columns={columnsForScope}
+  onUpdate={openUpdate}
+  onDelete={handleDelete}
+  scope={scope}
+  t={t}
+/>
                 </Box>
                 {loadingList && <Box sx={{ textAlign: "center", color: TEXT_DIM, py: 1 }}>{t("Loading…")}</Box>}
               </Box>

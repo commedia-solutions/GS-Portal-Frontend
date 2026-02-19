@@ -1,18 +1,18 @@
-// p3 — UpdateEntityModal.tsx
+// src/components/Models/UpdateEntityModal.tsx
 import * as React from "react";
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Box, Typography, TextField, Button, Chip
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Box,
+  Typography,
+  TextField,
+  Button,
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
 
-import {
-  getDesignations,
-  updateEntity,
-  deleteEntity,
-  createDesignation,
-  deleteDesignation,
-} from "../../api/iam";
+import { updateEntity, deleteEntity } from "../../api/iam";
 import { useToast } from "../../ui/toast/ToastProvider";
 
 /* ---------- theme constants ---------- */
@@ -33,36 +33,23 @@ const compactCtrlSx = (t: Theme) => ({
   color: t.palette.mode === "dark" ? "#fff" : "#000",
   "& .MuiOutlinedInput-root": {
     height: `${UI.ctrlH}px`,
-    color: "inherit",
-    alignItems: "center",
   },
   "& .MuiOutlinedInput-notchedOutline": {
-    borderColor: t.palette.mode === "dark" ? "#454444ff" : "rgba(0,0,0,0.23)",
-  },
-  "&:hover .MuiOutlinedInput-notchedOutline": {
-    borderColor: t.palette.mode === "dark" ? "#454444ff" : "rgba(0,0,0,0.4)",
-  },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: t.palette.mode === "dark" ? "#544f4fff" : "#1976d2",
+    borderColor: t.palette.mode === "dark"
+      ? "#454444ff"
+      : "rgba(0,0,0,0.23)",
   },
   "& .MuiInputBase-input": {
     padding: "0 10px",
-    height: `${UI.ctrlH - 2}px`,
-    lineHeight: `${UI.ctrlH - 2}px`,
     fontSize: UI.font,
-    color: "inherit",
-    display: "flex",
-    alignItems: "center",
   },
-}) as const;
+});
 
-const labelSx = { color: "rgba(255,255,255,0.7)", mb: 0.5, fontSize: 12 };
-const helperReset = { m: 0, lineHeight: 1, minHeight: 0, p: 0 } as const;
-
+/* ---------- types ---------- */
 export type EntityUpdateIn = {
   id: string | number;
   name: string;
-  designations?: Array<string | { id?: string | number; name: string }>;
+  description?: string;
 };
 
 export default function UpdateEntityModal({
@@ -80,97 +67,32 @@ export default function UpdateEntityModal({
 }) {
   const toast = useToast();
 
-  const [name, setName] = React.useState(row?.name ?? "");
-  const [input, setInput] = React.useState("");
-  const [chips, setChips] = React.useState<string[]>([]);
+  const [name, setName] = React.useState("");
+  const [description, setDescription] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
 
-  const baseMapRef = React.useRef<Map<string, string>>(new Map());
-  const normalize = (s: string) => s.trim().toLowerCase();
-
   React.useEffect(() => {
     if (!open || !row) return;
-
-    setName(row.name);
-    setInput("");
+    setName(row.name ?? "");
+    setDescription(row.description ?? "");
     setErr("");
     setBusy(false);
-
-    (async () => {
-      try {
-        const entityId = String(row.id);
-        const list = await getDesignations(entityId);
-        baseMapRef.current = new Map(list.map((d) => [normalize(d.name), String(d.id)]));
-        setChips(list.map((d) => d.name));
-      } catch {
-        const fromRow =
-          (row.designations || []).map((d) => (typeof d === "string" ? d : d.name)) ?? [];
-        baseMapRef.current = new Map(fromRow.map((n, i) => [normalize(n), String(i + 1)]));
-        setChips(fromRow);
-      }
-    })();
   }, [open, row]);
 
-  const addFromInput = () => {
-    const raw = input.trim();
-    if (!raw) return;
-    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
-    setChips((prev) => {
-      const existing = new Set(prev.map((p) => normalize(p)));
-      const next = [...prev];
-      parts.forEach((p) => !existing.has(normalize(p)) && next.push(p));
-      return next;
-    });
-    setInput("");
-  };
-
-  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addFromInput();
-    }
-  };
-
-  const removeChip = (val: string) =>
-    setChips((prev) => prev.filter((x) => normalize(x) !== normalize(val)));
-
-  const canUpdate = !!name.trim() && chips.length > 0;
+  const canUpdate = !!name.trim() && !!description.trim();
 
   async function handleUpdate() {
-    if (!row || !canUpdate || busy) return;
+    if (!row || busy || !canUpdate) return;
     setBusy(true);
     setErr("");
     try {
-      const entityId = String(row.id);
-      if (name.trim() !== row.name) {
-        await updateEntity(entityId, { name: name.trim() });
-      }
-
-      const baseNames = new Set<string>(Array.from(baseMapRef.current.keys()));
-      const newNamesNorm = new Set<string>(chips.map(normalize));
-      const toAdd = [...newNamesNorm].filter((n) => !baseNames.has(n));
-      const toDelete = [...baseNames].filter((n) => !newNamesNorm.has(n));
-
-      if (toAdd.length) {
-        await Promise.all(
-          toAdd.map((nNorm) => {
-            const original = chips.find((c) => normalize(c) === nNorm) || nNorm;
-            return createDesignation(entityId, { name: original });
-          })
-        );
-      }
-      if (toDelete.length) {
-        await Promise.all(
-          toDelete.map((nNorm) => {
-            const id = baseMapRef.current.get(nNorm);
-            return id ? deleteDesignation(id) : Promise.resolve();
-          })
-        );
-      }
-
-      onUpdated?.();
+      await updateEntity(String(row.id), {
+        name: name.trim(),
+        description: description.trim(),
+      });
       toast.success("Entity updated");
+      onUpdated?.();
       onClose();
     } catch (e: any) {
       const msg = e?.message || "Failed to update entity";
@@ -183,22 +105,21 @@ export default function UpdateEntityModal({
 
   async function handleDelete() {
     if (!row || busy) return;
-    const ok = window.confirm(`Delete entity "${row.name}"? This cannot be undone.`);
+    const ok = window.confirm(
+      `Delete entity "${row.name}"? This cannot be undone.`
+    );
     if (!ok) return;
+
     setBusy(true);
     setErr("");
     try {
       await deleteEntity(String(row.id));
-      onDeleted?.();
       toast.success("Entity deleted");
+      onDeleted?.();
       onClose();
-    } catch (err: any) {
-      const status = err?.response?.status;
+    } catch (e: any) {
       const msg =
-        err?.response?.data?.message ||
-        (status === 409
-          ? "This entity is associated with one or more users. Remove those assignments first."
-          : err?.message) ||
+        e?.response?.data?.message ||
         "Failed to delete entity";
       setErr(msg);
       toast.error(msg);
@@ -214,131 +135,75 @@ export default function UpdateEntityModal({
       open={open}
       onClose={busy ? undefined : onClose}
       fullWidth
-      maxWidth="md"
+      maxWidth="sm"
       PaperProps={{
         sx: (t: Theme) => ({
           bgcolor: t.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
-          color:   t.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
-          border:  t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
+          color: t.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
+          border: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
           borderRadius: 2,
-          backgroundImage: "none",
-          boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
         }),
       }}
     >
-      <DialogTitle
-        sx={(t) => ({
-          bgcolor: t.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
-          color:   t.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
-          fontWeight: 800,
-          pb: 1,
-          borderBottom: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
-        })}
-      >
+      <DialogTitle sx={{ fontWeight: 800 }}>
         Update Entity
       </DialogTitle>
 
-      <DialogContent
-        dividers
-        sx={(t) => ({
-          bgcolor: t.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
-          color:   t.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
-          borderColor: t.palette.mode === "dark" ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
-        })}
-      >
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.25, pt: 0.5 }}>
+      <DialogContent dividers>
+        <Box sx={{ display: "grid", gap: 1.25 }}>
           <Box>
-            <Typography sx={labelSx}>Entity</Typography>
+            <Typography sx={{ fontSize: 12, mb: 0.5 }}>
+              Entity Name
+            </Typography>
             <TextField
-              size="small"
               fullWidth
+              size="small"
               value={name}
               onChange={(e) => setName(e.target.value)}
               sx={(t) => compactCtrlSx(t)}
-              FormHelperTextProps={{ sx: helperReset }}
               disabled={busy}
             />
           </Box>
 
           <Box>
-            <Typography sx={labelSx}>Designation</Typography>
-            <Box sx={{ display: "flex", gap: 0.75 }}>
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Add designation (comma/Enter)"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKey}
-                sx={(t) => compactCtrlSx(t)}
-                FormHelperTextProps={{ sx: helperReset }}
-                disabled={busy}
-              />
-              <Button
-                variant="contained"
-                onClick={addFromInput}
-                disabled={busy}
-                sx={{ minWidth: 40, px: 2, fontWeight: 800, bgcolor: "#2d2d2f", "&:hover": { bgcolor: "#3a3a3c" } }}
-              >
-                +
-              </Button>
-            </Box>
+            <Typography sx={{ fontSize: 12, mb: 0.5 }}>
+              Description
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              sx={(t) => compactCtrlSx(t)}
+              disabled={busy}
+            />
           </Box>
 
-          <Box sx={{ gridColumn: "1 / span 2" }}>
-            <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.25 }}>
-              {chips.length ? (
-                chips.map((d) => (
-                  <Chip
-                    key={d}
-                    label={d}
-                    onDelete={busy ? undefined : () => removeChip(d)}
-                    sx={{ color: "#E8E8EA", border: "1px solid rgba(255,255,255,.14)", height: 26 }}
-                  />
-                ))
-              ) : (
-                <Typography sx={{ color: "#9a9a9a", fontSize: 12 }}>
-                  No designations yet. Add some using the field above.
-                </Typography>
-              )}
-            </Box>
-
-            {!!err && (
-              <Typography sx={{ color: "#ff8383", mt: 1, fontSize: 12 }}>
-                {err}
-              </Typography>
-            )}
-          </Box>
+          {err && (
+            <Typography sx={{ color: "#ff8383", fontSize: 12 }}>
+              {err}
+            </Typography>
+          )}
         </Box>
       </DialogContent>
 
-      <DialogActions
-        sx={(t) => ({
-          bgcolor: t.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
-          color:   t.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
-          p: 2,
-          gap: 1.25,
-          borderTop: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
-        })}
-      >
+      <DialogActions sx={{ p: 2 }}>
         <Button
           onClick={handleDelete}
-          variant="contained"
           color="error"
+          variant="contained"
           disabled={busy}
-          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#B4232A", "&:hover": { bgcolor: "#9b1d23" } }}
         >
           Delete
         </Button>
         <Box sx={{ flex: 1 }} />
-        <Button onClick={onClose} disabled={busy} sx={{ textTransform: "none", fontWeight: 700 }}>
+        <Button onClick={onClose} disabled={busy}>
           Cancel
         </Button>
         <Button
           onClick={handleUpdate}
-          disabled={!canUpdate || busy}
           variant="contained"
-          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b48ea" } }}
+          disabled={!canUpdate || busy}
         >
           {busy ? "Saving…" : "Update"}
         </Button>

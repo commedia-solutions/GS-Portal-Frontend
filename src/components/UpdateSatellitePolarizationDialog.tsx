@@ -167,7 +167,7 @@ export default function UpdateSatellitePolarizationDialog({
           }}
           disabled={!sat.trim() || parsedPols.length === 0}
         >
-          Update
+          Edit
         </Button>
       </DialogActions>
     </Dialog>

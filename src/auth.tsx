@@ -10,7 +10,8 @@ import { api } from "./api/http";
 
 /* ========= Roles & Permissions ========= */
 
-export type Role = "admin" | "user" | "guest";
+export type Role = "admin" | "editor" | "guest";
+
 
 /** Vite/esbuild-safe constant (instead of TS enum) */
 export const PERMISSION = {
@@ -36,14 +37,15 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSION.AddLicense,
     PERMISSION.AddSatellite,
   ],
-  user: [
-    PERMISSION.ViewDashboard,
-    PERMISSION.ViewDocuments,
-    PERMISSION.ViewGSOps,
-    PERMISSION.AddPass,
-    PERMISSION.AddLicense,
-    PERMISSION.AddSatellite,
-  ],
+ editor: [
+  PERMISSION.ViewDashboard,
+  PERMISSION.ViewDocuments,
+  PERMISSION.ViewGSOps,
+  PERMISSION.AddPass,
+  PERMISSION.AddLicense,
+  PERMISSION.AddSatellite,
+],
+
   guest: [PERMISSION.ViewDashboard, PERMISSION.ViewDocuments],
 };
 
@@ -51,14 +53,25 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 /** Resolve a Role from the /auth/me payload. Prefer roleName, fallback to guest. */
 export function resolveRoleFromMe(me: any): Role {
-  const raw = String(me?.roleName ?? me?.rolename ?? me?.role ?? "")
-    .trim()
-    .toLowerCase();
-  if (raw.startsWith("admin")) return "admin";
-  if (raw.startsWith("user")) return "user";
-  if (raw.startsWith("guest")) return "guest";
+  const roleName = String(me?.roleName || me?.role || "").toLowerCase();
+  const roleType = String(me?.roleType || "").toLowerCase();
+
+  // 🔐 absolute admin
+  if (roleName === "admin") return "admin";
+
+  // ✍️ editor users
+  if (roleType === "editor" || roleName === "editor") return "editor";
+
+  // 👁️ default
   return "guest";
 }
+
+
+
+
+  
+ 
+
 
 /* ========= Auth Context ========= */
 
@@ -101,41 +114,122 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({
   })();
 
   const [user, setUser] = useState<AuthUser | null>(seededUser);
-  const [loading, setLoading] = useState<boolean>(true);
-
+const [loading, setLoading] = useState<boolean>(true);
+const [accessReady, setAccessReady] = useState<boolean>(false);
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const me = await api.get<any>("/api/auth/me");
-        if (!mounted) return;
-        setUser({
-          id: Number(me?.id),
-          username: String(me?.username || ""),
-          roleId: me?.roleId ?? null,
-          role: resolveRoleFromMe(me),
-        });
-      } catch {
-        if (mounted) setUser(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  let mounted = true;
+  (async () => {
+    try {
+const token =
+  localStorage.getItem("auth_token") ||
+  sessionStorage.getItem("auth_token") ||
+  localStorage.getItem("token") ||
+  sessionStorage.getItem("token");
+
+if (!token) {
+  setUser(null);
+  setLoading(false);
+  setAccessReady(true);
+  return;
+}
+
+const me = await api.get<any>("/api/auth/me");
+      if (!mounted) return;
+
+      const resolvedRole = resolveRoleFromMe(me);
+
+      setUser({
+        id: Number(me?.id),
+        username: String(me?.username || ""),
+        roleId: me?.roleId ?? null,
+        role: resolvedRole,
+      });
+
+      sessionStorage.setItem("pmgt_uid", String(me?.id));
+sessionStorage.setItem("pmgt_username", String(me?.username || ""));
+sessionStorage.setItem("profile", JSON.stringify(me));
+
+/* ✅ IMPORTANT: store role + roleType for access hooks */
+sessionStorage.setItem(
+  "pmgt_role",
+  String(me?.roleName || resolvedRole).toLowerCase()
+);
+// ✅ Decide role_type based on pages access (editorPages means editor)
+const pages = Array.isArray(me?.pages) ? me.pages : [];
+
+const hasEditorAccess = pages.some(
+  (p: any) => p?.access_level === "editor"
+);
+
+sessionStorage.setItem(
+  "pmgt_role_type",
+  hasEditorAccess ? "editor" : "viewer"
+);
+
+
+/* ✅ Load DB-saved Access Pages for this user */
+try {
+  const pages = Array.isArray(me?.pages) ? me.pages : [];
+
+  // if backend sends just ["dashboard","licenses"] (old format)
+  if (typeof pages[0] === "string") {
+    sessionStorage.setItem(
+      "pmgt_page_access",
+      JSON.stringify({ viewerPages: pages, editorPages: [] })
+    );
+  } else {
+    const viewerPages = pages
+      .filter((p: any) => p?.access_level === "viewer")
+      .map((p: any) => p?.page_key);
+
+    const editorPages = pages
+      .filter((p: any) => p?.access_level === "editor")
+      .map((p: any) => p?.page_key);
+
+    sessionStorage.setItem(
+      "pmgt_page_access",
+      JSON.stringify({ viewerPages, editorPages })
+    );
+  }
+} catch {
+  sessionStorage.setItem(
+    "pmgt_page_access",
+    JSON.stringify({ viewerPages: [], editorPages: [] })
+  );
+}
+
+
+
+/* ✅ Force refresh UI */
+window.dispatchEvent(new Event("pmgt:page-access-updated"));
+
+
+
+  } catch {
+  // keep seeded user; avoid nuking session on partial failures
+  if (mounted) setUser((u) => u);
+} finally {
+if (mounted) {
+  setAccessReady(true);
+  setLoading(false);
+}    }
+  })();
+ return () => {
+    mounted = false;
+  };
+}, []);
+
 
   const value = useMemo<AuthState>(() => {
     const role: Role = user?.role ?? "guest";
     const granted = new Set(ROLE_PERMISSIONS[role] ?? []);
-    return {
-      user,
-      loading,
-      setUser,
-      hasRole: (...roles) => roles.includes(role),
-      can: (...perms) => perms.every((p) => granted.has(p)),
-    };
+  return {
+  user,
+  loading: loading || !accessReady,
+  setUser,
+  hasRole: (...roles) => roles.includes(role),
+  can: (...perms) => perms.every((p) => granted.has(p)),
+};
   }, [user, loading]);
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

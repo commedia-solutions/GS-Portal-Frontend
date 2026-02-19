@@ -10,7 +10,7 @@ import {
   Menu,
   MenuItem,
   Divider,
-  ListItemIcon,
+  ListItemIcon, 
   Switch,
 } from "@mui/material";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -20,11 +20,16 @@ import LightModeIcon from "@mui/icons-material/LightMode";
 import TranslateIcon from "@mui/icons-material/Translate";
 import CheckIcon from "@mui/icons-material/Check";
 import { useAuth, PERMISSION } from "../auth";
+import { usePageAccess } from "../auth/usePageAccess";
+import { useActionAccess } from "../auth/useActionAccess";
+
 
 import { vars, sxPresets, useThemePref } from "../ui/toast/themeBridge";
 import { useI18n } from "../i18n"; // <-- i18n hook
 
 export const TOPBAR_HEIGHT = 54;
+// ✅ Page access helper (per user)
+
 
 type TopNavProps = { leftOffset: number; title?: string };
 
@@ -137,9 +142,31 @@ function DualClockRow() {
 /* ---------- Component ---------- */
 export default function TopNav({ leftOffset, title }: TopNavProps) {
   const navigate = useNavigate();
+
   const { can, hasRole } = useAuth();
+    const { hasPageAccess, loadingAccess } = usePageAccess();
+  const { isEditor } = useActionAccess();
+
+  // ✅ force rerender when page access updates
+  const [, forceReload] = React.useState(0);
+
+  React.useEffect(() => {
+    const fn = () => forceReload((x) => x + 1);
+    window.addEventListener("pmgt:page-access-updated", fn);
+    return () => window.removeEventListener("pmgt:page-access-updated", fn);
+  }, []);
+
+
+
   const { pref, toggle } = useThemePref();
-  const { t, lang } = useI18n(); // <— translations + current language
+
+// ✅ Read page access once
+const { t, lang } = useI18n();
+// ❌ never return before all hooks
+// if (loadingAccess) return null;
+
+
+
 
   // avatar + user
   const initialAvatar = React.useMemo(() => {
@@ -157,8 +184,11 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
     sessionStorage.getItem("pmgt_full_name") || ""
   );
   const [username, setUsername] = React.useState(
-    sessionStorage.getItem("pmgt_username") || ""
-  );
+  sessionStorage.getItem("pmgt_username") || ""
+);
+
+  
+
   const [email, setEmail] = React.useState(
     sessionStorage.getItem("pmgt_email") || ""
   );
@@ -167,8 +197,9 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
     const me = await fetchMe();
     if (!me) return;
     setFullName(me.full_name ?? "");
-    setUsername(me.username ?? "");
-    setEmail(me.email ?? "");
+setUsername(me.username ?? "");
+setEmail(me.email ?? "");
+
     const uid = String(me.id || me.userId || me.uid || "");
     if (uid) sessionStorage.setItem("pmgt_uid", uid);
     let abs = sessionStorage.getItem(keyFor("pmgt_avatar_abs", uid));
@@ -246,6 +277,7 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
     setSettingsEl(e.currentTarget);
   const closeSettings = () => setSettingsEl(null);
 
+  
   // switch language (writes storage + notifies provider listener)
   const changeLang = (next: "en" | "hi") => {
     localStorage.setItem("pmgt_lang", next);
@@ -253,6 +285,23 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
       new CustomEvent("pmgt:lang-changed", { detail: { lang: next } })
     );
   };
+
+  if (loadingAccess) {
+  return (
+    <Box
+      sx={{
+        height: 54,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "white",
+        bgcolor: "transparent",
+      }}
+    >
+      Loading...
+    </Box>
+  );
+}
 
   return (
     <Box
@@ -280,21 +329,55 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
       </Stack>
 
       <Stack direction="row" spacing={1.25} alignItems="center">
-        {can(PERMISSION.AddPass) && (
-          <TopNavButton to="/add/pass" label={t("Add Passes +")} />
-        )}
-        {can(PERMISSION.AddLicense) && (
-          <TopNavButton to="/add/license" label={t("Add License +")} />
-        )}
-        {can(PERMISSION.AddSatellite) && (
-          <TopNavButton to="/add/satellite" label={t("Add Satellites +")} />
-        )}
-        {can(PERMISSION.ViewGSOps) && (
-          <TopNavButton to="/Gsoperations" label={t("GS & Operations +")} />
-        )}
-        {hasRole("admin") && (
-          <TopNavButton to="/iam" label={t("User & Role Management")} />
-        )}
+    
+
+{isEditor && hasPageAccess("add_pass") && (
+  <TopNavButton to="/add/pass" label={t("Add Passes +")} />
+)}
+
+
+       {/* {can(PERMISSION.AddLicense) &&hasPageAccess("add_license")
+ && (
+  <TopNavButton to="/add/license" label={t("Add License +")} />
+)} */}
+{isEditor && hasPageAccess("add_license") && (
+  <TopNavButton to="/add/license" label={t("Add License +")} />
+)}
+
+
+
+      {/* {can(PERMISSION.AddSatellite) &&
+ hasPageAccess("add_satellite")
+ && (
+    <TopNavButton to="/add/satellite" label={t("Add Satellites +")} />
+  )} */}
+{isEditor && hasPageAccess("add_satellite") && (
+  <TopNavButton to="/add/satellite" label={t("Add Satellites +")} />
+)}
+
+
+
+{/* {can(PERMISSION.ViewGSOps) &&
+
+
+  hasPageAccess("gs_operations")
+ && (
+    <TopNavButton to="/Gsoperations" label={t("GS & Operations +")} />
+  )} */}
+
+{hasPageAccess("gs_operations") && (
+<TopNavButton to="/gsoperations" label={t("GS & Operations +")} />
+)}
+{/* 
+      {hasRole("admin") &&hasPageAccess("iam")
+ && (
+  <TopNavButton to="/iam" label={t("User & Role Management")} />
+)} */}
+
+{hasRole("admin") && hasPageAccess("iam") && (
+  <TopNavButton to="/iam" label={t("User & Role Management")} />
+)}
+
 
         <Avatar
           src={!imgError ? avatarSrc : undefined}

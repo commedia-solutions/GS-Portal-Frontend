@@ -10,6 +10,8 @@ import RightPanel, { RIGHT_RAIL_W } from "../components/RightPanel";
 
 // ⬅️ use the theme bridge vars
 import { vars } from "../ui/toast/themeBridge";
+import { Toaster } from "react-hot-toast";
+import { useAuth } from "../auth";
 
 type MainLayoutProps = {
   /** Text shown in the TopNav on the left */
@@ -21,11 +23,51 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
   const [expanded, setExpanded] = useState(false);
   const leftWidth = expanded ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
 
+  const { loading } = useAuth();
+
+if (loading) {
   return (
-    <>
-      <Sidebar expanded={expanded} setExpanded={setExpanded} />
-      <TopNav leftOffset={leftWidth} title={title} />
-      <RightPanel />
+    <Box
+      sx={{
+        width: "100vw",
+        height: "100vh",
+        bgcolor: vars.bgApp,
+      }}
+    />
+  );
+}
+
+  return (
+  <>
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        duration: 3000,
+        style: {
+          background: vars.bgCard,
+          color: vars.text,
+          border: `1px solid ${vars.border}`,
+          fontWeight: 600,
+        },
+        success: {
+          iconTheme: {
+            primary: "#16a34a",
+            secondary: "#ffffff",
+          },
+        },
+        error: {
+          iconTheme: {
+            primary: "#dc2626",
+            secondary: "#ffffff",
+          },
+        },
+      }}
+    />
+
+    <Sidebar expanded={expanded} setExpanded={setExpanded} />
+    <TopNav leftOffset={leftWidth} title={title} />
+    <RightPanel />
+
 
       {/* Content area slides with the sidebar and leaves room for the right rail */}
       <Box

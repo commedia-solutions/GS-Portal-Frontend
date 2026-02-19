@@ -1,6 +1,6 @@
 // src/api/iam.ts
 export type UserType = "Local" | "LDAP";
-export type AccessType = "Admin" | "User" | "Guest";
+
 
 /* ========= Users ========= */
 export interface UserRow {
@@ -35,12 +35,14 @@ export interface DesignationRow {
 
 /* ========= Roles ========= */
 export interface RoleRow {
-  id: string;                     // UUID
+  id: string;
   name: string;
-  accessType: AccessType;
+  description: string | null;
+  type: "viewer" | "editor";      // <-- added
   isSystem: 0 | 1;
   isDisabled: 0 | 1;
 }
+
 
 /* ========= Assignments ========= */
 export interface AssignmentListRow {
@@ -51,7 +53,7 @@ export interface AssignmentListRow {
   entities: string[];         // names
   role_id: string | null;     // UUID or null
   role: string;               // role name ("" if none)
-  designation: string[];      // list of names
+      // list of names
   sr: number;                 // serial index injected by server
 }
 
@@ -61,13 +63,13 @@ export interface AssignmentForEdit {
   username: string;
   roleId: string | null;
   entityIds: string[];        // [] => global
-  designations: string[];
+  
 }
 
 export interface AssignmentUpdatedPayload {
   roleId: string | null;
   entityIds: string[];        // [] => global (UI may send ["0"], we normalize)
-  designations: string[];
+  
 }
 
 /* ========= HTTP helper ========= */
@@ -82,7 +84,8 @@ export interface AssignmentUpdatedPayload {
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ??
   (import.meta as any).env?.VITE_API_BASE_URL ??
-  "";
+  "http://localhost:4000";
+
 
 
 function getToken(): string {
@@ -112,8 +115,11 @@ async function request<T>(
     if (t) headers.set("Authorization", `Bearer ${t}`);
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-
+const res = await fetch(`${API_BASE}${path}`, {
+  ...init,
+  headers,
+  cache: "no-store",
+});
   // tolerate empty/204 responses
   const text = await res.text();
   let data: any = null;
@@ -216,7 +222,12 @@ export async function getRoles() {
   return request<RoleRow[]>(`/api/roles`);
 }
 
-export async function createRole(payload: { name: string; accessType: AccessType }) {
+export async function createRole(payload: {
+  name: string;
+  description: string;
+  type: "viewer" | "editor" | null;
+}) {
+
   return request<{ id: string }>(`/api/roles`, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -225,8 +236,9 @@ export async function createRole(payload: { name: string; accessType: AccessType
 
 export async function updateRole(
   roleId: string,
-  patch: Partial<Pick<RoleRow, "name" | "accessType" | "isDisabled">>
-) {
+  patch: Partial<Pick<RoleRow, "name" | "description" | "isDisabled">>
+)
+ {
   return request<{ ok: true }>(`/api/roles/${roleId}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
@@ -273,4 +285,58 @@ export async function setUserStatus(
     body: JSON.stringify({ status }),
   });
 }
+/* ===================== USERS ===================== */
+
+export async function deleteUser(userId: string) {
+  return request<void>(`/api/users/${userId}`, {
+    method: "DELETE",
+  }, true);
+}
+
+// ========= Update User =========
+export async function updateUser(
+  userId: string,
+  body: { fullName?: string; email?: string; phone?: string }
+) {
+  return request(`/api/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+// ========= Reset Password =========
+export async function setUserPassword(
+  userId: string,
+  payload: { password: string }
+) {
+  return request(`/api/users/${userId}/password`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+// export async function updatePageAccess(
+//   userId: string,
+// payload: { pages: string[] }
+// ) {
+//   return request(`/api/page-access/${userId}`, {
+//     method: "PUT",
+//     body: JSON.stringify(payload),
+//   });
+// }
+export async function getRolePages(roleId: string) {
+  return request<{ viewerPages: string[]; editorPages: string[] }>(
+    `/api/roles/${roleId}/pages`
+  );
+}
+
+export async function updateRolePages(
+  roleId: string,
+  payload: { viewerPages: string[]; editorPages: string[] }
+) {
+  return request(`/api/roles/${roleId}/pages`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 

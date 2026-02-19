@@ -1,8 +1,24 @@
 // src/pages/PortalLogsPage.tsx
 import React from "react";
+
 import {
-  Box, Card, Button, TextField, InputAdornment, TablePagination,
+  Box,
+  Card,
+  Button,
+  TextField,
+  InputAdornment,
+  TablePagination,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  ToggleButtonGroup,
+  ToggleButton,
+  Typography,
 } from "@mui/material";
+
+
+
 import SearchIcon from "@mui/icons-material/Search";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import MainLayout from "../layouts/MainLayout";
@@ -89,48 +105,77 @@ const compactCtrlSx = {
 type SimpleRow = {
   tsUtc: number;
   user: string;
-  module: string;
+  module?: string;
+  page?: string;
   action: string;
+  remarks?: any;
 };
 
 type SimpleResp = {
   page: number;
   pageSize: number;
   total: number;
+  accessTotal: number;
+  eventTotal: number;
   data: SimpleRow[];
 };
 
 type UIRow = {
   sr: number;
+  tsUtc?: number;
   dateTime: string;
   user: string;
   module: string;
   action: string;
+  remarks?: any;
 };
 
 /* ---------- Utils ---------- */
 const fmtIST = (tsUtcSec: number) =>
-  new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
-    .format(new Date(tsUtcSec * 1000))
-    .replace(",", "");
+  new Date(tsUtcSec * 1000).toLocaleString("en-IN");
+
+const formatActionLabel = (action: string) => {
+  const a = String(action || "").toUpperCase();
+
+  if (a.includes("LOGIN")) return "User Login";
+  if (a.includes("LOGOUT")) return "User Logout";
+  if (a.includes("CREATE")) return "Created";
+  if (a.includes("UPDATE")) return "Updated";
+  if (a.includes("DELETE")) return "Deleted";
+
+  return action || "Unknown";
+};
+
+// ✅ convert module/page into Camel Case label
+const toCamelCaseLabel = (val: string) => {
+  if (!val) return "";
+
+  let s = String(val).trim();
+
+  if (s.startsWith("/")) s = s.slice(1);
+
+  if (!s) return "";
+
+  const parts = s.split(/[\/_\-]+/).filter(Boolean);
+
+  return parts
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join(" ");
+};
+
+
 
 /* ---------- Themed table ---------- */
 function ThemedScrollTable({
   rows,
   colLabels,
+  onView,
 }: {
   rows: UIRow[];
-  colLabels: { sr: string; dt: string; user: string; module: string; action: string };
+  colLabels: { sr: string; dt: string; user: string; module: string; action: string; view: string };
+  onView: (row: UIRow) => void;
 }) {
+
   return (
     <Box sx={{ width: "100%", minWidth: "100%" }}>
       <Box
@@ -139,12 +184,12 @@ function ThemedScrollTable({
           top: 0,
           zIndex: 1,
           display: "grid",
-          gridTemplateColumns: `repeat(5, 1fr)`,
+gridTemplateColumns: "80px 200px 160px 160px 290px 100px",
           bgcolor: "var(--logs-thead-bg)",
           borderBottom: TOK.BORDER_STR,
         }}
       >
-        {[colLabels.sr, colLabels.dt, colLabels.user, colLabels.module, colLabels.action].map(
+{[colLabels.sr, colLabels.dt, colLabels.user, colLabels.module, colLabels.action, colLabels.view].map(
           (label) => (
             <Box
               key={label}
@@ -169,30 +214,51 @@ function ThemedScrollTable({
           key={`${r.sr}-${idx}`}
           sx={{
             display: "grid",
-            gridTemplateColumns: `repeat(5, 1fr)`,
+gridTemplateColumns: "80px 200px 160px 160px 290px 100px",
             borderBottom: TOK.BORDER_STR,
             bgcolor: idx % 2 ? "rgba(255,255,255,0.02)" : "transparent",
             "&:hover": { bgcolor: TOK.HOVER },
           }}
         >
-          {(["sr", "dateTime", "user", "module", "action"] as const).map((k) => (
-            <Box
-              key={k}
-              sx={{
-                px: 1.25,
-                py: 1,
-                fontSize: 13,
-                color: TOK.TEXT_DIM,
-                textAlign: "center",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={(r as any)[k] ?? ""}
-            >
-              {(r as any)[k] ?? "—"}
-            </Box>
-          ))}
+         {(["sr", "dateTime", "user", "module", "action"] as const).map((k) => (
+  <Box
+    key={k}
+    sx={{
+      px: 1.25,
+      py: 1,
+      fontSize: 13,
+      color: TOK.TEXT_DIM,
+      textAlign: "center",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    }}
+    title={(r as any)[k] ?? ""}
+  >
+    {(r as any)[k] ?? "—"}
+  </Box>
+))}
+
+{/* ✅ View Button */}
+<Box sx={{ px: 1.25, py: 0.6, textAlign: "center" }}>
+  <Button
+    size="small"
+    variant="outlined"
+    sx={{
+      textTransform: "none",
+      fontSize: 12,
+      borderColor: "var(--border)",
+      color: TOK.TEXT,
+      height: 26,
+      minHeight: 26,
+      "&:hover": { bgcolor: TOK.HOVER, borderColor: TOK.ACCENT },
+    }}
+onClick={() => onView(r)}
+  >
+    View
+  </Button>
+</Box>
+
         </Box>
       ))}
 
@@ -209,16 +275,45 @@ function ThemedScrollTable({
 export default function PortalLogsPage() {
   const { t } = useI18n();
 
-  const [search, setSearch] = React.useState("");
+type TabKey = "access" | "event";
+const [tab, setTab] = React.useState<TabKey>("access");
+
+const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [rows, setRows] = React.useState<UIRow[]>([]);
-  const [total, setTotal] = React.useState(0);
+const [total, setTotal] = React.useState(0);
+const [accessTotal, setAccessTotal] = React.useState(0);
+const [eventTotal, setEventTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [errMsg, setErrMsg] = React.useState<string>(""); // ✅ show 401/403 reasons
+const [openView, setOpenView] = React.useState(false);
+const [selectedRow, setSelectedRow] = React.useState<UIRow | null>(null);
+
+const handleTabChange = (_e: any, next: TabKey | null) => {
+  if (!next) return;
+
+  setTab(next);
+  setPage(0);
+  setSearch("");
+
+  // ✅ clear current rows so UI doesn't show old tab data
+  setRows([]);
+setTotal(0);
+setAccessTotal(0);
+setEventTotal(0);
+};
+
 
   const COL_LABELS = React.useMemo(
-    () => ({ sr: t("Sr No"), dt: t("Date & Time"), user: t("User"), module: t("Module"), action: t("Action") }),
+() => ({
+  sr: t("Sr No"),
+  dt: t("Date & Time"),
+  user: t("User"),
+  module: t("Module"),
+  action: t("Action"),
+  view: t("View"),
+}),
     [t]
   );
 
@@ -235,8 +330,17 @@ export default function PortalLogsPage() {
         if (search.trim()) qs.set("q", search.trim());
 
         const token = getAuthToken();
-        const res = await fetch(`${API}/audit-logs/simple?${qs.toString()}&_=${Date.now()}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        qs.set("type", tab); // ✅ send tab filter to backend
+
+const res = await fetch(`${API}/audit-logs/simple?${qs.toString()}&_=${Date.now()}`, {
+
+headers: token
+  ? {
+      Authorization: `Bearer ${token}`,
+      "x-module-name": "Audit Logs",
+      "x-page-name": "Portal Logs Page",
+    }
+  : undefined,
           signal: ac.signal,
         });
 
@@ -250,21 +354,79 @@ export default function PortalLogsPage() {
         const j: SimpleResp = await res.json();
 
         const start = page * rowsPerPage;
-        const mapped: UIRow[] = (j.data || []).map((r, i) => ({
-          sr: start + i + 1,
-          dateTime: r.tsUtc ? fmtIST(r.tsUtc) : "—",
-          user: r.user || "—",
-          module: r.module || "—",
-          action: r.action || "—",
-        }));
+       const mapped: UIRow[] = (j.data || []).map((r, i) => ({
+sr: start + i + 1,
+tsUtc: r.tsUtc,
+dateTime: r.tsUtc ? fmtIST(r.tsUtc) : "—",
+  user:
+  r.user ||
+  (typeof r.remarks === "object" ? r.remarks?.username : null) ||
+  (typeof r.remarks === "string"
+    ? (() => {
+        try {
+          return JSON.parse(r.remarks)?.username;
+        } catch {
+          return null;
+        }
+      })()
+    : null) ||
+  "—",
 
-        setRows(mapped);
-        setTotal(j.total || mapped.length);
+module: (() => {
+  let m =
+    r.module ||
+    (typeof r.remarks === "object" ? r.remarks?.module : null) ||
+    (typeof r.remarks === "object" ? r.remarks?.page : null) ||
+    (typeof r.remarks === "object" ? r.remarks?.route : null) ||
+    (typeof r.remarks === "object" ? r.remarks?.url : null) ||
+    null;
+
+  if (!m && typeof r.remarks === "string") {
+    try {
+      const parsed = JSON.parse(r.remarks);
+      m = parsed?.module || parsed?.page || parsed?.route || parsed?.url || null;
+    } catch {
+      m = null;
+    }
+  }
+
+  m = m || r.page || (r as any).page || null;
+
+  if (!m) return "Unknown";
+
+  return toCamelCaseLabel(String(m));
+})(),
+
+
+
+
+
+  action: r.action || "—",
+remarks: (() => {
+  if (!r.remarks) return null;
+
+  try {
+    return typeof r.remarks === "string" ? JSON.parse(r.remarks) : r.remarks;
+  } catch {
+    return r.remarks;
+  }
+})(),
+}));
+
+
+       setRows(mapped);
+setTotal(j.total || 0);
+setAccessTotal(j.accessTotal || 0);
+setEventTotal(j.eventTotal || 0);
+
+
       } catch (e: any) {
         if (e?.name !== "AbortError") {
           console.error("Failed to load logs (simple):", e);
-          setRows([]);
-          setTotal(0);
+         setRows([]);
+setTotal(0);
+setAccessTotal(0);
+setEventTotal(0);
         }
       } finally {
         setLoading(false);
@@ -272,15 +434,27 @@ export default function PortalLogsPage() {
     })();
 
     return () => ac.abort();
-  }, [page, rowsPerPage, search]);
+  }, [page, rowsPerPage, search, tab]);
 
-  const doExport = React.useCallback(async () => {
+
+
+
+const doExport = React.useCallback(async () => {
     try {
       const qs = new URLSearchParams();
-      if (search.trim()) qs.set("q", search.trim());
+     if (search.trim()) qs.set("q", search.trim());
+
+// ✅ send tab filter to backend
+qs.set("type", tab);
       const token = getAuthToken();
       const resp = await fetch(`${API}/audit-logs/simple/export?${qs.toString()}&_=${Date.now()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+headers: token
+  ? {
+      Authorization: `Bearer ${token}`,
+      "x-module-name": "Audit Logs",
+      "x-page-name": "Portal Logs Page",
+    }
+  : undefined,
       });
       if (!resp.ok) {
         const msg = await resp.text().catch(() => "");
@@ -301,7 +475,7 @@ export default function PortalLogsPage() {
       console.error("Export error", e);
       alert(t("Export failed"));
     }
-  }, [search, t]);
+}, [search, tab, t]);
 
   return (
     <MainLayout title="">
@@ -336,44 +510,81 @@ export default function PortalLogsPage() {
               bgcolor: "transparent",
             }}
           >
-            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: UI.gap }}>
-              <TextField
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-                placeholder={loading ? t("Loading…") : t("Search…")}
-                size="small"
-                sx={{ width: UI.searchW, ...compactCtrlSx }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start" sx={{ mr: 0.25 }}>
-                      <SearchIcon sx={{ fontSize: UI.icon, color: TOK.ICON }} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+{/* ✅ Tabs (LEFT SIDE like Requests page) */}
+<ToggleButtonGroup
+  value={tab}
+  exclusive
+  onChange={handleTabChange}
+  sx={{
+    "& .MuiToggleButton-root": {
+      textTransform: "none",
+      fontWeight: 700,
+      fontSize: 13,
+      color: TOK.TEXT,
+      borderColor: TOK.BORDER_WEAK,
+      px: 1.25,
+      py: 0.5,
+      backgroundColor: "transparent",
+      "&:hover": { bgcolor: TOK.HOVER },
+      "&.Mui-selected": {
+        bgcolor: "rgba(124,87,242,0.18)",
+        color: "#fff",
+        borderColor: "rgba(124,87,242,0.60)",
+        boxShadow: `0 0 0 1px ${TOK.ACCENT} inset`,
+        "&:hover": { bgcolor: "rgba(124,87,242,0.22)" },
+      },
+    },
+    ".theme-light & .MuiToggleButton-root": { color: "#111 !important" },
+    ".theme-light & .MuiToggleButton-root.Mui-selected": { color: "#111 !important" },
+  }}
+>
+  <ToggleButton value="access">{t("Access Logs")}</ToggleButton>
+  <ToggleButton value="event">{t("Event Logs")}</ToggleButton>
+</ToggleButtonGroup>
 
-              <Button
-                onClick={doExport}
-                variant="contained"
-                size="small"
-                startIcon={<FileDownloadOutlinedIcon />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  bgcolor: "#16a34a",
-                  color: "#fff",
-                  height: UI.ctrlH,
-                  minHeight: UI.ctrlH,
-                  lineHeight: `${UI.ctrlH}px`,
-                  borderRadius: 1,
-                  "& .MuiSvgIcon-root": { color: "#fff" },
-                  "&:hover": { bgcolor: "#14833e", color: "#fff" },
-                }}
-              >
-                {t("Export")}
-              </Button>
-            </Box>
+{/* ✅ Right side controls */}
+<Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: UI.gap }}>
+  <TextField
+    value={search}
+    onChange={(e) => {
+      setSearch(e.target.value);
+      setPage(0);
+    }}
+    placeholder={loading ? t("Loading…") : t("Search…")}
+    size="small"
+    sx={{ width: UI.searchW, ...compactCtrlSx }}
+    InputProps={{
+      startAdornment: (
+        <InputAdornment position="start" sx={{ mr: 0.25 }}>
+          <SearchIcon sx={{ fontSize: UI.icon, color: TOK.ICON }} />
+        </InputAdornment>
+      ),
+    }}
+  />
+
+  <Button
+    onClick={doExport}
+    variant="contained"
+    size="small"
+    startIcon={<FileDownloadOutlinedIcon />}
+    sx={{
+      textTransform: "none",
+      fontWeight: 700,
+      fontSize: 12.5,
+      bgcolor: "#16a34a",
+      color: "#fff",
+      height: UI.ctrlH,
+      minHeight: UI.ctrlH,
+      lineHeight: `${UI.ctrlH}px`,
+      borderRadius: 1,
+      "& .MuiSvgIcon-root": { color: "#fff" },
+      "&:hover": { bgcolor: "#14833e", color: "#fff" },
+    }}
+  >
+    {t("Export")}
+  </Button>
+</Box>
+
           </Box>
 
           {/* body */}
@@ -385,7 +596,16 @@ export default function PortalLogsPage() {
                 ) : errMsg ? (
                   <Box sx={{ p: 2, color: "#ef4444" }}>{errMsg}</Box>  
                 ) : (
-                  <ThemedScrollTable rows={rows} colLabels={COL_LABELS} />
+<ThemedScrollTable
+ rows={rows}
+
+  colLabels={COL_LABELS}
+  onView={(row) => {
+    setSelectedRow(row);
+    setOpenView(true);
+  }}
+/>
+
                 )}
               </Box>
             </Box>
@@ -395,7 +615,9 @@ export default function PortalLogsPage() {
           <Box sx={{ borderTop: TOK.BORDER_WEAK }}>
             <TablePagination
               component="div"
-              count={total}
+count={tab === "access" ? accessTotal : eventTotal}
+
+
               page={page}
               onPageChange={(_, p) => setPage(p)}
               rowsPerPage={rowsPerPage}
@@ -403,7 +625,7 @@ export default function PortalLogsPage() {
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
-              rowsPerPageOptions={[10, 25, 50, 100]}
+              rowsPerPageOptions={[10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 50000, 100000]} // ✅ more options
               labelRowsPerPage={t("Rows per page:")}
               sx={{
                 px: 1,
@@ -424,7 +646,278 @@ export default function PortalLogsPage() {
             />
           </Box>
         </Card>
+         </Box>
+
+    {/* ✅ View Dialog */}
+    <Dialog open={openView}onClose={() => {
+  setOpenView(false);
+  setSelectedRow(null);
+}}maxWidth="md" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        Log Details
+      </DialogTitle>
+
+  <DialogContent dividers>
+  {selectedRow ? (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
+        <Typography sx={{ fontWeight: 700 }}>Date & Time</Typography>
+        <Typography sx={{ color: TOK.TEXT_DIM }}>
+          {selectedRow.dateTime}
+        </Typography>
       </Box>
-    </MainLayout>
-  );
+
+      <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
+        <Typography sx={{ fontWeight: 700 }}>User</Typography>
+        <Typography sx={{ color: TOK.TEXT_DIM }}>
+          {selectedRow.user}
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
+        <Typography sx={{ fontWeight: 700 }}>Module / Page</Typography>
+        <Typography sx={{ color: TOK.TEXT_DIM }}>
+          {selectedRow.module}
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
+        <Typography sx={{ fontWeight: 700 }}>Action</Typography>
+        <Typography sx={{ color: TOK.TEXT_DIM }}>
+          {formatActionLabel(selectedRow.action)}
+        </Typography>
+      </Box>
+
+
+    <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
+  <Typography sx={{ fontWeight: 700 }}>ID</Typography>
+
+  <Typography sx={{ color: TOK.TEXT_DIM }}>
+    {(() => {
+      const details = selectedRow.remarks;
+      if (!details) return "—";
+
+      const oldVal = details?.oldValue || null;
+      const newVal = details?.newValue || null;
+
+      return (
+        details?.targetLabel ||
+        newVal?.pass_req_no ||
+        oldVal?.pass_req_no ||
+        newVal?.satellite_id ||
+        oldVal?.satellite_id ||
+        newVal?.satellite_name ||
+        oldVal?.satellite_name ||
+        "—"
+      );
+    })()}
+  </Typography>
+</Box>
+
+      {tab === "event" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+      Details
+    </Typography>
+
+    <Box
+      sx={{
+        bgcolor: "rgba(255,255,255,0.05)",
+        border: TOK.BORDER_WEAK,
+        borderRadius: 2,
+        p: 1.5,
+        fontSize: 13,
+        color: TOK.TEXT_DIM,
+        maxHeight: 280,
+        overflow: "auto",
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+      }}
+    >
+      {(() => {
+        const details = selectedRow.remarks;
+
+        if (!details) return "No details available";
+
+        const oldVal = details?.oldValue || null;
+        const newVal = details?.newValue || null;
+
+        const formatIfDate = (val: any) => {
+          if (!val) return "—";
+
+          if (typeof val === "number") {
+            return new Date(val).toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            });
+          }
+
+          if (typeof val === "string") {
+            const d = new Date(val);
+            if (!isNaN(d.getTime()) && val.includes("T")) {
+              return d.toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              });
+            }
+          }
+
+          return val;
+        };
+
+        if (
+          oldVal &&
+          newVal &&
+          typeof oldVal === "object" &&
+          typeof newVal === "object"
+        ) {
+          const changes: any[] = [];
+          const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+
+          keys.forEach((k) => {
+            const ov = oldVal[k];
+            const nv = newVal[k];
+
+            if (JSON.stringify(ov) !== JSON.stringify(nv)) {
+              changes.push({
+                field: k,
+                old: ov,
+                new: nv,
+              });
+            }
+          });
+
+          if (!changes.length) return "No changes detected.";
+
+          return changes
+            .map(
+              (c) =>
+                `Field: ${c.field}\nOld: ${formatIfDate(
+                  c.old
+                )}\nNew: ${formatIfDate(c.new)}\n`
+            )
+            .join("\n-------------------------\n");
+        }
+
+return (() => {
+  const details = selectedRow.remarks;
+  if (!details) return "No details available";
+
+  const oldVal = details?.oldValue || null;
+  const newVal = details?.newValue || null;
+
+  const ignoreKeys = new Set([
+    "created_at",
+    "updated_at",
+    "createdAt",
+    "updatedAt",
+    "created_by",
+    "updated_by",
+    "deleted_by",
+    "createdBy",
+    "updatedBy",
+    "deletedBy",
+  ]);
+
+  const formatValue = (val: any) => {
+    if (val == null) return "—";
+
+    if (typeof val === "string") {
+      const d = new Date(val);
+      if (!isNaN(d.getTime()) && val.includes("T")) {
+        return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+      }
+      return val;
+    }
+
+    if (typeof val === "number") return String(val);
+
+    if (typeof val === "boolean") return val ? "Yes" : "No";
+
+    if (typeof val === "object") return JSON.stringify(val, null, 2);
+
+    return String(val);
+  };
+
+  // ✅ CREATE operation
+  if (!oldVal && newVal && typeof newVal === "object") {
+    return Object.keys(newVal)
+      .filter((k) => !ignoreKeys.has(k))
+      .map((k) => `Field: ${k}\nValue: ${formatValue(newVal[k])}`)
+      .join("\n-------------------------\n");
+  }
+
+  // ✅ UPDATE operation
+  if (oldVal && newVal && typeof oldVal === "object" && typeof newVal === "object") {
+    const changes: any[] = [];
+    const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+
+    keys.forEach((k) => {
+      if (ignoreKeys.has(k)) return;
+
+      const ov = oldVal[k];
+      const nv = newVal[k];
+
+      if (JSON.stringify(ov) !== JSON.stringify(nv)) {
+        changes.push({ field: k, old: ov, new: nv });
+      }
+    });
+
+    if (!changes.length) return "No changes detected.";
+
+    return changes
+      .map(
+        (c) =>
+          `Field: ${c.field}\nOld: ${formatValue(c.old)}\nNew: ${formatValue(c.new)}`
+      )
+      .join("\n-------------------------\n");
+  }
+
+   // ✅ DELETE operation
+  if (oldVal && !newVal && typeof oldVal === "object") {
+    return Object.keys(oldVal)
+      .filter((k) => !ignoreKeys.has(k))
+      .map((k) => `Field: ${k}\nValue: ${formatValue(oldVal[k])}`)
+      .join("\n-------------------------\n");
+  }
+
+  // ❌ LIST / GET should not show big dump
+  if (selectedRow.action.includes("LIST") || selectedRow.action.includes("GET")) {
+    return "No operation details (View/List action).";
+  }
+
+  // fallback minimal
+  return "No meaningful details found.";
+})();
+
+      })()}
+    </Box>
+  </Box>
+)}
+
+
+    </Box>
+  ) : (
+    <Typography sx={{ color: TOK.TEXT_DIM }}>
+      No log selected.
+    </Typography>
+  )}
+</DialogContent>
+
+
+
+      <DialogActions>
+<Button
+  onClick={() => {
+    setOpenView(false);
+    setSelectedRow(null);
+  }}
+  variant="contained"
+>
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+  </MainLayout>
+);
 }

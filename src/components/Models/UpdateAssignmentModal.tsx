@@ -18,7 +18,7 @@ const CTRL_BG_DARK = "#1C1C1E";
 const CTRL_BG_LIGHT = "#ffffff";
 const BORDER_DARK = "1px solid rgba(255,255,255,0.14)";
 const BORDER_LIGHT = "1px solid rgba(0,0,0,0.12)";
-const UI = { ctrlH: 30, font: 13, icon: 16 } as const;
+const UI = { ctrlH: 34, font: 13, icon: 16 } as const;
 
 const compactCtrlSx = (t: Theme) => ({
   bgcolor: t.palette.mode === "dark" ? CTRL_BG_DARK : CTRL_BG_LIGHT,
@@ -82,21 +82,21 @@ const menuPropsFor = (t: Theme) => ({
 
 /* ---- types ---- */
 export type SimpleRole   = { id: string; name: string; disabled?: boolean };
-export type SimpleEntity = { id: string; name: string; designations?: string[] };
+export type SimpleEntity = { id: string; name: string };
 
 export type AssignmentForEdit = {
   userId: string;
   username: string;
   roleId: string | null;
   entityIds: string[];
-  designations: string[];
 };
+
 
 export type AssignmentUpdated = {
   userId: string;
   roleId: string | "";
   entityIds: string[];
-  designations: string[];
+
 };
 
 const GLOBAL_ID = "0";
@@ -133,15 +133,7 @@ export default function UpdateAssignmentModal({
 
   if (!row) return null;
 
-  const entityDescriptions: string[] = React.useMemo(() => {
-    if (!entityIds.length || entityIds.includes(GLOBAL_ID)) return [];
-    const set = new Set<string>();
-    entityIds.forEach((id) => {
-      const ent = entities.find((e) => e.id === id);
-      (ent?.designations || []).forEach((d) => set.add(d));
-    });
-    return Array.from(set);
-  }, [entityIds, entities]);
+ 
 
   const isDirty = React.useMemo(() => {
     if (!initRef.current) return true;
@@ -164,7 +156,7 @@ export default function UpdateAssignmentModal({
       userId: row.userId,
       roleId,
       entityIds: entityIds.length ? entityIds : [GLOBAL_ID],
-      designations: entityDescriptions,
+      
     });
     onClose();
   };
@@ -272,21 +264,7 @@ export default function UpdateAssignmentModal({
             </FormControl>
           </Box>
 
-          <Box>
-            <Typography sx={labelSx(theme)}>Entity Description</Typography>
-            <TextField
-              size="small"
-              fullWidth
-              value={
-                !entityIds.length || entityIds.includes(GLOBAL_ID)
-                  ? ""
-                  : entityDescriptions.join(", ")
-              }
-              placeholder="—"
-              sx={compactCtrlSx(theme)}
-              inputProps={{ readOnly: true }}
-            />
-          </Box>
+          
         </Box>
       </DialogContent>
 

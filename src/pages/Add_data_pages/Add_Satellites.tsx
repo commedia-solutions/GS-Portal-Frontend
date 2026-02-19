@@ -223,7 +223,9 @@ export default function AddSatellites() {
 
   // options
   const [stationsOpts, setStationsOpts] = React.useState<string[]>([]);
-  const [polOpts, setPolOpts] = React.useState<string[]>([]);
+ // fixed polarization values
+const [polOpts] = React.useState<string[]>(["LHCP", "RHCP", "OMNI"]);
+
 
   // selections
   const [stationsSel, setStationsSel] = React.useState<string[]>([]);
@@ -239,10 +241,8 @@ export default function AddSatellites() {
     let active = true;
     (async () => {
       try {
-        const [gs, pol] = await Promise.all([
-          api.get<any>("/api/ground-stations"),
-          api.get<any>("/api/polarizations"),
-        ]);
+        const gs = await api.get<any>("/api/ground-stations");
+
 
         const gsRows: any[] = Array.isArray(gs?.data) ? gs.data : Array.isArray(gs) ? gs : [];
         const stationNames = Array.from(
@@ -253,20 +253,20 @@ export default function AddSatellites() {
           )
         ).sort((a, b) => a.localeCompare(b));
 
-        const polRows: any[] = Array.isArray(pol?.data) ? pol.data : Array.isArray(pol) ? pol : [];
-        const polValues = Array.from(
-          new Set(polRows.map((p) => String(p.polarization ?? "").trim()).filter(Boolean))
-        ).sort((a, b) => a.localeCompare(b));
+        // const polRows: any[] = Array.isArray(pol?.data) ? pol.data : Array.isArray(pol) ? pol : [];
+        // const polValues = Array.from(
+        //   new Set(polRows.map((p) => String(p.polarization ?? "").trim()).filter(Boolean))
+        // ).sort((a, b) => a.localeCompare(b));
 
         if (active) {
           setStationsOpts(stationNames);
-          setPolOpts(polValues);
+          // setPolOpts(polValues);
         }
       } catch (e) {
         console.error("Failed to load form options", e);
         if (active) {
           setStationsOpts([]);
-          setPolOpts([]);
+          // setPolOpts([]);
         }
       }
     })();
@@ -301,7 +301,7 @@ export default function AddSatellites() {
       polarization: polsSel.join(", ").trim(),
       norad_id: noradId.trim() || null,
       itu_name: ituName.trim() || null,
-      added_by: "UI",
+      
     };
 
     setPendingPayload(payload);

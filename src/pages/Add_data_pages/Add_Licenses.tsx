@@ -146,7 +146,14 @@ const PICKER_POPPER_SX = {
 /* ============================== App logic ============================== */
 const LICENSE_PREFIX = "LRN-";
 
-type BandRow = { id: number; band: string; uplink: string; downlink: string };
+type BandRow = {
+  id: number;
+  band: string;
+  uplink: boolean;
+  downlink: boolean;
+};
+
+
 type GroundStationRow = { id?: number; ground_station?: string; station_name?: string; name?: string; [k: string]: unknown };
 type SatelliteRow = { satellite_name?: string; name?: string; satellite_id?: string; [k: string]: unknown };
 
@@ -273,7 +280,7 @@ export default function AddLicense() {
   const { t } = useI18n();
 
   const [licenseReqNo, setLicenseReqNo] = useState("LRN-...");
-  const [satellite, setSatellite] = useState("");
+const [satellitesSel, setSatellitesSel] = useState<string[]>([]);
   const [appliedDate, setAppliedDate] = useState<Date | null>(null);
   const [receiptDate, setReceiptDate] = useState<Date | null>(null);
   const [validity, setValidity] = useState<Date | null>(null);
@@ -283,9 +290,11 @@ export default function AddLicense() {
 
   const [stationsSel, setStationsSel] = useState<string[]>([]);
   const [stationOptions, setStationOptions] = useState<string[]>([]);
-  const [satOptions, setSatOptions] = useState<string[]>([]);
+const [satOptions, setSatOptions] = useState<string[]>([]);
+const [satByStation, setSatByStation] = useState<Record<string, string[]>>({});
+const [rows, setRows] = useState<BandRow[]>([{ id: 1, band: "", uplink: false, downlink: false }]);
 
-  const [rows, setRows] = useState<BandRow[]>([{ id: 1, band: "", uplink: "", downlink: "" }]);
+
   const nextIdRef = useRef(2);
 
   const fetchStations = useCallback(async () => {
@@ -306,23 +315,31 @@ export default function AddLicense() {
     }
   }, []);
 
-  const fetchSatellites = useCallback(async () => {
-    try {
-      const j = await api.get<any>("/api/satellites");
-    const arr: (SatelliteRow | string)[] = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-      setSatOptions(
-        arr
-          .map((r) =>
-            typeof r === "string"
-              ? r.trim()
-              : String((r as any).satellite_name ?? (r as any).name ?? (r as any).satellite_id ?? "").trim()
-          )
-          .filter(Boolean)
-      );
-    } catch {
-      setSatOptions([]);
-    }
-  }, []);
+const fetchSatellites = useCallback(async () => {
+  try {
+    const j = await api.get<any>("/api/satellites");
+    const arr: any[] = Array.isArray(j) ? j : [];
+
+    const map: Record<string, string[]> = {};
+
+    arr.forEach((r) => {
+      const station = String(r.station_name ?? "").trim();
+      const sat = String(r.satellite_name ?? "").trim();
+      if (!station || !sat) return;
+
+      if (!map[station]) map[station] = [];
+      if (!map[station].includes(sat)) map[station].push(sat);
+    });
+
+    console.log("SATELLITE MAP:", map);
+    setSatByStation(map);
+    setSatOptions([]);
+  } catch {
+    setSatByStation({});
+    setSatOptions([]);
+  }
+}, []);
+
 
   const fetchNextLicenseNo = useCallback(async () => {
     try {
@@ -340,42 +357,53 @@ export default function AddLicense() {
     fetchNextLicenseNo();
   }, [fetchStations, fetchSatellites, fetchNextLicenseNo]);
 
-  const addRow = () => setRows((r) => [...r, { id: nextIdRef.current++, band: "", uplink: "", downlink: "" }]);
+  const addRow = () =>
+  setRows((r) => [...r, { id: nextIdRef.current++, band: "", uplink: false, downlink: false }]);
+
   const removeRow = (id: number) => setRows((r) => (r.length === 1 ? r : r.filter((x) => x.id !== id)));
-  const updateRow = (id: number, key: keyof BandRow, value: string) =>
-    setRows((r) => r.map((x) => (x.id === id ? { ...x, [key]: value } : x)));
+const updateRow = (id: number, key: keyof BandRow, value: string | boolean) =>
+
+  setRows((r) => r.map((x) => (x.id === id ? { ...x, [key]: value } : x)));
+
 
   const clearAll = () => {
-    setSatellite("");
+  setSatellitesSel([]);
     setStationsSel([]);
     setAppliedDate(null);
     setReceiptDate(null);
     setValidity(null);
     setStatus("Pending");
     setRemarks("");
-    setRows([{ id: 1, band: "", uplink: "", downlink: "" }]);
+    setRows([{ id: 1, band: "", uplink: false, downlink: false }]);
+
     nextIdRef.current = 2;
   };
 
   const handleSave = async () => {
-    if (!satellite || !stationsSel.length || !appliedDate) {
-      alert(t("Please fill Satellite, Station and Applied Date."));
+if (!satellitesSel.length || !stationsSel.length || !appliedDate) {
+alert(t("Please fill Station, Satellite and Applied Date."));
       return;
     }
-    const bands = rows
-      .filter((r) => r.band && r.uplink && r.downlink)
-      .map((r) => ({ band_name: r.band, uplink: r.uplink, downlink: r.downlink }));
+   const bands = rows
+  .filter(r => r.band)
+  .map(r => ({
+    band_name: r.band,
+   uplink: r.uplink ? "Yes" : "No",
+downlink: r.downlink ? "Yes" : "No",
+  }));
+
+
 
     const payload = {
       license_req_no: licenseReqNo,
-      satellite_name: satellite,
-      station_name: stationsSel.join(", "),
+  station_name: stationsSel.join(", "),
+  satellite_name: satellitesSel.join(", "),
       applied_date: fmtDate(appliedDate),
       receipt_date: fmtDate(receiptDate),
       validity_expiry: fmtDate(validity),
       status,
       remarks,
-      added_by: "UI",
+      // added_by: "UI",
       bands,
     };
 
@@ -457,50 +485,81 @@ export default function AddLicense() {
                 <Typography className="form-label">{t("License Req No *")}</Typography>
                 <TextField value={licenseReqNo} size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} InputProps={{ readOnly: true }} />
               </Box>
+<Box className="form-item">
+  <Typography className="form-label">{t("Station *")}</Typography>
+  <FormControl fullWidth size="small">
+    <Select<string[]>
+      multiple
+      value={stationsSel}
+     onChange={(e: SelectChangeEvent<string[]>) => {
+  const v = typeof e.target.value === "string"
+    ? e.target.value.split(",")
+    : e.target.value;
 
-              <Box className="form-item">
-                <Typography className="form-label">{t("Satellite Name *")}</Typography>
-                <FormControl fullWidth size="small">
-                  <Select
-                    value={satellite}
-                    onChange={(e) => setSatellite(e.target.value)}
-                    displayEmpty
-                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                    MenuProps={menuTheme}
-                  >
-                    <MenuItem disabled value="">{t("Select Satellite")}</MenuItem>
-                    {satOptions.map((s) => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
-                  </Select>
-                </FormControl>
-              </Box>
+  setStationsSel(v);
+  setSatellitesSel([]); // clear previous satellites
 
-              <Box className="form-item">
-                <Typography className="form-label">{t("Station *")}</Typography>
-                <FormControl fullWidth size="small">
-                  <Select<string[]>
-                    multiple
-                    value={stationsSel}
-                    onChange={(e: SelectChangeEvent<string[]>) => {
-                      const v = e.target.value;
-                      setStationsSel(typeof v === "string" ? v.split(",") : (v as string[]));
-                    }}
-                    displayEmpty
-                    renderValue={(selected) =>
-                      (selected as string[]).length ? (selected as string[]).join(", ") : t("Select Station")
-                    }
-                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                    MenuProps={menuTheme}
-                  >
-                    <MenuItem disabled value="">{t("Select Station")}</MenuItem>
-                    {stationOptions.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        <Checkbox checked={stationsSel.indexOf(s) > -1} sx={{ p: 0.5, mr: 1, color: vars.textDim }} />
-                        <ListItemText primary={s} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
+  // ONLY first station is used (as per your UI logic)
+  const st = v[0];
+  const sats = st && satByStation[st] ? satByStation[st] : [];
+setSatOptions(sats);
+
+if (sats.length === 1) {
+  setSatellitesSel([sats[0]]);
+}
+
+
+}}
+      displayEmpty
+      renderValue={(selected) =>
+        selected.length ? selected.join(", ") : t("Select Station")
+      }
+      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+      MenuProps={menuTheme}
+    >
+      <MenuItem disabled value="">{t("Select Station")}</MenuItem>
+      {stationOptions.map((s) => (
+        <MenuItem key={s} value={s}>
+          <Checkbox checked={stationsSel.indexOf(s) > -1} />
+          <ListItemText primary={s} />
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Box>
+
+<Box className="form-item">
+  <Typography className="form-label">{t("Satellite Name *")}</Typography>
+  <FormControl fullWidth size="small">
+    <Select<string[]>
+  multiple
+  value={satellitesSel}
+  disabled={!stationsSel.length}
+      onChange={(e: SelectChangeEvent<string[]>) => {
+        const v = e.target.value;
+        setSatellitesSel(typeof v === "string" ? v.split(",") : v);
+      }}
+      displayEmpty
+      renderValue={(selected) =>
+        selected.length ? selected.join(", ") : t("Select Satellite")
+      }
+      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+      MenuProps={menuTheme}
+    >
+      <MenuItem disabled value="">
+        {t("Select Satellite")}
+      </MenuItem>
+
+      {satOptions.map((s) => (
+        <MenuItem key={s} value={s}>
+          <Checkbox checked={satellitesSel.indexOf(s) > -1} />
+          <ListItemText primary={s} />
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Box>
+
 
               {/* Row 2 */}
               <Box className="form-item">
@@ -565,82 +624,141 @@ export default function AddLicense() {
             </Box>
 
             {/* Bands */}
-            <Box sx={{ mt: 2, border: `1px solid ${vars.border}`, borderRadius: 1.5, overflow: "hidden" }}>
-              <Box
-                sx={{
-                  px: 1.25, py: 0.75, bgcolor: vars.bgCard, borderBottom: `1px solid ${vars.border}`,
-                  display: "flex", alignItems: "center",
-                }}
-              >
-                <Typography sx={{ fontWeight: 700, fontSize: 14, color: vars.text }}>{t("Bands")}</Typography>
-                <Box sx={{ ml: "auto", display: "flex", gap: 1 }}>
-                  <Button
-                    onClick={() => setRows([{ id: 1, band: "", uplink: "", downlink: "" }])}
-                    size="small"
-                    sx={{ textTransform: "none", color: vars.text, border: `1px solid ${vars.border}`, borderRadius: 1, px: 1.25, "&:hover": { background: vars.bgHover } }}
-                  >
-                    {t("Clear")}
-                  </Button>
-                  <Button
-                    onClick={(e) => { (e.currentTarget as HTMLButtonElement).blur(); setCaptchaAction("addRow"); setCaptchaOpen(true); }}
-                    size="small"
-                    startIcon={<AddRoundedIcon />}
-                    variant="contained"
-                    sx={{
-                      textTransform: "none", fontWeight: 700, bgcolor: "#DC2626", color: "#fff",
-                      "& .MuiSvgIcon-root": { color: "#fff" }, "&:hover": { bgcolor: "#B91C1C" }, "&.Mui-disabled": { bgcolor: "#7F1D1D", color: "#fff", opacity: 0.6 },
-                    }}
-                  >
-                    {t("Add")}
-                  </Button>
-                </Box>
-              </Box>
+            {/* Bands (Antenna-style container) */}
+<Box sx={{ mt: 2, border: `1px solid ${vars.border}`, borderRadius: 1.5, p: 1.25 }}>
+  <Typography sx={{ fontWeight: 700, fontSize: 14, mb: 1, color: vars.text }}>
+    {t("Bands/Carriers")}
+  </Typography>
 
-              <Box
-                sx={(tMui) => ({
-                  display: "grid",
-                  gridTemplateColumns: "1.2fr 1fr 1fr 40px",
-                  gap: 1,
-                  px: 1,
-                  py: 0.75,
-                  bgcolor: tMui.palette.mode === "light" ? "#464B4E" : "#1C1C1E",
-                  borderBottom: `1px solid ${tMui.palette.mode === "light" ? "#5a5f63" : "#2A2A2C"}`,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  color: "#fff",
-                })}
-              >
-                <Box>{t("Band")}</Box>
-                <Box>{t("Uplink")}</Box>
-                <Box>{t("Downlink")}</Box>
-                <Box />
-              </Box>
+  {/* Input row (same as Antenna) */}
+ <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", justifyContent: "flex-start" }}>
 
-              {rows.map((r) => (
-                <Box
-                  key={r.id}
-                  sx={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 40px", gap: 1, px: 1, py: 1, alignItems: "center", borderBottom: `1px solid ${vars.borderWeak}` }}
-                >
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={r.band}
-                      onChange={(e) => updateRow(r.id, "band", e.target.value)}
-                      displayEmpty
-                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                      MenuProps={menuTheme}
-                    >
-                      <MenuItem disabled value="">{t("Select Band")}</MenuItem>
-                      {["S-Band", "X-Band", "Ka-Band", "UHF", "VHF"].map((b) => (<MenuItem key={b} value={b}>{t(b)}</MenuItem>))}
-                    </Select>
-                  </FormControl>
-                  <TextField value={r.uplink} onChange={(e) => updateRow(r.id, "uplink", e.target.value)} placeholder={t("Enter Uplink")} size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
-                  <TextField value={r.downlink} onChange={(e) => updateRow(r.id, "downlink", e.target.value)} placeholder={t("Enter Downlink")} size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
-                  <IconButton aria-label={t("remove row")} onClick={() => removeRow(r.id)} sx={{ color: vars.textDim }} disabled={rows.length === 1}>
-                    <CloseRoundedIcon />
-                  </IconButton>
-                </Box>
-              ))}
-            </Box>
+    {/* Select Band */}
+    <FormControl size="small" sx={{ width: 180 }}>
+      <Select
+        value={rows[0].band}
+        onChange={(e) => updateRow(rows[0].id, "band", e.target.value)}
+        displayEmpty
+        sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+        MenuProps={menuTheme}
+      >
+        <MenuItem disabled value="">{t("Select Bands/Carriers")}</MenuItem>
+        {["UHF (300 MHz – 3 GHz)", "VHF (30 MHz – 300 MHz)", "L (1-2 GHz)", "S (2.0 – 2.3 GHz)", "C (4 – 8 GHz)", "X (8 – 12 GHz)", "Ku (12-18 GHz)", "Ka (26.5 to 40 GHz)"].map((b) => (
+          <MenuItem key={b} value={b}>{t(b)}</MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+
+    {/* Enter G/T */}
+    {/* <TextField
+      size="small"
+      sx={(tMui) => ({ ...controlSx, ...filledField(tMui), width: 170 })}
+      placeholder={t("Enter G/T")}
+      value={rows[0].uplink}
+      onChange={(e) => updateRow(rows[0].id, "uplink", e.target.value)}
+    /> */}
+
+    {/* Checkboxes */}
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <Checkbox
+  checked={rows[0].uplink}
+  onChange={(e) => updateRow(rows[0].id, "uplink", e.target.checked)}
+  sx={{ p: 0.5 }}
+/>
+<Typography sx={{ fontSize: 13 }}>{t("Uplink")}</Typography>
+
+<Checkbox
+  checked={rows[0].downlink}
+  onChange={(e) => updateRow(rows[0].id, "downlink", e.target.checked)}
+  sx={{ p: 0.5 }}
+/>
+<Typography sx={{ fontSize: 13 }}>{t("Downlink")}</Typography>
+
+    </Box>
+
+    {/* Clear and Add */}
+   {/* Clear and Add – move to right */}
+<Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
+  <Button
+    onClick={() => setRows([{ id: 1, band: "", uplink: false, downlink: false }])}
+
+    size="small"
+    sx={{
+      textTransform: "none",
+      color: vars.text,
+      border: `1px solid ${vars.border}`,
+      borderRadius: 1,
+      px: 1.25,
+      "&:hover": { background: vars.bgHover }
+    }}
+  >
+    {t("Clear")}
+  </Button>
+
+<Button
+onClick={() => {
+  if (!rows[0].band) return;
+
+  const filled = { ...rows[0], id: nextIdRef.current++ };
+setRows((r) => [
+  { id: 1, band: "", uplink: false, downlink: false },  // reset input
+  ...r.slice(1),
+  filled
+]);
+
+}}
+
+  size="small"
+  variant="contained"
+  sx={{
+    textTransform: "none",
+    fontWeight: 700,
+    bgcolor: "#DC2626",
+    color: "#fff",
+    "&:hover": { bgcolor: "#B91C1C" }
+  }}
+>
+  {t("Add")}
+</Button>
+
+</Box>
+</Box> 
+  {/* No bands line */}
+  <Box sx={{ mt: 1.25, pl: 0.5, color: vars.textDim, fontSize: 13 }}>
+    {rows.length <= 1 && !rows[0].band ? t("No bands added.") : ""}
+  </Box>
+
+  {/* Existing added bands */}
+  {rows.slice(1).map((r) => (
+
+    <Box
+      key={r.id}
+      sx={{
+        mt: 1,
+        px: 1,
+        py: 0.8,
+        border: `1px solid ${vars.borderWeak}`,
+        borderRadius: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      <Typography sx={{ fontSize: 13 }}>
+  {r.band} {" | "}
+  {r.uplink && "Uplink"} {r.uplink && r.downlink ? " | " : ""}
+  {r.downlink && "Downlink"}
+  {!(r.uplink || r.downlink) && "-"}
+</Typography>
+
+      <IconButton sx={{ color: vars.textDim }} onClick={() => removeRow(r.id)}>
+        <CloseRoundedIcon />
+      </IconButton>
+    </Box>
+  ))}
+</Box>
+
+          
 
             {/* Save */}
             <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>

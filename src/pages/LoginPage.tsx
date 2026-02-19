@@ -12,6 +12,39 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 // import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+const resolveLandingRoute = () => {
+  const role = sessionStorage.getItem("pmgt_role");
+
+  if (role === "admin") return "/dashboard";
+
+  try {
+    const raw = sessionStorage.getItem("pmgt_page_access");
+const parsed = raw ? JSON.parse(raw) : null;
+
+// ✅ support both formats:
+// { pages: [...] } OR { viewerPages:[], editorPages:[] }
+let pages: string[] = [];
+
+if (Array.isArray(parsed?.pages)) {
+  // if old format objects exist
+  pages = parsed.pages.map((p: any) => p.page_key || p).filter(Boolean);
+} else {
+  pages = [...(parsed?.viewerPages || []), ...(parsed?.editorPages || [])];
+}
+
+
+
+    if (pages.includes("dashboard")) return "/dashboard";
+    if (pages.includes("satellites")) return "/satellites";
+    if (pages.includes("licenses")) return "/licenses";
+    if (pages.includes("passes")) return "/passes";
+    if (pages.includes("documents")) return "/documents";
+
+    return "/unauthorized";
+  } catch {
+    return "/unauthorized";
+  }
+};
 
 
 import { ToastContainer, toast } from "react-toastify";
@@ -63,94 +96,84 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       // ✅ backend expects { usernameOrEmail, password }
-      const { token, user } = await api.post<{ token: string; user: any }>(
-        "/api/auth/login",
-        { usernameOrEmail: identifier.trim(), password }
-      );
+     const res = await api.post<{ token: string; user: any }>(
+  "/api/auth/login",
+  { usernameOrEmail: identifier.trim(), password }
+);
+const { token, user } = res;
 
-      // ✅ persist token centrally so all future api.* calls send Authorization
-      setAuthToken(token, /* remember */ true);
+setAuthToken(token, true);
 
-      // store minimal user if you want it locally
-      sessionStorage.setItem("user", JSON.stringify(user));
+sessionStorage.setItem("token", token);        // ✅ REQUIRED
+sessionStorage.setItem("pmgt_token", token);   // ✅ REQUIRED (safe)
+sessionStorage.setItem("user", JSON.stringify(user));
 
-      // Optional: load full profile (Bearer auto-added by api client)
-      // try {
-      //   const me = await api.get("/api/auth/me");
-      //   sessionStorage.setItem("profile", JSON.stringify(me));
-      // } 
-      
-      // catch {
-      //   // non-fatal
-      // }
+// clear old session BEFORE saving new data
+sessionStorage.removeItem("pmgt_role");
+sessionStorage.removeItem("pmgt_role_type");
+sessionStorage.removeItem("pmgt_page_access");
+sessionStorage.removeItem("profile");
+sessionStorage.removeItem("pmgt_full_name");
+sessionStorage.removeItem("pmgt_username");
+sessionStorage.removeItem("pmgt_email");
 
-//       try {
-//   const me = await api.get("/api/auth/me");
-//   sessionStorage.setItem("profile", JSON.stringify(me));
+const me: any = await api.get("/api/auth/me");
 
-//   // NEW: prime the Auth context immediately to avoid flicker
-//   setUser({
-//     id: Number((me as any)?.id),
-//     username: String((me as any)?.username || ""),
-//     roleId: (me as any)?.roleId ?? null,
-//     role: resolveRoleFromMe(me),
-//   });
-// } catch {
-//   // non-fatal
-// }
+const pages = Array.isArray(me.pages) ? me.pages : [];
 
-try {
-  const me: any = await api.get("/api/auth/me");
+const viewerPages = pages
+  .filter((p: any) => p?.access_level === "viewer")
+  .map((p: any) => p?.page_key)
+  .filter(Boolean);
 
-  // 1) Persist minimal identity in session (used for initials)
-  sessionStorage.setItem("profile", JSON.stringify(me));
-  sessionStorage.setItem("pmgt_full_name", me?.full_name ?? me?.fullName ?? "");
-  sessionStorage.setItem("pmgt_username", me?.username ?? "");
-  sessionStorage.setItem("pmgt_email",    me?.email ?? "");
+const editorPages = pages
+  .filter((p: any) => p?.access_level === "editor")
+  .map((p: any) => p?.page_key)
+  .filter(Boolean);
 
-  // 2) Scope cache to this user
-  const uid = String(me?.id || me?.userId || me?.uid || "");
-  if (uid) sessionStorage.setItem("pmgt_uid", uid);
+// save access
+sessionStorage.setItem(
+  "pmgt_page_access",
+  JSON.stringify({ viewerPages, editorPages })
+);
 
-  // 3) Remove any old *global* avatar keys left from older builds
-  ["pmgt_avatar_abs", "pmgt_avatar_path", "pmgt_avatar_version"].forEach((k) =>
-    sessionStorage.removeItem(k)
-  );
+// save profile
+sessionStorage.setItem("profile", JSON.stringify(me));
+sessionStorage.setItem("pmgt_full_name", me?.full_name ?? me?.fullName ?? "");
+sessionStorage.setItem("pmgt_username", me?.username ?? "");
+sessionStorage.setItem("pmgt_email", me?.email ?? "");
 
-  // 4) Prime per-user avatar keys once (so TopNav shows the right face immediately)
-  try {
-    if (uid) {
-      const full: any = await api.get(`/api/users/${uid}`);
-      const raw = full?.avatarUrl || full?.profile_photo_url || "";
-      if (raw) {
-        const abs = String(raw); // may be "/uploads/..." – TopNav's builder will prefix
-        const rel = abs.replace(/^https?:\/\/[^/]+/, "").replace(/^\/?uploads\//, ""); // "avatars/xxx.png"
-        const v   = String(Date.now());
-        sessionStorage.setItem(`pmgt_avatar_abs:${uid}`, abs);
-        sessionStorage.setItem(`pmgt_avatar_path:${uid}`, rel);
-        sessionStorage.setItem(`pmgt_avatar_version:${uid}`, v);
+// save role & roleType
+const resolvedRole = resolveRoleFromMe(me);
+sessionStorage.setItem("pmgt_role", resolvedRole);
 
-        // let any mounted TopNav update immediately (optional)
-        window.dispatchEvent(new CustomEvent("pmgt:avatar-updated", { detail: { abs, rel, v } }));
-      }
-    }
-  } catch {
-    /* non-fatal if user has no avatar yet */
-  }
+const isEditorRole =
+  editorPages.length > 0 || String(me?.roleType).toLowerCase() === "editor";
 
-  // 5) Prime Auth context to avoid role flicker
-  setUser({
-    id: Number(me?.id),
-    username: String(me?.username || ""),
-    roleId: me?.roleId ?? null,
-    role: resolveRoleFromMe(me),
-  });
-} catch {
-  // non-fatal; token is set, app will fetch lazily
-}
+sessionStorage.setItem("pmgt_role_type", isEditorRole ? "editor" : "viewer");
 
-      toast.success("Login successful! Redirecting…", TOAST_OPTS);
-      setTimeout(() => navigate("/dashboard"), 700);
+
+// update context
+setUser({
+  id: Number(me?.id),
+  username: String(me?.username || ""),
+  roleId: me?.roleId ?? null,
+  role: resolvedRole,
+});
+
+// notify + redirect
+toast.success("Login successful! Redirecting…", TOAST_OPTS);
+
+requestAnimationFrame(() => {
+  window.dispatchEvent(new Event("pmgt:page-access-updated"));
+  navigate(resolveLandingRoute(), { replace: true });
+});
+
+
+return;
+
+
+
     } catch (err: any) {
       const msg =
         err?.message === "Unauthorized"

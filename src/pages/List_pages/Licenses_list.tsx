@@ -13,6 +13,9 @@ import PrintIcon from "@mui/icons-material/Print";
 import MainLayout from "../../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import UpdateLicenseModal, { type LicenseLike } from "../../components/Models/UpdateLicenseModal";
+import { useActionAccess } from "../../auth/useActionAccess";
+
+
 import { useI18n } from "../../i18n";
 import api from "../../api/http"; // ⬅️ use the same helper as Add page
 
@@ -99,12 +102,14 @@ type ExportWideRow = {
   station_name: string;
   applied_date: string;
   receipt_date: string;
-  validity_expiry: string;
+   validity_expiry: string;
   status: string;
   remarks: string | null;
-  bands: string; // "S|123|456 || X|...|..."
+  bands: string;
+  added_by: string;
+  created_at: string;
+  updated_at: string;   // ✅ ADD THIS
 };
-
 function parseBands(bands: string): { band: string; uplink: string; downlink: string }[] {
   if (!bands) return [];
   return bands
@@ -118,6 +123,42 @@ function parseBands(bands: string): { band: string; uplink: string; downlink: st
     .filter((b) => b.band);
 }
 
+// 🎯 License Status color grading (matches Add License statuses)
+const getLicenseStatusStyle = (status: string) => {
+  switch (status) {
+    case "Pending":
+      return {
+        bgcolor: "#FEF3C7",   // light yellow
+        color: "#92400E",     // dark amber
+        border: "1px solid #FCD34D",
+      };
+    case "Approved":
+      return {
+        bgcolor: "#DCFCE7",   // light green
+        color: "#166534",     // dark green
+        border: "1px solid #86EFAC",
+      };
+    case "Rejected":
+      return {
+        bgcolor: "#FFE4E6",   // light red/pink
+        color: "#9F1239",     // dark red
+        border: "1px solid #FDA4AF",
+      };
+    case "Expired":
+      return {
+        bgcolor: "#E5E7EB",   // light gray
+        color: "#374151",     // dark gray
+        border: "1px solid #D1D5DB",
+      };
+    default:
+      return {
+        bgcolor: "transparent",
+        color: TOK.TEXT_DIM,
+        border: "none",
+      };
+  }
+};
+
 /* ---------- Table ---------- */
 const CELL_PX = "clamp(6px, 0.8vw, 12px)";
 
@@ -126,12 +167,15 @@ function ThemedScrollTable({
   columns,
   onUpdate,
   emptyText,
+  isEditor,
 }: {
   rows: Row[];
   columns: Column[];
   onUpdate: (r: Row) => void;
   emptyText: string;
+  isEditor: boolean;
 }) {
+
   const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 120), 0) + 16;
   const colTemplate = columns
     .map((c) => (c.width != null ? `${c.width}px` : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`))
@@ -183,32 +227,72 @@ function ThemedScrollTable({
             }}
           >
             {columns.map((c) => {
-              if (c.key === "action") {
-                return (
-                  <Box
-                    key={`action-${idx}`}
-                    sx={{ px: CELL_PX, py: 0.75, display: "flex", justifyContent: "center", alignItems: "center" }}
-                  >
-                    <Button
-                      size="small"
-                      variant="contained"
-                      sx={{
-                        textTransform: "none",
-                        fontWeight: 700,
-                        fontSize: 12,
-                        px: 1.25,
-                        bgcolor: TOK.ACCENT,
-                        color: "#fff",
-                        "& .MuiSvgIcon-root": { color: "#fff" },
-                        "&:hover": { filter: "brightness(0.95)" },
-                      }}
-                      onClick={() => onUpdate(r)}
-                    >
-                      Update
-                    </Button>
-                  </Box>
-                );
-              }
+           if (c.key === "action") {
+  return (
+    <Box
+      key={`action-${idx}`}
+      sx={{
+        px: CELL_PX,
+        py: 0.75,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      {isEditor && (
+        <Button
+          size="small"
+          variant="contained"
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            fontSize: 12,
+            px: 1.25,
+            bgcolor: TOK.ACCENT,
+            color: "#fff",
+            "& .MuiSvgIcon-root": { color: "#fff" },
+            "&:hover": { filter: "brightness(0.95)" },
+          }}
+          onClick={() => onUpdate(r)}
+        >
+          Edit
+        </Button>
+      )}
+    </Box>
+  );
+}
+// 🎯 Status pill rendering
+if (c.key === "status") {
+  return (
+    <Box
+key={`status-${idx}`}
+      sx={{
+        px: CELL_PX,
+        py: 1,
+        textAlign: "center",
+      }}
+    >
+      <Box
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          px: 1.2,
+          py: 0.4,
+          borderRadius: 999,
+          fontSize: 12.5,
+          fontWeight: 600,
+          lineHeight: 1,
+          whiteSpace: "nowrap",
+          ...getLicenseStatusStyle(String(r.status)),
+        }}
+      >
+        {r.status}
+      </Box>
+    </Box>
+  );
+}
+
               return (
                 <Box
                   key={String(c.key)}
@@ -242,6 +326,8 @@ function ThemedScrollTable({
 export default function LicensesList() {
   const { t } = useI18n();
 
+const { hasWriteAccess } = useActionAccess();
+const canEdit = hasWriteAccess("licenses");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
@@ -253,11 +339,12 @@ export default function LicensesList() {
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
-  const COLUMNS: Column[] = React.useMemo(
-    () => [
+ const COLUMNS: Column[] = React.useMemo(
+  () => {
+    const cols: Column[] = [
       { key: "sr",       label: t("Sr No"),          width: 70, align: "center" },
-      { key: "satName",  label: t("Satellite Name"), min: 160, flex: 1.1, align: "center" },
-      { key: "station",  label: t("Station"),        min: 150, flex: 1,   align: "center" },
+      { key: "satName",  label: t("Satellite Name"), min: 120, flex: 1.1, align: "center" },
+      { key: "station",  label: t("Station"),        min: 100, flex: 1,   align: "center" },
       { key: "applied",  label: t("Applied Date"),   min: 120, flex: 0.9, align: "center" },
       { key: "receipt",  label: t("Receipt Date"),   min: 120, flex: 0.9, align: "center" },
       { key: "validity", label: t("Validity"),       min: 120, flex: 0.9, align: "center" },
@@ -265,11 +352,20 @@ export default function LicensesList() {
       { key: "downlink", label: t("Downlink"),       min: 110, flex: 0.8, align: "center" },
       { key: "uplink",   label: t("Uplink"),         min: 110, flex: 0.8, align: "center" },
       { key: "status",   label: t("Status"),         min: 100, flex: 0.7, align: "center" },
-      { key: "remarks",  label: t("Remarks"),        min: 160, flex: 1,   align: "center" },
-      { key: "action",   label: t("Action"),         width: 120,          align: "center" },
-    ],
-    [t]
-  );
+        { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" }, // ✅ new
+  { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" }, // ✅ new
+      { key: "remarks",  label: t("Remarks"),        min: 120, flex: 1,   align: "center" },
+    ];
+
+    if (canEdit) {
+  cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
+}
+
+    return cols;
+  },
+  [t, canEdit]
+);
+
 
   const fetchRows = React.useCallback(async () => {
     try {
@@ -279,24 +375,33 @@ export default function LicensesList() {
       const j = await api.get<any>(`/api/licenses/export?format=json&shape=wide&_=${Date.now()}`);
       const data: ExportWideRow[] = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
 
-      const mapped: Row[] = data.map((x, i) => {
-        const bands = parseBands(x.bands);
-        return {
-          id: Number(x.id),
-          sr: i + 1,
-          reqNo: x.license_req_no,
-          satName: x.satellite_name,
-          station: x.station_name,
-          applied: x.applied_date || "",
-          receipt: x.receipt_date || "",
-          validity: x.validity_expiry || "",
-          band: bands.map((b) => b.band).join(", "),
-          downlink: bands.map((b) => b.downlink).join(", "),
-          uplink: bands.map((b) => b.uplink).join(", "),
-          status: x.status || "",
-          remarks: x.remarks || "—",
-        } as Row;
-      });
+    const mapped: Row[] = data.map((x, i) => {
+  const bands = parseBands(x.bands);
+
+  return {
+    id: Number(x.id),
+    sr: i + 1,
+    reqNo: x.license_req_no,
+    satName: x.satellite_name,
+    station: x.station_name,
+    applied: x.applied_date || "",
+    receipt: x.receipt_date || "",
+    validity: x.validity_expiry || "",
+    band: bands.map((b) => b.band).join(", "),
+    downlink: bands.map((b) => b.downlink).join(", "),
+    uplink: bands.map((b) => b.uplink).join(", "),
+    status: x.status || "",
+
+    addedBy: x.added_by || "—",   // ✅ ADD THIS
+
+    dateTime: x.updated_at
+      ? new Date(x.updated_at).toLocaleString("en-IN")
+      : "—",
+
+    remarks: x.remarks || "—",
+  } as Row;
+});
+
 
       setRows(mapped);
       setPage(0);
@@ -327,6 +432,8 @@ export default function LicensesList() {
         r.downlink,
         r.uplink,
         r.status,
+        r.addedBy,
+r.dateTime,
         r.remarks,
       ]
         .join(" ")
@@ -341,9 +448,10 @@ export default function LicensesList() {
   );
 
   const openModal = (r: Row) => {
-    setEditing(r);
-    setModalOpen(true);
-  };
+  if (!canEdit) return;
+  setEditing(r);
+  setModalOpen(true);
+};
 
   return (
     <MainLayout title="">
@@ -476,11 +584,13 @@ export default function LicensesList() {
             <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden", bgcolor: "transparent" }}>
               <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX, bgcolor: "transparent" }}>
                 <ThemedScrollTable
-                  rows={paged}
-                  columns={COLUMNS}
-                  onUpdate={openModal}
-                  emptyText={t("No licenses found.")}
-                />
+  rows={paged}
+  columns={COLUMNS}
+  onUpdate={openModal}
+  emptyText={t("No licenses found.")}
+  isEditor={canEdit}
+/>
+
               </Box>
             </Box>
           </Box>

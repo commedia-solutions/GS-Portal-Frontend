@@ -365,7 +365,7 @@ export default function Operations() {
       setSupporters((json?.data ?? []).map(supApiToRow));
     } catch (e: any) {
       console.error(e);
-      alert(e?.message || "Failed to load operation supporters");
+      alert(e?.message || "Failed to load TTC service providers");
     }
   }, []);
 
@@ -390,19 +390,19 @@ export default function Operations() {
   const paged = current.slice(page * rpp, page * rpp + rpp);
 
   const headerTitle =
-    tab === "requesters" ? t("Operation Requesters") : tab === "operations" ? t("Operations") : t("Operation Supporters");
+    tab === "requesters" ? t("Operation Requesters") : tab === "operations" ? t("Operations") : t("TTC Service Providers");
 
   const addLabel = (() => {
     if (tab === "requesters") return `${t("Add")} ${t("Operation Requester")}`;
     if (tab === "operations") return `${t("Add")} ${t("Operation")}`;
-    return `${t("Add")} ${t("Operation Supporter")}`;
+    return `${t("Add")} ${t("TTC Service Provider")}`;
   })();
 
   const addPlaceholder =
     tab === "requesters" ? t("Operation Requester name") : tab === "operations" ? t("Operation name") : t("Supporter name");
 
   const nameColumnHeader =
-    tab === "requesters" ? t("Operation Requester") : tab === "operations" ? t("Operation") : t("Operation Supporter");
+    tab === "requesters" ? t("Operation Requester") : tab === "operations" ? t("Operation") : t("TTC Service Provider");
 
   /* --------- Add (gated by CAPTCHA) --------- */
   const openCaptchaThenAdd = () => {
@@ -577,7 +577,7 @@ export default function Operations() {
           {[
             { key: "requesters", label: t("Operation Requesters") },
             { key: "operations", label: t("Operations") },
-            { key: "supporters", label: t("Operation Supporters") },
+            { key: "supporters", label: t("TTC Service Provider") },
           ].map(({ key, label }) => (
             <ToggleButton key={key} value={key} disableRipple sx={pillSx}>
               {label}
@@ -712,7 +712,7 @@ export default function Operations() {
                       "&:hover": { bgcolor: "#6b46f1" },
                     }}
                   >
-                    {t("Update")}
+                    {t("Edit")}
                   </Button>
                 </Box>
               </Box>

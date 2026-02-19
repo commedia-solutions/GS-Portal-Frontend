@@ -29,6 +29,7 @@ import MainLayout from "../layouts/MainLayout";
 import { api, BASE_URL, getAuthToken } from "../api/http";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n"; // <-- i18n
+import { useActionAccess } from "../auth/useActionAccess";
 
 /* --- Modals --- */
 import UpdateDocumentModal from "../components/Models/UpdateDocumentModal";
@@ -340,20 +341,34 @@ function DarkDocsTable({
                   </Box>
                 );
               }
-              if (c.key === "action") {
-                return (
-                  <Box key={`act-${idx}`} sx={{ ...bodyCellSx, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      sx={{ textTransform: "none", fontWeight: 700, fontSize: 12, px: 1.1, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b48ea" } }}
-                      onClick={() => onUpdate(r)}
-                    >
-                      Update
-                    </Button>
-                  </Box>
-                );
-              }
+            if (c.key === "action") {
+  return (
+    <Box
+      key={`act-${idx}`}
+      sx={{ ...bodyCellSx, display: "flex", justifyContent: "center", alignItems: "center" }}
+    >
+      {onUpdate && (
+        <Button
+          size="small"
+          variant="contained"
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            fontSize: 12,
+            px: 1.1,
+            bgcolor: "#7C57F2",
+            "&:hover": { bgcolor: "#6b48ea" },
+          }}
+          onClick={() => onUpdate(r)}
+        >
+          Edit
+        </Button>
+      )}
+    </Box>
+  );
+}
+
+
               return (
                 <Box key={String(c.key)} sx={{ ...bodyCellSx, textAlign: c.align ?? "center" }} title={String(r[c.key as keyof DocumentRow] ?? "")}>
                   {r[c.key as keyof DocumentRow] as any}
@@ -533,6 +548,8 @@ export default function DocumentsPage() {
 
   const { hasRole } = useAuth();
   const isAdmin = hasRole("admin");
+  const { isEditor } = useActionAccess();
+
 
   const [tab, setTab] = React.useState<"docs" | "pass">("docs");
   const [docTypeFilter, setDocTypeFilter] = React.useState<string>("");
@@ -660,22 +677,38 @@ export default function DocumentsPage() {
   const handleTab = (_e: React.MouseEvent<HTMLElement>, next: "docs" | "pass" | null) => { if (next) setTab(next); };
 
   // Build i18n’d column labels here (so they react to language changes)
-  const DOC_COLUMNS: Column[] = React.useMemo(() => [
-    { key: "sr",       label: t("Sr No"),     width: 60, align: "center" },
-    { key: "name",     label: t("Document"),  min: 220, flex: 1.4, align: "left" },
-    { key: "type",     label: t("Doc Type"),  min: 140, flex: 1.0, align: "center" },
-    { key: "remarks",  label: t("Remarks"),   min: 200, flex: 1.2, align: "left" },
-    { key: "download", label: t("Download"),  width: 80, align: "center" },
-    { key: "action",   label: t("Action"),    width: 110, align: "center" },
-  ], [t]);
+  const DOC_COLUMNS: Column[] = React.useMemo(() => {
+  const cols: Column[] = [
+    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
+    { key: "name", label: t("Document"), min: 220, flex: 1.4, align: "left" },
+    { key: "type", label: t("Doc Type"), min: 140, flex: 1.0, align: "center" },
+    { key: "remarks", label: t("Remarks"), min: 200, flex: 1.2, align: "left" },
+    { key: "download", label: t("Download"), width: 80, align: "center" },
+  ];
 
-  const PASS_COLUMNS: Column[] = React.useMemo(() => [
-    { key: "sr",       label: t("Sr No"),     width: 60, align: "center" },
-    { key: "name",     label: t("Document"),  min: 260, flex: 1.5, align: "left" },
-    { key: "remarks",  label: t("Remarks"),   min: 220, flex: 1.2, align: "left" },
-    { key: "download", label: t("Download"),  width: 80, align: "center" },
-    { key: "action",   label: t("Action"),    width: 110, align: "center" },
-  ], [t]);
+  if (isEditor) {
+    cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
+  }
+
+  return cols;
+}, [t, isEditor]);
+
+
+ const PASS_COLUMNS: Column[] = React.useMemo(() => {
+  const cols: Column[] = [
+    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
+    { key: "name", label: t("Document"), min: 260, flex: 1.5, align: "left" },
+    { key: "remarks", label: t("Remarks"), min: 220, flex: 1.2, align: "left" },
+    { key: "download", label: t("Download"), width: 80, align: "center" },
+  ];
+
+  if (isEditor) {
+    cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
+  }
+
+  return cols;
+}, [t, isEditor]);
+
 
   return (
     <MainLayout title=" ">
@@ -752,19 +785,19 @@ export default function DocumentsPage() {
           </Box>
 
           {/* Upload rows */}
-          {tab === "docs" ? (
-            <>
-              <Box
-                sx={{
-                  px: 1.25,
-                  py: 1,
-                  display: "grid",
-                  gridTemplateColumns: "auto 160px 240px auto auto auto",
-                  alignItems: "center",
-                  gap: 1,
-                  bgcolor: "transparent",
-                }}
-              >
+          {tab === "docs" && isEditor ? (
+  <>
+    <Box
+      sx={{
+        px: 1.25,
+        py: 1,
+        display: "grid",
+        gridTemplateColumns: "auto 160px 240px auto auto auto",
+        alignItems: "center",
+        gap: 1,
+      }}
+    >
+
                 <Typography sx={{ fontWeight: 600, fontSize: 18, color: C.TEXT }}>{t("Upload Documents")}</Typography>
 
                 <FormControl size="small" sx={{ minWidth: 160, ...compactCtrlSx }}>
@@ -894,22 +927,32 @@ export default function DocumentsPage() {
               <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX, bgcolor: "transparent" }}>
                 {tab === "docs" ? (
                   <DarkDocsTable
-                    rows={docsPaged}
-                    columns={DOC_COLUMNS}
-                    onDownload={onDownload}
-                    onUpdate={(r) => setEditDoc({ id: r.id, name: r.name, type: r.type, remarks: r.remarks })}
-                    mode={mode}
-                    C={C}
-                  />
+  rows={docsPaged}
+  columns={DOC_COLUMNS}
+  onDownload={onDownload}
+  onUpdate={
+    isEditor
+      ? (r) => setEditDoc({ id: r.id, name: r.name, type: r.type, remarks: r.remarks })
+      : () => {}
+  }
+  mode={mode}
+  C={C}
+/>
+
                 ) : (
                   <DarkDocsTable
-                    rows={passPaged}
-                    columns={PASS_COLUMNS}
-                    onDownload={onDownload}
-                    onUpdate={(r) => setEditPass({ id: r.id, name: r.name, remarks: r.remarks })}
-                    mode={mode}
-                    C={C}
-                  />
+  rows={passPaged}
+  columns={PASS_COLUMNS}
+  onDownload={onDownload}
+  onUpdate={
+    isEditor
+      ? (r) => setEditPass({ id: r.id, name: r.name, remarks: r.remarks })
+      : () => {}
+  }
+  mode={mode}
+  C={C}
+/>
+
                 )}
               </Box>
             </Box>

@@ -36,6 +36,8 @@ export type LicenseLike = {
   downlink: string;  // comma-joined
   uplink: string;    // comma-joined
   status: string;
+   addedBy?: string;   // ✅ NEW
+  dateTime?: string;  // ✅ NEW
   remarks: string;
 };
 
@@ -87,7 +89,7 @@ const labelSx = {
   lineHeight: 1.2,
 };
 
-const bandOptions = ["S-Band", "X-Band", "Ka-Band", "UHF", "VHF", "C-Band", "Ku-Band"];
+const bandOptions = ["UHF (300 MHz – 3 GHz)", "VHF (30 MHz – 300 MHz)", "L (1-2 GHz)", "S (2.0 – 2.3 GHz)", "C (4 – 8 GHz)", "X (8 – 12 GHz)", "Ku (12-18 GHz)", "Ka (26.5 to 40 GHz)"];
 const statusOptions = ["Pending", "Approved", "Rejected", "Expired"];
 
 /* ---------- helpers ---------- */
@@ -201,7 +203,7 @@ React.useEffect(() => {
 
   /* form state */
   const [reqNo, setReqNo] = React.useState("");
-  const [satName, setSatName] = React.useState("");
+const [satName, setSatName] = React.useState<string[]>([]);
   const [stationsSel, setStationsSel] = React.useState<string[]>([]);
   const [applied, setApplied] = React.useState<Date | null>(null);
   const [receipt, setReceipt] = React.useState<Date | null>(null);
@@ -216,7 +218,7 @@ React.useEffect(() => {
   React.useEffect(() => {
     if (!row) return;
     setReqNo(row.reqNo);
-    setSatName(row.satName);
+setSatName(splitCSV(row.satName));
     setStationsSel(splitCSV(row.station));
     setApplied(parseDate(row.applied));
     setReceipt(parseDate(row.receipt));
@@ -287,7 +289,7 @@ React.useEffect(() => {
 
     const payload = {
       license_req_no: reqNo,
-      satellite_name: satName,
+satellite_name: joinCSV(satName),
       station_name: joinCSV(stationsSel),
       applied_date: fmtDate(applied),
       receipt_date: fmtDate(receipt),
@@ -393,22 +395,36 @@ React.useEffect(() => {
           <Box className="form-item">
   <Typography sx={labelSx}>Satellite Name</Typography>
   <FormControl fullWidth size="small">
-    <Select
+    <Select<string[]>
+      multiple
       value={satName}
-      onChange={(e) => setSatName(e.target.value as string)}
+      onChange={(e) =>
+        setSatName(
+          typeof e.target.value === "string"
+            ? e.target.value.split(",")
+            : (e.target.value as string[])
+        )
+      }
+      renderValue={(sel) =>
+        sel.length ? sel.join(", ") : "Select satellite"
+      }
       sx={controlSx}
       MenuProps={darkMenu}
       displayEmpty
-      renderValue={(v) => (v ? (v as string) : "Select satellite")}
     >
       {satOptions.map((name) => (
         <MenuItem key={name} value={name}>
-          {name}
+          <Checkbox
+            checked={satName.indexOf(name) > -1}
+            sx={{ p: 0.5, mr: 1, color: "#bbb" }}
+          />
+          <ListItemText primary={name} />
         </MenuItem>
       ))}
     </Select>
   </FormControl>
 </Box>
+
 
           {/* Row 2 */}
           <Box className="form-item">

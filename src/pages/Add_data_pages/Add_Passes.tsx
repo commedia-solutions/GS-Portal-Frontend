@@ -133,6 +133,19 @@ const fmtDate = (d: Date | null) => {
 
 // format 7 -> "PRN-007"
 const toPassNo = (n: number) => `PRN-${String(n).padStart(3, "0")}`;
+// 🔹 Format Band text: "Ka-Band | Uplink:true | Downlink:false" --> "Ka-Band / Uplink" etc.
+function formatBand(b: string) {
+  if (!b) return "";
+  const [band, u, d] = b.split("|").map((x) => x?.trim());
+  const up = u?.toLowerCase().includes("true");
+  const down = d?.toLowerCase().includes("true");
+
+  if (up && down) return `${band} / Uplink & Downlink`;
+  if (up) return `${band} / Uplink`;
+  if (down) return `${band} / Downlink`;
+  return band;
+}
+
 
 /* ---------------- CAPTCHA (same generator/dialog used elsewhere) ---------------- */
 type Captcha = { text: string; svg: string };
@@ -287,10 +300,12 @@ export default function AddPasses() {
   const [passReqNo, setPassReqNo] = React.useState("REQ-...");
 
   const [date, setDate] = React.useState<Date | null>(null);
-  const [satellite, setSatellite] = React.useState("");
+const [satellite, setSatellite] = React.useState<string[]>([]);
   const [station, setStation] = React.useState("");
   const [orbitNo, setOrbitNo] = React.useState("");
   const [maxEl, setMaxEl] = React.useState("");
+  const [bandCarrier, setBandCarrier] = React.useState("");
+
   const [aos, setAos] = React.useState("");
   const [los, setLos] = React.useState("");
   const [ops, setOps] = React.useState<string[]>([]);
@@ -325,25 +340,62 @@ export default function AddPasses() {
   }, [suggestNextPassNo]);
 
   /* -------- Options -------- */
+  // 🔹 NEW — License bands used for dropdown
+const [bandOptions, setBandOptions] = React.useState<string[]>([]);
+
+const fetchLicenseBands = React.useCallback(async () => {
+  try {
+    const j = await api.get<any>("/api/licenses/export?format=json&shape=wide");
+    const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
+
+    const list: string[] = [];
+
+    arr.forEach((x: any) => {
+      const chunks = x.bands?.split("||") ?? [];
+      chunks.forEach((chunk: string) => {
+        const [band, uplink, downlink] = chunk.split("|");
+        const formatted = `${band.trim()} | Uplink:${uplink?.trim()} | Downlink:${downlink?.trim()}`;
+        if (!list.includes(formatted)) list.push(formatted);
+      });
+    });
+
+    setBandOptions(list);
+  } catch {
+    setBandOptions([]);
+  }
+}, []);
+
+
   const [satOptions, setSatOptions] = React.useState<string[]>([]);
   const [stationOptions, setStationOptions] = React.useState<string[]>([]);
+  const [satByStation, setSatByStation] = React.useState<Record<string, string[]>>({});
+
   const [opOptions, setOpOptions] = React.useState<string[]>([]);
   const [reqOptions, setReqOptions] = React.useState<string[]>([]);
   const [supOptions, setSupOptions] = React.useState<string[]>([]);
+const fetchSatellites = React.useCallback(async () => {
+  try {
+    const j = await api.get<any>("/api/satellites");
+    const arr = Array.isArray(j) ? j : [];
 
-  const fetchSatellites = React.useCallback(async () => {
-    try {
-      const j = await api.get<any>("/api/satellites");
-      const arr = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : [];
-      setSatOptions(
-        arr
-          .map((r: any) => (r.satellite_name || r.name || r.satellite || "").toString().trim())
-          .filter(Boolean)
-      );
-    } catch {
-      setSatOptions([]);
-    }
-  }, []);
+    const map: Record<string, string[]> = {};
+
+    arr.forEach((r: any) => {
+      const station = String(r.station_name ?? "").trim();
+      const sat = String(r.satellite_name ?? "").trim();
+      if (!station || !sat) return;
+
+      if (!map[station]) map[station] = [];
+      if (!map[station].includes(sat)) map[station].push(sat);
+    });
+
+    setSatByStation(map);
+    setSatOptions([]); // empty until station selected
+  } catch {
+    setSatByStation({});
+    setSatOptions([]);
+  }
+}, []);
 
   const fetchStations = React.useCallback(async () => {
     try {
@@ -390,17 +442,27 @@ export default function AddPasses() {
   }, []);
 
   React.useEffect(() => {
-    fetchSatellites();
-    fetchStations();
-    fetchOperations();
-    fetchRequesters();
-    fetchSupporters();
-  }, [fetchSatellites, fetchStations, fetchOperations, fetchRequesters, fetchSupporters]);
+  fetchSatellites();
+  fetchStations();
+  fetchOperations();
+  fetchRequesters();
+  fetchSupporters();
+  fetchLicenseBands();    // 🆕 ADD THIS
+}, [
+  fetchSatellites,
+  fetchStations,
+  fetchOperations,
+  fetchRequesters,
+  fetchSupporters,
+  fetchLicenseBands,
+]);
+
 
   const clearForm = () => {
     setDate(null);
-    setSatellite("");
+setSatellite([]);
     setStation("");
+    setBandCarrier("");
     setOrbitNo("");
     setMaxEl("");
     setAos("");
@@ -413,15 +475,16 @@ export default function AddPasses() {
   };
 
   const handleSave = async () => {
-    if (!date || !satellite || !station || !orbitNo || !maxEl || !aos || !los) {
+if (!date || satellite.length === 0 || !station || !orbitNo || !maxEl || !aos || !los) {
       alert(t("Please fill all required fields."));
       return;
     }
     const payload = {
       pass_req_no: passReqNo,
       date_text: fmtDate(date),
-      satellite_name: satellite,
+satellite_name: satellite.join(", "),
       supporting_station: station,
+      band_carrier: bandCarrier,
       orbit_no: orbitNo,
       max_el_deg: maxEl,
       aos_ut: aos,
@@ -432,7 +495,7 @@ export default function AddPasses() {
       schedule_status: "Scheduled", // store canonical; UI shows translated
       pass_status: "Pending", // store canonical; UI shows translated
       remarks,
-      added_by: "UI",
+added_by: localStorage.getItem("username") || "Unknown",
       pass_type: passType,
     };
 
@@ -691,27 +754,8 @@ export default function AddPasses() {
                   </LocalizationProvider>
                 </Box>
 
-                <Box className="form-item">
-                  <Typography sx={LABEL_SX}>{t("Satellite Name *")}</Typography>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={satellite}
-                      onChange={(e) => setSatellite(e.target.value)}
-                      displayEmpty
-                      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                      MenuProps={menuTheme}
-                    >
-                      <MenuItem disabled value="">
-                        {t("Select Satellite")}
-                      </MenuItem>
-                      {satOptions.map((s) => (
-                        <MenuItem key={s} value={s}>
-                          {s}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
+      
+
 
                 {/* Row 2 */}
                 <Box className="form-item">
@@ -719,7 +763,18 @@ export default function AddPasses() {
                   <FormControl fullWidth size="small">
                     <Select
                       value={station}
-                      onChange={(e) => setStation(e.target.value)}
+onChange={(e) => {
+  const st = e.target.value as string;
+  setStation(st);
+  setSatellite([]); // clear previous satellite
+
+const sats = st && satByStation[st] ? satByStation[st] : [];
+setSatOptions(sats);
+
+if (sats.length === 1) {
+  setSatellite([sats[0]]);
+}
+}}
                       displayEmpty
                       sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
                       MenuProps={menuTheme}
@@ -735,6 +790,72 @@ export default function AddPasses() {
                     </Select>
                   </FormControl>
                 </Box>
+
+          <Box className="form-item">
+  <Typography sx={LABEL_SX}>{t("Satellite Name *")}</Typography>
+  <FormControl fullWidth size="small">
+    <Select<string[]>
+      multiple
+      value={satellite}
+      disabled={!station}
+
+      onChange={(e) => setSatellite(toArray(e))}
+      displayEmpty
+      renderValue={(selected) =>
+        (selected as string[]).length
+          ? (selected as string[]).join(", ")
+          : t("Select Satellite")
+      }
+      sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+      MenuProps={menuTheme}
+    >
+      <MenuItem disabled value="">
+        {t("Select Satellite")}
+      </MenuItem>
+
+      {satOptions.map((s) => (
+        <MenuItem key={s} value={s}>
+          <Checkbox
+            checked={satellite.indexOf(s) > -1}
+            sx={{ p: 0.5, mr: 1, color: vars.textDim }}
+          />
+          <ListItemText primary={s} />
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Box>
+
+<Box className="form-item">
+  <Typography sx={LABEL_SX}>{t("Band / Carrier")}</Typography>
+  <FormControl fullWidth size="small">
+   <Select
+  value={bandCarrier}
+  onChange={(e) => setBandCarrier(e.target.value)}
+  displayEmpty
+  renderValue={(v) =>
+  !v ? t("Select Band / Carrier") : formatBand(v as string)
+}
+  sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
+  MenuProps={menuTheme}
+>
+
+      <MenuItem disabled value="">
+        {t("Select Band / Carrier")}
+      </MenuItem>
+   {bandOptions.map((b) => (
+  <MenuItem key={b} value={b}>
+    {formatBand(b)}
+  </MenuItem>
+))}
+
+
+    </Select>
+  </FormControl>
+</Box>
+
+
+
 
                 <Box className="form-item">
                   <Typography sx={LABEL_SX}>{t("Orbit No *")}</Typography>
@@ -812,7 +933,7 @@ export default function AddPasses() {
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>{t("Operations Requester")}</Typography>
+                  <Typography sx={LABEL_SX}>{t("Operations Requested By")}</Typography>
                   <FormControl fullWidth size="small">
                     <Select<string[]>
                       multiple
@@ -839,7 +960,7 @@ export default function AddPasses() {
                 </Box>
 
                 <Box className="form-item">
-                  <Typography sx={LABEL_SX}>{t("TTL Service provider")}</Typography>
+                  <Typography sx={LABEL_SX}>{t("TTC Service provider")}</Typography>
                   <FormControl fullWidth size="small">
                     <Select<string[]>
                       multiple
