@@ -10,7 +10,7 @@ import {
   Menu,
   MenuItem,
   Divider,
-  ListItemIcon, 
+  ListItemIcon,
   Switch,
 } from "@mui/material";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -144,7 +144,7 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
   const navigate = useNavigate();
 
   const { can, hasRole } = useAuth();
-    const { hasPageAccess, loadingAccess } = usePageAccess();
+  const { hasPageAccess, loadingAccess } = usePageAccess();
   const { isEditor } = useActionAccess();
 
   // ✅ force rerender when page access updates
@@ -160,10 +160,10 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
 
   const { pref, toggle } = useThemePref();
 
-// ✅ Read page access once
-const { t, lang } = useI18n();
-// ❌ never return before all hooks
-// if (loadingAccess) return null;
+  // ✅ Read page access once
+  const { t, lang } = useI18n();
+  // ❌ never return before all hooks
+  // if (loadingAccess) return null;
 
 
 
@@ -184,10 +184,10 @@ const { t, lang } = useI18n();
     sessionStorage.getItem("pmgt_full_name") || ""
   );
   const [username, setUsername] = React.useState(
-  sessionStorage.getItem("pmgt_username") || ""
-);
+    sessionStorage.getItem("pmgt_username") || ""
+  );
 
-  
+
 
   const [email, setEmail] = React.useState(
     sessionStorage.getItem("pmgt_email") || ""
@@ -197,8 +197,8 @@ const { t, lang } = useI18n();
     const me = await fetchMe();
     if (!me) return;
     setFullName(me.full_name ?? "");
-setUsername(me.username ?? "");
-setEmail(me.email ?? "");
+    setUsername(me.username ?? "");
+    setEmail(me.email ?? "");
 
     const uid = String(me.id || me.userId || me.uid || "");
     if (uid) sessionStorage.setItem("pmgt_uid", uid);
@@ -221,7 +221,7 @@ setEmail(me.email ?? "");
           abs = absUrl;
           rel = relPath;
         }
-      } catch {}
+      } catch { }
     }
     ["pmgt_avatar_abs", "pmgt_avatar_path", "pmgt_avatar_version"].forEach((k) =>
       sessionStorage.removeItem(k)
@@ -277,7 +277,7 @@ setEmail(me.email ?? "");
     setSettingsEl(e.currentTarget);
   const closeSettings = () => setSettingsEl(null);
 
-  
+
   // switch language (writes storage + notifies provider listener)
   const changeLang = (next: "en" | "hi") => {
     localStorage.setItem("pmgt_lang", next);
@@ -287,21 +287,21 @@ setEmail(me.email ?? "");
   };
 
   if (loadingAccess) {
-  return (
-    <Box
-      sx={{
-        height: 54,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "white",
-        bgcolor: "transparent",
-      }}
-    >
-      Loading...
-    </Box>
-  );
-}
+    return (
+      <Box
+        sx={{
+          height: 54,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          bgcolor: "transparent",
+        }}
+      >
+        Loading...
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -329,54 +329,36 @@ setEmail(me.email ?? "");
       </Stack>
 
       <Stack direction="row" spacing={1.25} alignItems="center">
-    
-
-{isEditor && hasPageAccess("add_pass") && (
-  <TopNavButton to="/add/pass" label={t("Add Passes +")} />
-)}
 
 
-       {/* {can(PERMISSION.AddLicense) &&hasPageAccess("add_license")
- && (
-  <TopNavButton to="/add/license" label={t("Add License +")} />
-)} */}
-{isEditor && hasPageAccess("add_license") && (
-  <TopNavButton to="/add/license" label={t("Add License +")} />
-)}
+        {isEditor && hasPageAccess("add_pass") && (
+          <TopNavButton to="/add/pass" label={t("Add Passes +")} />
+        )}
 
+        {isEditor && hasPageAccess("visibility_schedule") && (
+          <TopNavButton to="/visibility-schedule" label={t("Visibility Schedule +")} />
+        )}
 
+        {isEditor && hasPageAccess("add_license") && (
+          <TopNavButton to="/add/license" label={t("Add License +")} />
+        )}
 
-      {/* {can(PERMISSION.AddSatellite) &&
- hasPageAccess("add_satellite")
- && (
-    <TopNavButton to="/add/satellite" label={t("Add Satellites +")} />
-  )} */}
-{isEditor && hasPageAccess("add_satellite") && (
-  <TopNavButton to="/add/satellite" label={t("Add Satellites +")} />
-)}
+        {isEditor && hasPageAccess("add_satellite") && (
+          <TopNavButton to="/add/satellite" label={t("Add Satellites +")} />
+        )}
 
-
-
-{/* {can(PERMISSION.ViewGSOps) &&
-
-
-  hasPageAccess("gs_operations")
- && (
-    <TopNavButton to="/Gsoperations" label={t("GS & Operations +")} />
-  )} */}
-
-{hasPageAccess("gs_operations") && (
-<TopNavButton to="/gsoperations" label={t("GS & Operations +")} />
-)}
-{/* 
+        {hasPageAccess("gs_operations") && (
+          <TopNavButton to="/gsoperations" label={t("GS & Operations +")} />
+        )}
+        {/* 
       {hasRole("admin") &&hasPageAccess("iam")
  && (
   <TopNavButton to="/iam" label={t("User & Role Management")} />
 )} */}
 
-{hasRole("admin") && hasPageAccess("iam") && (
-  <TopNavButton to="/iam" label={t("User & Role Management")} />
-)}
+        {hasRole("admin") && hasPageAccess("iam") && (
+          <TopNavButton to="/iam" label={t("User & Role Management")} />
+        )}
 
 
         <Avatar

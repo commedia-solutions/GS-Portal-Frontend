@@ -3,10 +3,10 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { getAuthToken } from "../api/http";
 
 function hasPageAccess(pathname: string): boolean {
-const role = sessionStorage.getItem("pmgt_role");
-const roleType = sessionStorage.getItem("pmgt_role_type");
+  const role = sessionStorage.getItem("pmgt_role");
+  const roleType = sessionStorage.getItem("pmgt_role_type");
 
-if (String(role).toLowerCase() === "admin") return true;
+  if (String(role).toLowerCase() === "admin") return true;
   try {
     const raw = sessionStorage.getItem("pmgt_page_access");
     if (!raw) return false;
@@ -20,30 +20,31 @@ if (String(role).toLowerCase() === "admin") return true;
     } else {
       pages = [...(parsed?.viewerPages || []), ...(parsed?.editorPages || [])];
     }
-if (pathname.startsWith("/dashboard")) return pages.includes("dashboard");
+    if (pathname.startsWith("/dashboard")) return pages.includes("dashboard");
 
-if (pathname.startsWith("/satellites")) return pages.includes("satellites");
-if (pathname.startsWith("/add/satellite")) return pages.includes("add_satellite");
+    if (pathname.startsWith("/satellites")) return pages.includes("satellites");
+    if (pathname.startsWith("/add/satellite")) return pages.includes("add_satellite");
 
-if (pathname.startsWith("/licenses")) return pages.includes("licenses");
-if (pathname.startsWith("/add/license")) return pages.includes("add_license");
+    if (pathname.startsWith("/licenses")) return pages.includes("licenses");
+    if (pathname.startsWith("/add/license")) return pages.includes("add_license");
 
-if (pathname.startsWith("/passes")) return pages.includes("passes");
-if (pathname.startsWith("/add/pass")) return pages.includes("add_pass");
+    if (pathname.startsWith("/passes")) return pages.includes("passes");
+    if (pathname.startsWith("/add/pass")) return pages.includes("add_pass");
 
-if (pathname.startsWith("/documents")) return pages.includes("documents");
+    if (pathname.startsWith("/documents")) return pages.includes("documents");
 
-if (pathname.startsWith("/gsoperations")) return pages.includes("gs_operations");
+    if (pathname.startsWith("/gsoperations")) return pages.includes("gs_operations");
 
-if (pathname.startsWith("/iam")) return pages.includes("iam");
+    if (pathname.startsWith("/iam")) return pages.includes("iam");
 
 
 
-if (pathname.startsWith("/logs")) return pages.includes("logs");
-if (pathname.startsWith("/requests")) return pages.includes("requests");
-if (pathname.startsWith("/issues")) return pages.includes("issues");
+    if (pathname.startsWith("/logs")) return pages.includes("logs");
+    if (pathname.startsWith("/requests")) return pages.includes("requests");
+    if (pathname.startsWith("/issues")) return pages.includes("issues");
+    if (pathname.startsWith("/visibility-schedule")) return pages.includes("visibility_schedule");
 
-if (pathname.startsWith("/userprofile")) return true;
+    if (pathname.startsWith("/userprofile")) return true;
 
 
     return false;
@@ -75,7 +76,7 @@ export default function ProtectedRoute() {
         if (!raw) return;
 
         setAccessReady(true);
-      } catch {}
+      } catch { }
     };
 
     checkAccess();

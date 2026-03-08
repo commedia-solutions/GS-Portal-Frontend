@@ -150,6 +150,7 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 /* ---------------- TYPES ---------------- */
 
@@ -208,6 +209,13 @@ export const APP_PAGES: AppPage[] = [
     icon: <DescriptionIcon />,
   },
   {
+    key: "visibility_schedule",
+    label: "Visibility Schedule",
+    route: "/visibility-schedule",
+    location: "sidebar",
+    icon: <VisibilityIcon />,
+  },
+  {
     key: "logs",
     label: "Logs",
     route: "/logs",
@@ -234,16 +242,16 @@ export const APP_PAGES: AppPage[] = [
   {
     key: "gs_operations",
     label: "GS & Operations",
-route: "/gsoperations",
+    route: "/gsoperations",
     location: "topbar",
   },
-{
-  key: "add_pass",
-  label: "Add Passes",
-  route: "/add/pass",
-  location: "topbar",
-  viewerHidden: true,
-},
+  {
+    key: "add_pass",
+    label: "Add Passes",
+    route: "/add/pass",
+    location: "topbar",
+    viewerHidden: true,
+  },
   {
     key: "add_license",
     label: "Add License",

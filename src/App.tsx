@@ -457,7 +457,7 @@
 //             {/* passSchedule */}
 
 //             <Route path="/pass-schedule" element={<PassSchedule />} />
-            
+
 //           </Route>
 //         </Routes>
 //       </Router>
@@ -501,8 +501,11 @@ import IssuesPage from "./pages/Issues";
 // Pass Schedule
 import PassSchedule from "./pages/PassSchedule";
 
+// Visibility Schedule
+import VisibilitySchedule from "./pages/VisibilitySchedule";
+
 // RBAC helpers
-import { AuthProvider, useAuth, RequirePermission, PERMISSION } from "./auth";
+import { AuthProvider, useAuth, RequirePermission, PERMISSION, NotAuthorized } from "./auth";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 
@@ -537,56 +540,62 @@ function AppRoutes() {
   // }
 
   return (
-  
-
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/ldap-login" element={<LDAPLogin />} />
-
-        {/* Protected */}
-<Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/documents" element={<Documents />} />
-
-          {/* Lists */}
-          <Route path="/satellites" element={<SatellitesList />} />
-          <Route path="/licenses" element={<LicensesList />} />
-          <Route path="/passes" element={<PassesList />} />
-
-          {/* Add-data (permission gated) */}
-      <Route path="/add/satellite" element={<AddSatellites />} />
-
-         <Route path="/add/license" element={<AddLicenses />} />
-
-         <Route path="/add/pass" element={<AddPasses />} />
 
 
-          {/* Other */}
-<Route path="/gsoperations" element={<GSoperations />} />
+    <Routes>
+      {/* Public */}
+      <Route path="/" element={<LoginPage />} />
+      <Route path="/ldap-login" element={<LDAPLogin />} />
+
+      {/* Protected */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/documents" element={<Documents />} />
+
+        {/* Lists */}
+        <Route path="/satellites" element={<SatellitesList />} />
+        <Route path="/licenses" element={<LicensesList />} />
+        <Route path="/passes" element={<PassesList />} />
+
+        {/* Add-data (permission gated) */}
+        <Route path="/add/satellite" element={<AddSatellites />} />
+
+        <Route path="/add/license" element={<AddLicenses />} />
+
+        <Route path="/add/pass" element={<AddPasses />} />
 
 
-          <Route path="/userprofile" element={<Userprofile />} />
-          <Route path="/Operations" element={<Operations />} />
-          <Route path="/logs" element={<UserLogs />} />
-          <Route path="/notifications" element={<Notifications />} />
-
-          {/* IAM – Admin only */}
-         <Route path="/iam" element={<IAM />} />
+        {/* Other */}
+        <Route path="/gsoperations" element={<GSoperations />} />
 
 
-          {/* Requests / Issues */}
-          <Route path="/requests" element={<RequestsPage />} />
-          <Route path="/issues" element={<IssuesPage />} />
+        <Route path="/userprofile" element={<Userprofile />} />
+        <Route path="/Operations" element={<Operations />} />
+        <Route path="/logs" element={<UserLogs />} />
+        <Route path="/notifications" element={<Notifications />} />
 
-          {/* Pass Schedule */}
-          <Route path="/pass-schedule" element={<PassSchedule />} />
+        {/* IAM – Admin only */}
+        <Route path="/iam" element={<IAM />} />
 
-          {/* Fallback */}
-<Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Route>
-      </Routes>
-    
+
+        {/* Requests / Issues */}
+        <Route path="/requests" element={<RequestsPage />} />
+        <Route path="/issues" element={<IssuesPage />} />
+
+        {/* Pass Schedule */}
+        <Route path="/pass-schedule" element={<PassSchedule />} />
+
+        {/* Visibility Schedule */}
+        <Route path="/visibility-schedule" element={<VisibilitySchedule />} />
+
+        {/* Unauthorized */}
+        <Route path="/unauthorized" element={<NotAuthorized />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
+    </Routes>
+
   );
 }
 
