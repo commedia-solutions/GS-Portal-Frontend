@@ -330,14 +330,15 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
 
       <Stack direction="row" spacing={1.25} alignItems="center">
 
+        {isEditor && hasPageAccess("visibility_schedule") && (
+          <TopNavButton to="/visibility-schedule" label={t("Visibility Schedule +")} />
+        )}
 
         {isEditor && hasPageAccess("add_pass") && (
           <TopNavButton to="/add/pass" label={t("Add Passes +")} />
         )}
 
-        {isEditor && hasPageAccess("visibility_schedule") && (
-          <TopNavButton to="/visibility-schedule" label={t("Visibility Schedule +")} />
-        )}
+
 
         {isEditor && hasPageAccess("add_license") && (
           <TopNavButton to="/add/license" label={t("Add License +")} />

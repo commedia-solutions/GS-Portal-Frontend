@@ -242,16 +242,16 @@ function StatusChip({ value, t }: { value: Status; t: (k: string) => string }) {
 
 /* ---------- Table columns ---------- */
 const COLUMNS: Column[] = [
-  { key: "ticketNo", label: "Ticket No", width: 120, align: "center" },
-  { key: "user", label: "User", width: 180, align: "left" },
-  { key: "reqTo", label: "Req To", width: 180, align: "left" },
-  { key: "categories", label: "Category", width: 220, align: "left" },
-  { key: "priority", label: "Priority", width: 80, align: "center" },
-  { key: "status", label: "Status", width: 140, align: "center" },
-  { key: "description", label: "Description", width: 320, align: "left" },
-  { key: "remarks", label: "Remarks", width: 240, align: "left" },
-  { key: "createdAt", label: "Created At", width: 180, align: "center" },
-  { key: "action", label: "Action", width: 120, align: "center" },
+  { key: "ticketNo", label: "Ticket No", width: 90, align: "center" },
+  { key: "user", label: "User", width: 130, align: "left" },
+  { key: "reqTo", label: "Req To", width: 130, align: "left" },
+  { key: "categories", label: "Category", width: 140, align: "left" },
+  { key: "priority", label: "Priority", width: 70, align: "center" },
+  { key: "status", label: "Status", width: 110, align: "center" },
+  { key: "description", label: "Description", width: 220, align: "left" },
+  { key: "remarks", label: "Remarks", width: 180, align: "left" },
+  { key: "createdAt", label: "Created At", width: 170, align: "center" },
+  { key: "action", label: "Action", width: 90, align: "center" },
 ];
 
 /* ---------- Table (theme-aware) ---------- */
@@ -320,52 +320,52 @@ function DarkScrollTable({
             }}
           >
             {columns.map((c) => {
-            if (c.key === "action") {
-  return (
-    <Box
-      key={`action-${idx}`}
-      sx={{
-        px: 1.25,
-        py: 0.75,
-        display: "flex",
-        gap: 0.75,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      {/* Update button only for Inbox */}
-{scope === "inbox" && (
-  <Button
-    size="small"
-    variant="contained"
-    sx={{
-      textTransform: "none",
-      fontWeight: 700,
-      fontSize: 12,
-      px: 1.25,
-      bgcolor: ACCENT,
-      color: "#fff",
-    }}
-    onClick={() => onUpdate(r)}
-  >
-    {t("Update")}
-  </Button>
-)}
+              if (c.key === "action") {
+                return (
+                  <Box
+                    key={`action-${idx}`}
+                    sx={{
+                      px: 1.25,
+                      py: 0.75,
+                      display: "flex",
+                      gap: 0.75,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    {/* Update button only for Inbox */}
+                    {scope === "inbox" && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          px: 1.25,
+                          bgcolor: ACCENT,
+                          color: "#fff",
+                        }}
+                        onClick={() => onUpdate(r)}
+                      >
+                        {t("Update")}
+                      </Button>
+                    )}
 
-{/* Delete button for BOTH Inbox and Sent */}
-<Button
-  size="small"
-  variant="outlined"
-  color="error"
-  sx={{ minWidth: 32, px: 0.75 }}
-  onClick={() => onDelete(r)}
->
-  <DeleteOutlineIcon fontSize="small" />
-</Button>
+                    {/* Delete button for BOTH Inbox and Sent */}
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      sx={{ minWidth: 32, px: 0.75 }}
+                      onClick={() => onDelete(r)}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </Button>
 
-    </Box>
-  );
-}
+                  </Box>
+                );
+              }
 
               if (c.key === "status") {
                 return (
@@ -813,18 +813,18 @@ export default function RequestsPage() {
       setUpdLoading(false);
     }
   };
-const handleDelete = async (row: ReqRow) => {
-  const ok = window.confirm(`Delete request ${row.ticketNo}?`);
-  if (!ok) return;
+  const handleDelete = async (row: ReqRow) => {
+    const ok = window.confirm(`Delete request ${row.ticketNo}?`);
+    if (!ok) return;
 
-  try {
-await api.del(`/api/tickets/${row.id}`);
-    fetchList(page, rowsPerPage);
-  } catch (e: any) {
-    console.error(e);
-    alert(e?.message || t("Failed to delete request"));
-  }
-};
+    try {
+      await api.del(`/api/tickets/${row.id}`);
+      fetchList(page, rowsPerPage);
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || t("Failed to delete request"));
+    }
+  };
 
   // const columnsForScope = React.useMemo(
   //   () => (scope === "sent" ? COLUMNS.filter((c) => c.key !== "action") : COLUMNS),
@@ -1004,8 +1004,8 @@ await api.del(`/api/tickets/${row.id}`);
                       renderValue={(selected) =>
                         (selected as number[]).length
                           ? (selected as number[])
-                              .map((id) => categoryOpts.find((c) => c.id === id)?.name || String(id))
-                              .join(", ")
+                            .map((id) => categoryOpts.find((c) => c.id === id)?.name || String(id))
+                            .join(", ")
                           : t("Select category")
                       }
                       input={<OutlinedInput />}
@@ -1113,14 +1113,14 @@ await api.del(`/api/tickets/${row.id}`);
             {tab === "list" && (
               <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden" }}>
                 <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX }}>
-<DarkScrollTable
-  rows={paged}
-  columns={columnsForScope}
-  onUpdate={openUpdate}
-  onDelete={handleDelete}
-  scope={scope}
-  t={t}
-/>
+                  <DarkScrollTable
+                    rows={paged}
+                    columns={columnsForScope}
+                    onUpdate={openUpdate}
+                    onDelete={handleDelete}
+                    scope={scope}
+                    t={t}
+                  />
                 </Box>
                 {loadingList && <Box sx={{ textAlign: "center", color: TEXT_DIM, py: 1 }}>{t("Loading…")}</Box>}
               </Box>

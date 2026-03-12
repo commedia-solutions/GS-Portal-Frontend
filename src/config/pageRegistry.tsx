@@ -158,7 +158,7 @@ export type AppPage = {
   key: string;
   label: string;
   route: string;
-  location: "sidebar" | "topbar" | "both";
+  location: "sidebar" | "topbar" | "both" | "none";
   viewerHidden?: boolean;   // 🔥 renamed from adminOnly
   guestHidden?: boolean;
   icon?: React.ReactNode;
@@ -236,6 +236,20 @@ export const APP_PAGES: AppPage[] = [
     route: "/issues",
     location: "sidebar",
     icon: <HelpOutlineIcon />,
+  },
+
+  /* -------- VISIBILITY TABS (VIRTUAL) -------- */
+  {
+    key: "pass_availability",
+    label: "Pass Availability",
+    route: "",
+    location: "none",
+  },
+  {
+    key: "pass_scheduled",
+    label: "Pass Scheduled",
+    route: "",
+    location: "none",
   },
 
   /* -------- TOP NAV -------- */

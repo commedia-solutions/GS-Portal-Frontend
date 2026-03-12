@@ -1,20 +1,16 @@
 import React from "react";
 import {
-    Box, Card, Button, Chip, Typography, TextField, Backdrop,
+    Box, Card, Button, Typography, Backdrop, TextField,
     CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
     ToggleButtonGroup, ToggleButton, IconButton, Table,
     TableBody, TableCell, TableContainer, TableHead, TableRow,
     TablePagination
 } from "@mui/material";
-import { InputAdornment, Select, MenuItem, FormControl } from "@mui/material";
+import { Select, MenuItem, FormControl } from "@mui/material";
 import {
     EditOutlined as EditOutlinedIcon,
-    Search as SearchIcon,
-    PrintOutlined as PrintOutlinedIcon,
     DownloadOutlined as DownloadOutlinedIcon
 } from "@mui/icons-material";
-import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
-import DownloadIcon from "@mui/icons-material/Download";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
@@ -23,12 +19,21 @@ import { TOPBAR_HEIGHT } from "../components/TopNav";
 import api from "../api/http";
 import { vars, sxPresets } from "../ui/toast/themeBridge";
 import { useI18n } from "../i18n";
+import { useActionAccess } from "../auth/useActionAccess";
 
 /* ---------- Shared UI ---------- */
 const CARD_SX = {
     bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}`,
     borderRadius: 2, display: "flex", flexDirection: "column",
     backgroundImage: "none", boxShadow: "none",
+} as const;
+
+const TABLE_SCROLL_SX = {
+    overflow: "auto",
+    scrollbarColor: `${vars.border} transparent`,
+    "&::-webkit-scrollbar": { width: 8, height: 8 },
+    "&::-webkit-scrollbar-thumb": { background: vars.border, borderRadius: 8 },
+    "&::-webkit-scrollbar-track": { background: "transparent" },
 } as const;
 
 const SCROLLER_SX = { ...sxPresets.scroller };
@@ -80,49 +85,55 @@ interface VSRow {
 
 /* ==================== THEME TOKENS & UI ==================== */
 const TOK = {
-  TEXT: "var(--text)", TEXT_DIM: "var(--text-dim)", CARD_BG: "var(--bg-card)",
-  CONTROL_BG: "var(--bg-ctrl)", BORDER_STR: "1px solid var(--border)",
-  BORDER_WEAK: "var(--border-weak)", ICON: "var(--text)", ACCENT: "var(--accent)",
-  HOVER: "var(--bg-hover)", SCROLLBAR: "var(--scrollbar)",
+    TEXT: "var(--text)", TEXT_DIM: "var(--text-dim)", CARD_BG: "var(--bg-card)",
+    CONTROL_BG: "var(--bg-ctrl)", BORDER_STR: "1px solid var(--border)",
+    BORDER_WEAK: "var(--border-weak)", ICON: "var(--text)", ACCENT: "var(--accent)",
+    HOVER: "var(--bg-hover)", SCROLLBAR: "var(--scrollbar)",
 } as const;
 
-const UI = { ctrlH: 30, font: 13, icon: 16, gap: 0.75, headerPx: 1.25, headerPy: 0.6, searchW: 150, selectW: 120, dateW: 150, paginationH: 36 };
+const UI = { ctrlH: 30, font: 13, icon: 16, gap: 0.75, headerPx: 1.25, headerPy: 0.6, searchW: 150, selectW: 120, dateW: 120, paginationH: 36 };
 
 const compactCtrlSx = {
-  bgcolor: TOK.CONTROL_BG, borderRadius: 1, color: TOK.TEXT,
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
-  "& .MuiOutlinedInput-root": { height: `${UI.ctrlH}px`, backgroundColor: TOK.CONTROL_BG, color: TOK.TEXT, paddingLeft: 8 },
-  "& .MuiOutlinedInput-input, & .MuiInputBase-input, & input": {
-    height: `${UI.ctrlH - 2}px`, padding: "0 10px 0 30px !important", fontSize: UI.font, color: TOK.TEXT, textAlign: "left !important",
-  },
-  "& .MuiInputBase-input::placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
-  "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
+    bgcolor: TOK.CONTROL_BG, borderRadius: 1, color: TOK.TEXT,
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
+    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
+    "& .MuiOutlinedInput-root": { height: `${UI.ctrlH}px`, backgroundColor: TOK.CONTROL_BG, color: TOK.TEXT, paddingLeft: 8 },
+    "& .MuiOutlinedInput-input, & .MuiInputBase-input, & input": {
+        height: `${UI.ctrlH - 2}px`, padding: "0 10px 0 30px !important", fontSize: UI.font, color: TOK.TEXT, textAlign: "left !important",
+    },
+    "& .MuiInputBase-input::placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
+    "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
 } as const;
 
 const compactSelectSx = {
-  ...compactCtrlSx,
-  "& .MuiOutlinedInput-root": { height: `${UI.ctrlH}px`, paddingLeft: 0 },
-  "& .MuiSelect-select": {
-    height: `${UI.ctrlH - 2}px`, lineHeight: `${UI.ctrlH - 2}px`, padding: "0 28px 0 10px !important", display: "flex", alignItems: "center", fontSize: UI.font, color: TOK.TEXT,
-  },
+    ...compactCtrlSx,
+    "& .MuiOutlinedInput-root": { height: `${UI.ctrlH}px`, paddingLeft: 0 },
+    "& .MuiSelect-select": {
+        height: `${UI.ctrlH - 2}px`, lineHeight: `${UI.ctrlH - 2}px`, padding: "0 28px 0 10px !important", display: "flex", alignItems: "center", fontSize: UI.font, color: TOK.TEXT,
+    },
 } as const;
 
 const lightMenu = { PaperProps: { sx: { bgcolor: TOK.CONTROL_BG, color: TOK.TEXT, border: TOK.BORDER_STR, "& .MuiMenuItem-root:hover": { bgcolor: "rgba(0,0,0,0.04)" } } } };
 
 function Labeled({ label, children, width }: { label: string; children: React.ReactNode; width: number | string }) {
-  return (
-    <Box sx={{ display: "flex", flexDirection: "column", width }}>
-      <Typography sx={{ fontSize: 11, color: TOK.TEXT_DIM, mb: 0.3, pl: 0.2 }}>{label}</Typography>
-      {children}
-    </Box>
-  );
+    return (
+        <Box sx={{ display: "flex", flexDirection: "column", width }}>
+            <Typography sx={{ fontSize: 11, color: TOK.TEXT_DIM, mb: 0.3, pl: 0.2 }}>{label}</Typography>
+            {children}
+        </Box>
+    );
 }
 
 export default function VisibilitySchedule() {
     const { t } = useI18n();
-    const [tab, setTab] = React.useState<"availability" | "scheduled">("availability");
+    const { hasReadAccess, hasWriteAccess } = useActionAccess();
+
+    // Fallback: If they have availability read access, select it, otherwise scheduled.
+    const [tab, setTab] = React.useState<"availability" | "scheduled">(hasReadAccess("pass_availability") ? "availability" : "scheduled");
+
+    // Strictly strictly tied to the active tab's write permission.
+    const canWrite = tab === "availability" ? hasWriteAccess("pass_availability") : hasWriteAccess("pass_scheduled");
 
     /* ---- Data ---- */
     const [vsRows, setVsRows] = React.useState<VSRow[]>([]);
@@ -161,43 +172,37 @@ export default function VisibilitySchedule() {
     };
 
     /* ---- Filters & Pagination ---- */
-        const [page, setPage] = React.useState(0);
+    const [page, setPage] = React.useState(0);
     const [rowsPerPage, setRowsPerPage] = React.useState(25);
-    
-    // UI Filters identical to Passes List
-    const [mode, setMode] = React.useState<"filter" | "export">("filter");
+
+    // Filter controls
     const [searchText, setSearchText] = React.useState("");
     const [station, setStation] = React.useState("All");
     const [satellite, setSatellite] = React.useState("All");
     const [statusFilter, setStatusFilter] = React.useState("All");
-    const [passType, setPassType] = React.useState("All");
     const [fromDate, setFromDate] = React.useState<Date | null>(null);
     const [toDate, setToDate] = React.useState<Date | null>(null);
 
     const safeRows = Array.isArray(vsRows) ? vsRows : [];
-    
+
     const stationOptions = ["All", ...Array.from(new Set(safeRows.map(r => r.stn).filter(Boolean)))];
     const satOptions = ["All", ...Array.from(new Set(safeRows.map(r => r.sc).filter(Boolean)))];
 
     const clearFilters = () => {
-        setSearchText(""); setStation("All"); setSatellite("All"); setStatusFilter("All"); setPassType("All");
+        setSearchText(""); setStation("All"); setSatellite("All"); setStatusFilter("All");
         setFromDate(null); setToDate(null);
     };
 
     const filteredRows = safeRows.filter(r => {
         if (tab === "scheduled" && !["requested", "supported", "no_support"].includes(r.pass_status)) return false;
-        
+
         if (station !== "All" && r.stn !== station) return false;
         if (satellite !== "All" && r.sc !== satellite) return false;
-        
-        // Map operations to passType roughly if possible or just ignore (operations string match)
-        if (passType !== "All" && !(r.operations || "").toLowerCase().includes(passType.toLowerCase())) return false;
-        
+
         if (statusFilter !== "All") {
-            // Map pass_status roughly
             if (statusFilter === "Pending" && !["idle", "requested"].includes(r.pass_status)) return false;
-            if (statusFilter === "Completed" && r.pass_status !== "supported") return false;
-            if (statusFilter === "Canceled" && r.pass_status !== "no_support") return false;
+            if (statusFilter === "Support" && r.pass_status !== "supported") return false;
+            if (statusFilter === "No Support" && r.pass_status !== "no_support") return false;
         }
 
         if (searchText) {
@@ -225,6 +230,13 @@ export default function VisibilitySchedule() {
         } catch (e) { alert("Failed to update status"); }
     };
 
+    const supportPass = async (id: number) => {
+        try {
+            await api.post(`/api/visibility-schedule/${id}/support`);
+            setVsRows(prev => prev.map(r => r.id === id ? { ...r, pass_status: "supported" as any } : r));
+        } catch (e) { alert("Failed to support pass"); }
+    };
+
     /* Popups */
     const [cancelPromptId, setCancelPromptId] = React.useState<number | null>(null);
     const [statusPromptId, setStatusPromptId] = React.useState<{ id: number, newStatus: string } | null>(null);
@@ -240,7 +252,6 @@ export default function VisibilitySchedule() {
     };
 
     /* Exports */
-    const handlePrint = () => window.print();
     const handleCSV = () => {
         const header = ["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS", "Status"].join(",");
         const csvRows = filteredRows.map(r => [
@@ -250,7 +261,7 @@ export default function VisibilitySchedule() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `visibility_schedule_${new Date().toISOString().slice(0,10)}.csv`;
+        a.download = `visibility_schedule_${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
     };
 
@@ -274,7 +285,16 @@ export default function VisibilitySchedule() {
                 <DialogTitle sx={{ fontWeight: 700 }}>Do you want to change the Pass Status?</DialogTitle>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => setStatusPromptId(null)} sx={{ color: vars.textDim }}>No</Button>
-                    <Button onClick={() => { if (statusPromptId) updateVsStatus(statusPromptId.id, statusPromptId.newStatus); setStatusPromptId(null); }} variant="contained" sx={purpleBtn}>Yes</Button>
+                    <Button onClick={() => {
+                        if (statusPromptId) {
+                            if (statusPromptId.newStatus === "supported") {
+                                supportPass(statusPromptId.id);
+                            } else {
+                                updateVsStatus(statusPromptId.id, statusPromptId.newStatus);
+                            }
+                        }
+                        setStatusPromptId(null);
+                    }} variant="contained" sx={purpleBtn}>Yes</Button>
                 </DialogActions>
             </Dialog>
 
@@ -299,8 +319,12 @@ export default function VisibilitySchedule() {
                     {/* IAM Style Tabs */}
                     <Box sx={{ px: 1.25, py: 0.6, borderBottom: `1px solid ${vars.border}`, display: "flex", justifyContent: "flex-start" }}>
                         <ToggleButtonGroup value={tab} exclusive onChange={(_, v) => { if (v) { setTab(v); setPage(0); } }} sx={{ borderRadius: 999, border: `1px solid ${vars.border}`, p: 0.5 }}>
-                            <ToggleButton value="availability" sx={pillSx}>{t("Pass Availability")}</ToggleButton>
-                            <ToggleButton value="scheduled" sx={pillSx}>{t("Pass Scheduled")}</ToggleButton>
+                            {hasReadAccess("pass_availability") && (
+                                <ToggleButton value="availability" sx={pillSx}>{t("Pass Availability")}</ToggleButton>
+                            )}
+                            {hasReadAccess("pass_scheduled") && (
+                                <ToggleButton value="scheduled" sx={pillSx}>{t("Pass Scheduled")}</ToggleButton>
+                            )}
                         </ToggleButtonGroup>
                     </Box>
 
@@ -313,75 +337,124 @@ export default function VisibilitySchedule() {
                                 </Box>
                                 <Box sx={{ px: 2, py: 1.5, display: "flex", gap: 2, alignItems: "center" }}>
                                     <input ref={fileInputRef} type="file" hidden accept=".ant" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                                    <Button variant="contained" size="small" onClick={() => fileInputRef.current?.click()} sx={purpleBtn}>Select File</Button>
+                                    <Button variant="contained" size="small" disabled={!canWrite} onClick={() => fileInputRef.current?.click()} sx={purpleBtn}>Select File</Button>
                                     <Typography sx={{ color: vars.textDim, fontSize: 13, flexGrow: 1 }}>{file ? file.name : "No file selected"}</Typography>
-                                    <Button variant="outlined" size="small" onClick={() => setFile(null)} disabled={!file} sx={{ color: vars.textDim, borderColor: vars.border }}>Clear</Button>
-                                    <Button variant="contained" size="small" onClick={handleUpload} disabled={!file || uploading} sx={purpleBtn}>Upload</Button>
+                                    <Button variant="outlined" size="small" onClick={() => setFile(null)} disabled={!file || !canWrite} sx={{ color: vars.textDim, borderColor: vars.border }}>Clear</Button>
+                                    <Button variant="contained" size="small" onClick={handleUpload} disabled={!file || uploading || !canWrite} sx={purpleBtn}>Upload</Button>
                                 </Box>
                             </Card>
                         )}
 
                         {/* Main Table Card */}
-                        <Card sx={{ ...CARD_SX, border: `1px solid ${vars.border}`, flex: 1, p: 0 }}>
+                        <Card sx={{
+                            ...CARD_SX,
+                            border: `1px solid ${vars.border}`,
+                            flex: 1,
+                            p: 0,
+                            "--passes-thead-bg": "#000000",
+                            "--passes-thead-text": "#ffffff",
+                            "--row-stripe": "rgba(255,255,255,0.06)",
+                            ".theme-dark &": {
+                                "--passes-thead-bg": "#000000",
+                                "--passes-thead-text": "#ffffff",
+                                "--row-stripe": "rgba(255,255,255,0.06)",
+                            }
+                        }}>
                             {/* Filter Bar */}
-                            <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: UI.gap }}>
                                 <Typography sx={{ fontWeight: 700, color: "#7CA7FF", mr: 2 }}>{tab === "availability" ? "Data List" : "Scheduled Passes"}</Typography>
-                                <TextField size="small" placeholder="Filter..." value={searchText} onChange={(e) => { setSearchText(e.target.value); setPage(0); }}
-                                    InputProps={{ startAdornment: <SearchIcon sx={{ color: vars.textDim, mr: 1, fontSize: 18 }} /> }}
-                                    sx={{ width: 220, "& .MuiOutlinedInput-root": { height: 32 } }} />
+
+                                <Labeled label={t("Stations")} width={UI.selectW}>
+                                    <FormControl size="small" fullWidth>
+                                        <Select value={station} onChange={(e) => { setStation(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                            {stationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                        </Select>
+                                    </FormControl>
+                                </Labeled>
+
+                                <Labeled label={t("Satellites")} width={UI.selectW}>
+                                    <FormControl size="small" fullWidth>
+                                        <Select value={satellite} onChange={(e) => { setSatellite(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                            {satOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                        </Select>
+                                    </FormControl>
+                                </Labeled>
+
+                                <Labeled label={t("Status")} width={UI.selectW}>
+                                    <FormControl size="small" fullWidth>
+                                        <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                            {["All", "Pending", "Support", "No Support"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
+                                        </Select>
+                                    </FormControl>
+                                </Labeled>
+
+                                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                                    <Labeled label={t("From Date")} width={UI.dateW}>
+                                        <DatePicker value={fromDate} onChange={(v) => { setFromDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                    </Labeled>
+                                    <Labeled label={t("To Date")} width={UI.dateW}>
+                                        <DatePicker value={toDate} onChange={(v) => { setToDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                    </Labeled>
+                                </LocalizationProvider>
+
+                                <Button onClick={clearFilters} size="small" sx={{ color: "#2563eb", textTransform: "none", fontWeight: 700, mt: 2 }}>{t("Clear")}</Button>
+
                                 <Box flexGrow={1} />
-                                {tab === "scheduled" && (
-                                    <Button onClick={handleCSV} size="small" variant="outlined" startIcon={<DownloadOutlinedIcon />} sx={{ color: vars.text, borderColor: vars.border }}>CSV</Button>
-                                )}
-                                <Button onClick={handlePrint} size="small" variant="outlined" startIcon={<PrintOutlinedIcon />} sx={{ color: vars.text, borderColor: vars.border }}>Print</Button>
+
+                                <Button onClick={handleCSV} size="small" variant="contained" startIcon={<DownloadOutlinedIcon />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: "#16a34a", color: "#fff", height: UI.ctrlH, minHeight: UI.ctrlH, lineHeight: `${UI.ctrlH}px`, borderRadius: 1, "& .MuiSvgIcon-root": { color: "#fff" }, "&:hover": { bgcolor: "#14833e", color: "#fff" } }}>CSV</Button>
                             </Box>
 
-                            <TableContainer sx={{ maxHeight: "calc(100vh - 350px)" }}>
+                            <TableContainer sx={{ maxHeight: "calc(100vh - 350px)", ...TABLE_SCROLL_SX }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
+                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>Sr No.</TableCell>
                                             {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
-                                                <TableCell key={h} sx={{ color: vars.textDim, fontWeight: 700, bgcolor: vars.bgApp }}>{h}</TableCell>
+                                                <TableCell key={h} sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>{h}</TableCell>
                                             ))}
-                                            <TableCell sx={{ color: vars.textDim, fontWeight: 700, bgcolor: vars.bgApp, textAlign: "center" }}>Action</TableCell>
-                                            <TableCell sx={{ color: vars.textDim, fontWeight: 700, bgcolor: vars.bgApp, textAlign: "center" }}>Status</TableCell>
+                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Action</TableCell>
+                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {visibleRows.map(r => (
-                                            <TableRow key={r.id}>
-                                                <TableCell sx={{ color: vars.text }}>{r.date_text}</TableCell>
-                                                <TableCell sx={{ color: vars.text }}>{r.sc}</TableCell>
-                                                <TableCell sx={{ color: vars.text }}>{r.stn}</TableCell>
-                                                <TableCell sx={{ color: vars.text }}>{r.orbit}</TableCell>
-                                                <TableCell sx={{ color: vars.text }}>{r.max_ele}</TableCell>
-                                                <TableCell sx={{ color: vars.text }}>{r.aos}</TableCell>
-                                                <TableCell sx={{ color: vars.text }}>{r.los}</TableCell>
-                                                <TableCell sx={{ color: vars.text }}>{r.operations}</TableCell>
+                                        {visibleRows.map((r, index) => (
+                                            <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(page * rowsPerPage) + index + 1}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
+                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
 
                                                 {/* Edit Action */}
-                                                <TableCell align="center">
-                                                    <IconButton size="small" onClick={() => setEditRow(r)} sx={{ color: vars.textDim }}><EditOutlinedIcon fontSize="small" /></IconButton>
+                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                    <IconButton size="small" disabled={!canWrite} onClick={() => setEditRow(r)} sx={{ color: vars.textDim }}><EditOutlinedIcon fontSize="small" /></IconButton>
                                                 </TableCell>
 
                                                 {/* Status Column */}
-                                                <TableCell align="center">
+                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                                                     {tab === "availability" ? (
                                                         <Button
                                                             onClick={() => r.pass_status === "idle" ? updateVsStatus(r.id, "requested") : setCancelPromptId(r.id)}
                                                             size="small"
+                                                            disabled={!canWrite}
                                                             sx={r.pass_status === "idle" ? { ...purpleBtn, py: 0.2, px: 1, minWidth: 120 } : { ...grayBtn, py: 0.2, px: 1, minWidth: 120 }}>
                                                             {r.pass_status === "idle" ? "Request Pass" : "Pass requested"}
                                                         </Button>
                                                     ) : (
                                                         <Box sx={{ display: 'flex', gap: 1, justifyContent: "center" }}>
                                                             <Button size="small"
+                                                                disabled={!canWrite}
                                                                 variant={r.pass_status === "supported" ? "contained" : "outlined"}
-                                                                onClick={() => r.pass_status === "supported" ? null : (r.pass_status === "requested" ? updateVsStatus(r.id, "supported") : setStatusPromptId({ id: r.id, newStatus: "supported" }))}
+                                                                onClick={() => r.pass_status === "supported" ? null : (r.pass_status === "requested" ? supportPass(r.id) : setStatusPromptId({ id: r.id, newStatus: "supported" }))}
                                                                 sx={r.pass_status === "supported" ? { ...purpleBtn, py: 0.2 } : { borderColor: vars.border, color: vars.textDim, py: 0.2 }}>
                                                                 Support
                                                             </Button>
                                                             <Button size="small"
+                                                                disabled={!canWrite}
                                                                 variant={r.pass_status === "no_support" ? "contained" : "outlined"}
                                                                 onClick={() => r.pass_status === "no_support" ? null : (r.pass_status === "requested" ? updateVsStatus(r.id, "no_support") : setStatusPromptId({ id: r.id, newStatus: "no_support" }))}
                                                                 sx={r.pass_status === "no_support" ? { ...redBtn, py: 0.2 } : { borderColor: vars.border, color: vars.textDim, py: 0.2 }}>
@@ -398,7 +471,7 @@ export default function VisibilitySchedule() {
                                     </TableBody>
                                 </Table>
                             </TableContainer>
-                            <TablePagination component="div" count={filteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={() => setPage(0)} />
+                            <TablePagination component="div" count={filteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} />
                         </Card>
                     </Box>
                 </Card>

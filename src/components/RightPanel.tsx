@@ -80,14 +80,14 @@ export default function RightPanel() {
       setLoadingReqs(true);
       const res = await fetch(
         `${API}/tickets?type=request&scope=inbox&page=1&size=12`
-,
+        ,
         { headers: { Accept: "application/json", ...authHeader() }, signal }
       );
       const text = await res.text();
       let j: any = null;
       try {
         j = text ? JSON.parse(text) : null;
-      } catch {}
+      } catch { }
       const rows: any[] = Array.isArray(j?.rows) ? j.rows : [];
       const mapped: TicketLite[] = rows
         .map((r) => ({
@@ -181,7 +181,7 @@ export default function RightPanel() {
                 onClick={() => {
                   try {
                     window.location.href = "/requests";
-                  } catch {}
+                  } catch { }
                 }}
               >
                 {t("View all >")}
@@ -278,18 +278,18 @@ export default function RightPanel() {
                               r.status === "Submitted"
                                 ? "rgba(59,130,246,0.18)"
                                 : r.status === "In Progress"
-                                ? "rgba(234,179,8,0.18)"
-                                : r.status === "In Review"
-                                ? "rgba(124,87,242,0.22)"
-                                : "rgba(148,163,184,0.18)",
+                                  ? "rgba(234,179,8,0.18)"
+                                  : r.status === "In Review"
+                                    ? "rgba(124,87,242,0.22)"
+                                    : "rgba(148,163,184,0.18)",
                             color:
                               r.status === "Submitted"
                                 ? "#93c5fd"
                                 : r.status === "In Progress"
-                                ? "#fde68a"
-                                : r.status === "In Review"
-                                ? "#c7b8ff"
-                                : "#cbd5e1",
+                                  ? "#fde68a"
+                                  : r.status === "In Review"
+                                    ? "#c7b8ff"
+                                    : "#cbd5e1",
                             borderRadius: 1,
                           }}
                         />

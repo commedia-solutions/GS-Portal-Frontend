@@ -53,7 +53,7 @@ type ApiPass = {
   operations_supporter?: string | null;
   schedule_status: string;
   pass_status: string;
-    created_at?: string | null;
+  created_at?: string | null;
   updated_at?: string | null;
   remarks?: string | null;
   added_by?: string | null;
@@ -334,32 +334,32 @@ function ScrollTable({
             }}
           >
             {columns.map((c) => {
-             if (c.key === "action") {
-  return (
-    <Box
-      key={`action-${idx}`}
-      sx={{ px: 0.75, py: 0.75, display: "flex", justifyContent: "center" }}
-    >
-      {isEditor && (
-        <Button
-          size="small"
-          variant="contained"
-          sx={{
-            textTransform: "none",
-            fontWeight: 700,
-            fontSize: 12,
-            px: 1.25,
-            bgcolor: TOK.ACCENT,
-            color: "#fff",
-          }}
-          onClick={() => onEdit(r)}
-        >
-          Edit
-        </Button>
-      )}
-    </Box>
-  );
-}
+              if (c.key === "action") {
+                return (
+                  <Box
+                    key={`action-${idx}`}
+                    sx={{ px: 0.75, py: 0.75, display: "flex", justifyContent: "center" }}
+                  >
+                    {isEditor && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          px: 1.25,
+                          bgcolor: TOK.ACCENT,
+                          color: "#fff",
+                        }}
+                        onClick={() => onEdit(r)}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </Box>
+                );
+              }
 
 
               const renderer = (c as any).render as undefined | ((row: UIRow) => React.ReactNode);
@@ -405,8 +405,8 @@ function reqNum(req: string): number {
 export default function PassesList() {
   const { t } = useI18n();
 
-    const { hasWriteAccess } = useActionAccess();
-const canEdit = hasWriteAccess("passes");
+  const { hasWriteAccess } = useActionAccess();
+  const canEdit = hasWriteAccess("passes");
 
   type Mode = "filter" | "export";
   const [mode, setMode] = React.useState<Mode>("filter");
@@ -420,8 +420,6 @@ const canEdit = hasWriteAccess("passes");
   const [fromDate, setFromDate] = React.useState<Date | null>(null);
   const [toDate, setToDate] = React.useState<Date | null>(null);
 
-  const [stationOptions, setStationOptions] = React.useState<string[]>(["All"]);
-  const [satOptions, setSatOptions] = React.useState<string[]>(["All"]);
 
   // Export
   const rangeDirty = !!fromDate || !!toDate;
@@ -431,6 +429,18 @@ const canEdit = hasWriteAccess("passes");
   const [rows, setRows] = React.useState<UIRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadErr, setLoadErr] = React.useState("");
+
+  const stationOptions = React.useMemo(() => {
+    const list = rows.map((r) => r.stn || "").filter(Boolean);
+    const unique = Array.from(new Set(list)).sort();
+    return ["All", ...unique];
+  }, [rows]);
+
+  const satOptions = React.useMemo(() => {
+    const list = rows.map((r) => r.sat || "").filter(Boolean);
+    const unique = Array.from(new Set(list)).sort();
+    return ["All", ...unique];
+  }, [rows]);
 
   // paging
   const [page, setPage] = React.useState(0);
@@ -451,153 +461,120 @@ const canEdit = hasWriteAccess("passes");
   };
 
   const COLUMNS: Column[] = React.useMemo(() => {
-  const cols: Column[] = [
-    { key: "sr", label: t("Sr"), width: 60, align: "center" },
-    { key: "date", label: t("Date"), width: 110, align: "center" },
-    { key: "sat", label: t("Satellite"), width: 100, align: "center" },
-    { key: "stn", label: t("Station"), width: 100, align: "center" },
-     { key: "band", label: t("Band / Carrier"), width: 200, align: "center" },
-    { key: "type", label: t("Pass Type"), width: 110, align: "center" },
-    { key: "orb", label: t("Orbit"), width: 90, align: "center" },
-    { key: "maxEl", label: t("Max (El)°"), width: 90, align: "center" },
-    { key: "aos", label: t("AOS / LOS (UT)"), width: 180, align: "center",
-      render: (r) => `${r.aos || "—"} / ${r.los || "—"}` },
-    { key: "ops", label: t("Operations"), width: 130, align: "center" },
-    { key: "opsReq", label: t("Ops requester / supporter"), width: 240, align: "center",
-      render: (r) => `${r.opsReq || "—"} / ${r.opsSup || "—"}` },
-    { key: "sched", label: t("Schedule"), width: 120, align: "center" },
-{
-  key: "pass",
-  label: t("Pass"),
-  width: 110,
-  align: "center",
-  render: (r) => (
-    <Box
-      sx={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        px: 1.2,
-        py: 0.4,
-        borderRadius: 999,     // pill shape
-        fontSize: 12.5,
-        fontWeight: 600,
-        lineHeight: 1,
-        whiteSpace: "nowrap",
-        ...getPassStatusStyle(r.pass),
-      }}
-    >
-      {t(r.pass)}
-    </Box>
-  ),
-},
-{ key: "addedBy", label: t("Added By"), width: 140, align: "center" },
-{ key: "dateTime", label: t("Date/Time"), width: 180, align: "center" },
-{ key: "remarks", label: t("Remarks"), width: 180, align: "center" },
-  ];
+    const cols: Column[] = [
+      { key: "sr", label: t("Sr"), width: 60, align: "center" },
+      { key: "date", label: t("Date"), width: 110, align: "center" },
+      { key: "sat", label: t("Satellite"), width: 100, align: "center" },
+      { key: "stn", label: t("Station"), width: 100, align: "center" },
+      { key: "band", label: t("Band / Carrier"), width: 200, align: "center" },
+      { key: "type", label: t("Pass Type"), width: 110, align: "center" },
+      { key: "orb", label: t("Orbit"), width: 90, align: "center" },
+      { key: "maxEl", label: t("Max (El)°"), width: 90, align: "center" },
+      {
+        key: "aos", label: t("AOS / LOS (UT)"), width: 180, align: "center",
+        render: (r) => `${r.aos || "—"} / ${r.los || "—"}`
+      },
+      { key: "ops", label: t("Operations"), width: 130, align: "center" },
+      {
+        key: "opsReq", label: t("Ops requester / supporter"), width: 240, align: "center",
+        render: (r) => `${r.opsReq || "—"} / ${r.opsSup || "—"}`
+      },
+      { key: "sched", label: t("Schedule"), width: 120, align: "center" },
+      {
+        key: "pass",
+        label: t("Pass"),
+        width: 110,
+        align: "center",
+        render: (r) => (
+          <Box
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              px: 1.2,
+              py: 0.4,
+              borderRadius: 999,     // pill shape
+              fontSize: 12.5,
+              fontWeight: 600,
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+              ...getPassStatusStyle(r.pass),
+            }}
+          >
+            {t(r.pass)}
+          </Box>
+        ),
+      },
+      { key: "addedBy", label: t("Added By"), width: 140, align: "center" },
+      { key: "dateTime", label: t("Date/Time"), width: 180, align: "center" },
+      { key: "remarks", label: t("Remarks"), width: 180, align: "center" },
+    ];
 
-  if (canEdit) {
-  cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
-}
+    if (canEdit) {
+      cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
+    }
 
-  return cols;
-}, [t, canEdit]);
+    return cols;
+  }, [t, canEdit]);
 
 
   const totalWidth = COLUMNS.reduce((acc, c) => acc + (c.width ?? 120), 0) + 16;
 
- const dateSlots = {
-  textField: {
-    size: "small" as const,
-    sx: {
-      width: UI.dateW,
-      bgcolor: TOK.CONTROL_BG,
-      borderRadius: 1,
-      color: TOK.TEXT,
-
-      "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
-      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
-      "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
-
-      "& .MuiOutlinedInput-root": {
-        height: `${UI.ctrlH}px`,
-        backgroundColor: TOK.CONTROL_BG,
+  const dateSlots = {
+    textField: {
+      size: "small" as const,
+      sx: {
+        width: UI.dateW,
+        bgcolor: TOK.CONTROL_BG,
+        borderRadius: 1,
         color: TOK.TEXT,
-        paddingLeft: 0,
-      },
 
-      "& input": {
-        height: `${UI.ctrlH - 2}px`,
-        padding: "0 10px !important",
-        fontSize: UI.font,
-        lineHeight: 1,
-        color: TOK.TEXT,
-      },
+        "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
+        "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
+        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
 
-      "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
+        "& .MuiOutlinedInput-root": {
+          height: `${UI.ctrlH}px`,
+          backgroundColor: TOK.CONTROL_BG,
+          color: TOK.TEXT,
+          paddingLeft: 0,
+        },
+
+        "& input": {
+          height: `${UI.ctrlH - 2}px`,
+          padding: "0 10px !important",
+          fontSize: UI.font,
+          lineHeight: 1,
+          color: TOK.TEXT,
+        },
+
+        "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
+      },
+      placeholder: "MM/DD/YYYY",
     },
-    placeholder: "MM/DD/YYYY",
-  },
 
-  openPickerButton: { sx: { color: TOK.ICON } },
+    openPickerButton: { sx: { color: TOK.ICON } },
 
-  popper: {
-    sx: {
-      "& .MuiPaper-root": { bgcolor: TOK.CONTROL_BG, color: TOK.TEXT, border: TOK.BORDER_STR },
-      "& .MuiPickersDay-root": { color: TOK.TEXT },
-      "& .MuiPickersDay-root.Mui-selected": { bgcolor: "var(--accent) !important", color: "#fff" },
-      "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label, & .MuiPickersYear-yearButton": {
-        color: TOK.TEXT,
+    popper: {
+      sx: {
+        "& .MuiPaper-root": { bgcolor: TOK.CONTROL_BG, color: TOK.TEXT, border: TOK.BORDER_STR },
+        "& .MuiPickersDay-root": { color: TOK.TEXT },
+        "& .MuiPickersDay-root.Mui-selected": { bgcolor: "var(--accent) !important", color: "#fff" },
+        "& .MuiDayCalendar-weekDayLabel, & .MuiPickersCalendarHeader-label, & .MuiPickersYear-yearButton": {
+          color: TOK.TEXT,
+        },
       },
     },
-  },
-};
+  };
 
 
- const openModal = (r: UIRow) => {
-  if (!canEdit) return;
-  setEditing(r);
-  setModalOpen(true);
-};
+  const openModal = (r: UIRow) => {
+    if (!canEdit) return;
+    setEditing(r);
+    setModalOpen(true);
+  };
 
 
-  const fetchStations = React.useCallback(async () => {
-    try {
-      const token = getAuthToken();
-      const r = await fetch(`${API_BASE}/api/ground-stations`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const j = await r.json();
-      const rows: Array<{ ground_station?: string; station_name?: string; name?: string }> =
-        Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-      const names = rows
-        .map((r) => (r.ground_station ?? r.station_name ?? r.name ?? "").toString().trim())
-        .filter((s) => s.length > 0);
-      const unique = Array.from(new Set(names));
-      setStationOptions(["All", ...unique]);
-    } catch {
-      setStationOptions(["All"]);
-    }
-  }, []);
-
-  const fetchSatellites = React.useCallback(async () => {
-    try {
-      const token = getAuthToken();
-      const r = await fetch(`${API_BASE}/api/satellites?_=${Date.now()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const j = await r.json();
-      const rows: Array<{ satellite_name?: string; name?: string }> =
-        Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : [];
-      const names = rows
-        .map((r) => (r.satellite_name ?? r.name ?? "").toString().trim())
-        .filter((s) => s.length > 0);
-      const unique = Array.from(new Set(names));
-      setSatOptions(["All", ...unique]);
-    } catch {
-      setSatOptions(["All"]);
-    }
-  }, []);
 
   // initial fetch
   const fetchRows = React.useCallback(async () => {
@@ -605,55 +582,55 @@ const canEdit = hasWriteAccess("passes");
     setLoadErr("");
     try {
       const data = await api.list();
-     if (!Array.isArray(data)) throw new Error("API /api/passes did not return an array.");
+      if (!Array.isArray(data)) throw new Error("API /api/passes did not return an array.");
 
-const ui: UIRow[] = data.map((p, idx) => {
-  // Format band carrier nicely
-  let formattedBand = "—";
-  if (p.band_carrier) {
-    const parts = p.band_carrier.split("|").map(s => s.trim());
-    const band = parts[0];
-    const upl = parts.find(s => s.toLowerCase().includes("uplink:true"));
-    const dwn = parts.find(s => s.toLowerCase().includes("downlink:true"));
+      const ui: UIRow[] = data.map((p, idx) => {
+        // Format band carrier nicely
+        let formattedBand = "—";
+        if (p.band_carrier) {
+          const parts = p.band_carrier.split("|").map(s => s.trim());
+          const band = parts[0];
+          const upl = parts.find(s => s.toLowerCase().includes("uplink:true"));
+          const dwn = parts.find(s => s.toLowerCase().includes("downlink:true"));
 
-    if (upl && dwn) formattedBand = `${band} / Uplink & Downlink`;
-    else if (upl) formattedBand = `${band} / Uplink`;
-    else if (dwn) formattedBand = `${band} / Downlink`;
-    else formattedBand = band;
-  }
+          if (upl && dwn) formattedBand = `${band} / Uplink & Downlink`;
+          else if (upl) formattedBand = `${band} / Uplink`;
+          else if (dwn) formattedBand = `${band} / Downlink`;
+          else formattedBand = band;
+        }
 
-  return {
-    id: p.id,
-    sr: idx + 1,
-    req: p.pass_req_no,
-    date: p.date_text,
-    sat: p.satellite_name,
-    stn: p.supporting_station,
-    band: formattedBand,
-    type: (p.pass_type as any) || "Normal",
-    orb: p.orbit_no ?? "",
-    maxEl: p.max_el_deg ?? "",
-    aos: p.aos_ut,
-    los: p.los_ut,
-    ops: p.operations ?? "",
-    opsReq: p.operations_requester ?? "",
-    opsSup: p.operations_supporter ?? "",
-    sched: p.schedule_status,
-    pass: p.pass_status,
+        return {
+          id: p.id,
+          sr: idx + 1,
+          req: p.pass_req_no,
+          date: p.date_text,
+          sat: p.satellite_name,
+          stn: p.supporting_station,
+          band: formattedBand,
+          type: (p.pass_type as any) || "Normal",
+          orb: p.orbit_no ?? "",
+          maxEl: p.max_el_deg ?? "",
+          aos: p.aos_ut,
+          los: p.los_ut,
+          ops: p.operations ?? "",
+          opsReq: p.operations_requester ?? "",
+          opsSup: p.operations_supporter ?? "",
+          sched: p.schedule_status,
+          pass: p.pass_status,
 
-  addedBy: p.added_by ?? "—",   // ✅ NEW
+          addedBy: p.added_by ?? "—",   // ✅ NEW
 
-  // ✅ show updated_at (because it changes when edit)
-  dateTime: p.updated_at
-    ? new Date(p.updated_at).toLocaleString("en-IN")
-    : "—",
+          // ✅ show updated_at (because it changes when edit)
+          dateTime: p.updated_at
+            ? new Date(p.updated_at).toLocaleString("en-IN")
+            : "—",
 
-  remarks: p.remarks ?? "—",
-};
-});
+          remarks: p.remarks ?? "—",
+        };
+      });
 
-setRows(ui);
-setPage(0);
+      setRows(ui);
+      setPage(0);
 
     } catch (e: any) {
       setLoadErr(e?.message || "Failed to fetch passes");
@@ -664,9 +641,7 @@ setPage(0);
 
   React.useEffect(() => {
     fetchRows();
-    fetchStations();
-    fetchSatellites();
-  }, [fetchRows, fetchStations, fetchSatellites]);
+  }, [fetchRows]);
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -858,21 +833,21 @@ setPage(0);
 
                   <Labeled label={t("Pass Type")} width={UI.selectW}>
                     <FormControl size="small" fullWidth>
-                     <Select
-  value={typeFilter}
-  onChange={(e) => setTypeFilter(e.target.value as any)}
-  MenuProps={lightMenu}
-  sx={compactSelectSx}
-  displayEmpty
-  renderValue={(selected) => {
-    if (!selected) return t("All");   // ✅ show All when ""
-    return t(selected);
-  }}
->
-  <MenuItem value="">{t("All")}</MenuItem>
-  <MenuItem value="Normal">{t("Normal")}</MenuItem>
-  <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
-</Select>
+                      <Select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value as any)}
+                        MenuProps={lightMenu}
+                        sx={compactSelectSx}
+                        displayEmpty
+                        renderValue={(selected) => {
+                          if (!selected) return t("All");   // ✅ show All when ""
+                          return t(selected);
+                        }}
+                      >
+                        <MenuItem value="">{t("All")}</MenuItem>
+                        <MenuItem value="Normal">{t("Normal")}</MenuItem>
+                        <MenuItem value="Emergency">{t("Emergency")}</MenuItem>
+                      </Select>
 
                     </FormControl>
                   </Labeled>
@@ -963,12 +938,12 @@ setPage(0);
                 <Box sx={{ p: 2, color: TOK.TEXT_DIM }}>{t("No results")}</Box>
               ) : (
                 <ScrollTable
-  rows={paged}
-  columns={COLUMNS}
-  totalWidth={totalWidth}
-  onEdit={openModal}
-  isEditor={canEdit}
-/>
+                  rows={paged}
+                  columns={COLUMNS}
+                  totalWidth={totalWidth}
+                  onEdit={openModal}
+                  isEditor={canEdit}
+                />
 
               )}
             </Box>
@@ -986,7 +961,7 @@ setPage(0);
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
-rowsPerPageOptions={[10, 50, 150, 200, 500, 1000, 2000, 5000]}
+              rowsPerPageOptions={[10, 50, 150, 200, 500, 1000, 2000, 5000]}
               labelRowsPerPage={t("Rows per page:")}
               sx={{
                 px: 1,
@@ -1023,24 +998,24 @@ rowsPerPageOptions={[10, 50, 150, 200, 500, 1000, 2000, 5000]}
         row={
           editing
             ? {
-                id: editing.id,            // <-- critical
-                sr: editing.sr,
-                req: editing.req,
-                date: editing.date,
-                sat: editing.sat,
-                stn: editing.stn,
-                band: editing.band,
-                orb: editing.orb,
-                maxEl: editing.maxEl,
-                aos: editing.aos,
-                los: editing.los,
-                ops: editing.ops,
-                opsReq: editing.opsReq,
-                opsSup: editing.opsSup,
-                sched: editing.sched,
-                pass: editing.pass,
-                remarks: editing.remarks,
-              }
+              id: editing.id,            // <-- critical
+              sr: editing.sr,
+              req: editing.req,
+              date: editing.date,
+              sat: editing.sat,
+              stn: editing.stn,
+              band: editing.band,
+              orb: editing.orb,
+              maxEl: editing.maxEl,
+              aos: editing.aos,
+              los: editing.los,
+              ops: editing.ops,
+              opsReq: editing.opsReq,
+              opsSup: editing.opsSup,
+              sched: editing.sched,
+              pass: editing.pass,
+              remarks: editing.remarks,
+            }
             : null
         }
         onClose={() => setModalOpen(false)}
