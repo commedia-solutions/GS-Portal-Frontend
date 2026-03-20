@@ -4,7 +4,7 @@ import {
     CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
     ToggleButtonGroup, ToggleButton, IconButton, Table,
     TableBody, TableCell, TableContainer, TableHead, TableRow,
-    TablePagination
+    TablePagination, Checkbox, FormControlLabel, FormGroup,
 } from "@mui/material";
 import { Select, MenuItem, FormControl } from "@mui/material";
 import {
@@ -59,7 +59,6 @@ const pillSx = {
     "&.Mui-selected:hover": { bgcolor: (t: any) => getHoverBg(t) },
 } as const;
 
-
 /* Buttons */
 const purpleBtn = {
     textTransform: "none" as const, fontWeight: 700, bgcolor: "#7C57F2", color: "#fff",
@@ -73,17 +72,30 @@ const redBtn = {
     textTransform: "none" as const, fontWeight: 700, bgcolor: "#e53e3e", color: "#fff",
     "&:hover": { bgcolor: "#c53030" },
 };
+const orangeBtn = {
+    textTransform: "none" as const, fontWeight: 700, bgcolor: "#c2410c", color: "#fff",
+    "&:hover": { bgcolor: "#9a3412" },
+};
 
 /* ============= Data types ============= */
+type PassStatus = "idle" | "pass_requested" | "pass_cancelled" | "requested" | "supported" | "no_support";
+
 interface VSRow {
     id: number; date_text: string; sc: string; stn: string; orbit: string;
     max_ele: string; aos: string; los: string; operations: string;
-    pass_status: "idle" | "requested" | "supported" | "no_support";
+    pass_status: PassStatus;
+    post_pass_status: "Pending" | "Completed";
+}
+
+/* Detect if ops column contains TM/TC/TR/PB tokens */
+const PASS_OPS = ["TM", "TC", "TR", "PB"];
+function opsHaveSupport(ops: string) {
+    if (!ops) return false;
+    const upper = ops.toUpperCase();
+    return PASS_OPS.some(op => upper.split(/[\s,/]+/).includes(op));
 }
 
 /* ============= MAIN PAGE ============= */
-
-/* ==================== THEME TOKENS & UI ==================== */
 const TOK = {
     TEXT: "var(--text)", TEXT_DIM: "var(--text-dim)", CARD_BG: "var(--bg-card)",
     CONTROL_BG: "var(--bg-ctrl)", BORDER_STR: "1px solid var(--border)",
@@ -125,14 +137,57 @@ function Labeled({ label, children, width }: { label: string; children: React.Re
     );
 }
 
+/* ====== Request Pass Dialog for No Support rows ====== */
+const ALL_OPS = ["TM", "TC", "TR", "PB"];
+
+function RequestPassDialog({
+    open, onClose, onConfirm,
+}: { open: boolean; onClose: () => void; onConfirm: (ops: string[]) => void; }) {
+    const [selected, setSelected] = React.useState<string[]>([]);
+    const toggle = (op: string) =>
+        setSelected(prev => prev.includes(op) ? prev.filter(x => x !== op) : [...prev, op]);
+    const handleConfirm = () => { if (selected.length) { onConfirm(selected); setSelected([]); } };
+    const handleClose = () => { setSelected([]); onClose(); };
+    return (
+        <Dialog open={open} onClose={handleClose}
+            PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+            <DialogTitle sx={{ fontWeight: 700 }}>Select Required Operation Support</DialogTitle>
+            <DialogContent>
+                <Typography sx={{ fontSize: 13, color: vars.textDim, mb: 1 }}>
+                    Choose one or more operation types to request support for:
+                </Typography>
+                <FormGroup row>
+                    {ALL_OPS.map(op => (
+                        <FormControlLabel
+                            key={op}
+                            control={
+                                <Checkbox
+                                    checked={selected.includes(op)}
+                                    onChange={() => toggle(op)}
+                                    sx={{ color: vars.textDim, "&.Mui-checked": { color: "#7C57F2" } }}
+                                />
+                            }
+                            label={op}
+                            sx={{ color: vars.text }}
+                        />
+                    ))}
+                </FormGroup>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button onClick={handleClose} sx={{ color: vars.textDim }}>Cancel</Button>
+                <Button onClick={handleConfirm} variant="contained" disabled={!selected.length} sx={purpleBtn}>
+                    Request Pass
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+}
+
 export default function VisibilitySchedule() {
     const { t } = useI18n();
     const { hasReadAccess, hasWriteAccess } = useActionAccess();
 
-    // Fallback: If they have availability read access, select it, otherwise scheduled.
     const [tab, setTab] = React.useState<"availability" | "scheduled">(hasReadAccess("pass_availability") ? "availability" : "scheduled");
-
-    // Strictly strictly tied to the active tab's write permission.
     const canWrite = tab === "availability" ? hasWriteAccess("pass_availability") : hasWriteAccess("pass_scheduled");
 
     /* ---- Data ---- */
@@ -167,7 +222,14 @@ export default function VisibilitySchedule() {
             await fetchData();
             setFile(null);
             alert(t("Upload successful"));
-        } catch (e: any) { alert("Upload failed: " + (e?.response?.data?.error || e?.message)); }
+        } catch (e: any) {
+            const errData = e?.response?.data;
+            if (errData?.validation && Array.isArray(errData.validation)) {
+                alert("Upload failed – Validation errors:\n\n" + errData.validation.join("\n"));
+            } else {
+                alert("Upload failed: " + (errData?.error || e?.message));
+            }
+        }
         finally { setUploading(false); }
     };
 
@@ -175,7 +237,6 @@ export default function VisibilitySchedule() {
     const [page, setPage] = React.useState(0);
     const [rowsPerPage, setRowsPerPage] = React.useState(25);
 
-    // Filter controls
     const [searchText, setSearchText] = React.useState("");
     const [station, setStation] = React.useState("All");
     const [satellite, setSatellite] = React.useState("All");
@@ -184,7 +245,6 @@ export default function VisibilitySchedule() {
     const [toDate, setToDate] = React.useState<Date | null>(null);
 
     const safeRows = Array.isArray(vsRows) ? vsRows : [];
-
     const stationOptions = ["All", ...Array.from(new Set(safeRows.map(r => r.stn).filter(Boolean)))];
     const satOptions = ["All", ...Array.from(new Set(safeRows.map(r => r.sc).filter(Boolean)))];
 
@@ -194,15 +254,17 @@ export default function VisibilitySchedule() {
     };
 
     const filteredRows = safeRows.filter(r => {
-        if (tab === "scheduled" && !["requested", "supported", "no_support"].includes(r.pass_status)) return false;
+        if (tab === "scheduled" && !["pass_requested", "supported", "no_support"].includes(r.pass_status)) return false;
 
         if (station !== "All" && r.stn !== station) return false;
         if (satellite !== "All" && r.sc !== satellite) return false;
 
         if (statusFilter !== "All") {
-            if (statusFilter === "Pending" && !["idle", "requested"].includes(r.pass_status)) return false;
+            if (statusFilter === "Pending" && !["idle", "pass_requested"].includes(r.pass_status)) return false;
             if (statusFilter === "Support" && r.pass_status !== "supported") return false;
             if (statusFilter === "No Support" && r.pass_status !== "no_support") return false;
+            if (statusFilter === "Pass Requested" && r.pass_status !== "pass_requested") return false;
+            if (statusFilter === "Pass Cancelled" && r.pass_status !== "pass_cancelled") return false;
         }
 
         if (searchText) {
@@ -212,7 +274,7 @@ export default function VisibilitySchedule() {
 
         if (fromDate || toDate) {
             const parts = r.date_text.split(/[/-]/).map((x) => parseInt(x, 10));
-            const dt = new Date(parts[0], parts[1] - 1, parts[2]); // YYYY-MM-DD
+            const dt = new Date(parts[0], parts[1] - 1, parts[2]);
             if (fromDate && dt < new Date(new Date(fromDate).setHours(0, 0, 0, 0))) return false;
             if (toDate && dt > new Date(new Date(toDate).setHours(23, 59, 59, 999))) return false;
         }
@@ -223,11 +285,18 @@ export default function VisibilitySchedule() {
     const visibleRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     /* ---- Actions ---- */
-    const updateVsStatus = async (id: number, status: string) => {
+    const updateVsStatus = async (id: number, status: string, extraFields?: Record<string, string>) => {
         try {
-            await api.patch(`/api/visibility-schedule/${id}`, { pass_status: status });
-            setVsRows(prev => prev.map(r => r.id === id ? { ...r, pass_status: status as any } : r));
+            await api.patch(`/api/visibility-schedule/${id}`, { pass_status: status, ...extraFields });
+            setVsRows(prev => prev.map(r => r.id === id ? { ...r, pass_status: status as any, ...extraFields } : r));
         } catch (e) { alert("Failed to update status"); }
+    };
+
+    const updatePostPassStatus = async (id: number, post_pass_status: string) => {
+        try {
+            await api.patch(`/api/visibility-schedule/${id}`, { post_pass_status });
+            setVsRows(prev => prev.map(r => r.id === id ? { ...r, post_pass_status: post_pass_status as any } : r));
+        } catch (e) { alert("Failed to update post pass status"); }
     };
 
     const supportPass = async (id: number) => {
@@ -239,8 +308,12 @@ export default function VisibilitySchedule() {
 
     /* Popups */
     const [cancelPromptId, setCancelPromptId] = React.useState<number | null>(null);
-    const [statusPromptId, setStatusPromptId] = React.useState<{ id: number, newStatus: string } | null>(null);
+    const [requestPassRowId, setRequestPassRowId] = React.useState<number | null>(null);
     const [editRow, setEditRow] = React.useState<VSRow | null>(null);
+    // Scheduled status change confirmation
+    const [scheduledPrompt, setScheduledPrompt] = React.useState<{ row: VSRow; newStatus: string } | null>(null);
+    // Post Pass Status change confirmation
+    const [postPassPrompt, setPostPassPrompt] = React.useState<{ id: number; newStatus: string } | null>(null);
 
     const saveEdit = async () => {
         if (!editRow) return;
@@ -253,9 +326,9 @@ export default function VisibilitySchedule() {
 
     /* Exports */
     const handleCSV = () => {
-        const header = ["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS", "Status"].join(",");
+        const header = ["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS", "Status", "Post Pass Status"].join(",");
         const csvRows = filteredRows.map(r => [
-            r.date_text, r.sc, r.stn, r.orbit, r.max_ele, r.aos, r.los, `"${r.operations || ''}"`, r.pass_status
+            r.date_text, r.sc, r.stn, r.orbit, r.max_ele, r.aos, r.los, `"${r.operations || ''}"`, r.pass_status, r.post_pass_status || "Pending"
         ].join(","));
         const blob = new Blob([[header, ...csvRows].join("\n")], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
@@ -263,6 +336,93 @@ export default function VisibilitySchedule() {
         a.href = url;
         a.download = `visibility_schedule_${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
+    };
+
+    /* ---- Toggle Support button (Scheduled tab) ---- */
+    const handleScheduledToggle = (r: VSRow) => {
+        if (!canWrite) return;
+        const newStatus = r.pass_status === "supported" ? "no_support" : "supported";
+        setScheduledPrompt({ row: r, newStatus });
+    };
+
+    const confirmScheduledToggle = async () => {
+        if (!scheduledPrompt) return;
+        const { row, newStatus } = scheduledPrompt;
+        if (newStatus === "supported") {
+            await supportPass(row.id);
+        } else {
+            await updateVsStatus(row.id, newStatus);
+        }
+        setScheduledPrompt(null);
+    };
+
+    const confirmPostPassStatus = async () => {
+        if (!postPassPrompt) return;
+        await updatePostPassStatus(postPassPrompt.id, postPassPrompt.newStatus);
+        setPostPassPrompt(null);
+    };
+
+    /* ---- Availability status button renderer ---- */
+    const renderAvailabilityStatus = (r: VSRow) => {
+        const { pass_status, operations } = r;
+
+        if (pass_status === "pass_cancelled") {
+            return (
+                <Button size="small" disabled sx={{ ...orangeBtn, py: 0.2, px: 1, minWidth: 130, opacity: 0.7, cursor: "default" }}>
+                    Pass Cancelled
+                </Button>
+            );
+        }
+
+        if (pass_status === "pass_requested" || pass_status === "requested") {
+            return (
+                <Button
+                    size="small"
+                    disabled={!canWrite}
+                    onClick={() => setCancelPromptId(r.id)}
+                    sx={{ ...grayBtn, py: 0.2, px: 1, minWidth: 130 }}>
+                    Pass Requested
+                </Button>
+            );
+        }
+
+        // idle state: check what ops say
+        if (operations && operations.toUpperCase() === "NO SUPPORT") {
+            // Show "Request Pass" – opens op selection dialog
+            return (
+                <Button
+                    size="small"
+                    disabled={!canWrite}
+                    onClick={() => setRequestPassRowId(r.id)}
+                    sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
+                    Request Pass
+                </Button>
+            );
+        }
+
+        if (opsHaveSupport(operations)) {
+            // TM/TC/TR/PB present but status somehow reset to idle – allow re-requesting
+            return (
+                <Button
+                    size="small"
+                    disabled={!canWrite}
+                    onClick={() => updateVsStatus(r.id, "pass_requested")}
+                    sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
+                    Request Pass
+                </Button>
+            );
+        }
+
+        // Generic idle state
+        return (
+            <Button
+                size="small"
+                disabled={!canWrite}
+                onClick={() => updateVsStatus(r.id, "pass_requested")}
+                sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
+                Request Pass
+            </Button>
+        );
     };
 
     return (
@@ -276,27 +436,53 @@ export default function VisibilitySchedule() {
                 <DialogTitle sx={{ fontWeight: 700 }}>Do you want to cancel the Pass Request?</DialogTitle>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => setCancelPromptId(null)} sx={{ color: vars.textDim }}>No</Button>
-                    <Button onClick={() => { if (cancelPromptId) updateVsStatus(cancelPromptId, "idle"); setCancelPromptId(null); }} variant="contained" sx={purpleBtn}>Yes</Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Change Status Dialog */}
-            <Dialog open={statusPromptId !== null} onClose={() => setStatusPromptId(null)} PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
-                <DialogTitle sx={{ fontWeight: 700 }}>Do you want to change the Pass Status?</DialogTitle>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setStatusPromptId(null)} sx={{ color: vars.textDim }}>No</Button>
                     <Button onClick={() => {
-                        if (statusPromptId) {
-                            if (statusPromptId.newStatus === "supported") {
-                                supportPass(statusPromptId.id);
-                            } else {
-                                updateVsStatus(statusPromptId.id, statusPromptId.newStatus);
-                            }
-                        }
-                        setStatusPromptId(null);
+                        if (cancelPromptId !== null) updateVsStatus(cancelPromptId, "pass_cancelled");
+                        setCancelPromptId(null);
                     }} variant="contained" sx={purpleBtn}>Yes</Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Pass Scheduled – Support/No Support change confirmation */}
+            <Dialog open={scheduledPrompt !== null} onClose={() => setScheduledPrompt(null)} PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+                <DialogTitle sx={{ fontWeight: 700 }}>Do you want to change the status of the pass?</DialogTitle>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setScheduledPrompt(null)} sx={{ color: vars.textDim }}>No</Button>
+                    <Button onClick={confirmScheduledToggle} variant="contained" sx={purpleBtn}>Yes</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Post Pass Status change confirmation */}
+            <Dialog open={postPassPrompt !== null} onClose={() => setPostPassPrompt(null)} PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+                <DialogTitle sx={{ fontWeight: 700 }}>Do you want to change the Post Pass Status?</DialogTitle>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setPostPassPrompt(null)} sx={{ color: vars.textDim }}>No</Button>
+                    <Button onClick={confirmPostPassStatus} variant="contained" sx={purpleBtn}>Yes</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Request Pass Dialog (for No Support rows) */}
+            <RequestPassDialog
+                open={requestPassRowId !== null}
+                onClose={() => setRequestPassRowId(null)}
+                onConfirm={(ops) => {
+                    if (requestPassRowId !== null) {
+                        const opsStr = ops.join(" ");
+                        // Update operations field with selected ops AND set status to pass_requested
+                        api.patch(`/api/visibility-schedule/${requestPassRowId}`, {
+                            pass_status: "pass_requested",
+                            operations: opsStr,
+                        }).then(() => {
+                            setVsRows(prev => prev.map(r =>
+                                r.id === requestPassRowId
+                                    ? { ...r, pass_status: "pass_requested" as any, operations: opsStr }
+                                    : r
+                            ));
+                        }).catch(() => alert("Failed to request pass"));
+                    }
+                    setRequestPassRowId(null);
+                }}
+            />
 
             {/* Edit Row Dialog */}
             <Dialog open={!!editRow} onClose={() => setEditRow(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
@@ -316,7 +502,7 @@ export default function VisibilitySchedule() {
 
             <Box sx={{ px: 2, py: 1.5 }}>
                 <Card sx={{ ...CARD_SX, width: "100%", height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)` }}>
-                    {/* IAM Style Tabs */}
+                    {/* Tabs */}
                     <Box sx={{ px: 1.25, py: 0.6, borderBottom: `1px solid ${vars.border}`, display: "flex", justifyContent: "flex-start" }}>
                         <ToggleButtonGroup value={tab} exclusive onChange={(_, v) => { if (v) { setTab(v); setPage(0); } }} sx={{ borderRadius: 999, border: `1px solid ${vars.border}`, p: 0.5 }}>
                             {hasReadAccess("pass_availability") && (
@@ -380,10 +566,10 @@ export default function VisibilitySchedule() {
                                     </FormControl>
                                 </Labeled>
 
-                                <Labeled label={t("Status")} width={UI.selectW}>
+                                <Labeled label={t("Status")} width={140}>
                                     <FormControl size="small" fullWidth>
                                         <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
-                                            {["All", "Pending", "Support", "No Support"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
+                                            {["All", "Pending", "Pass Requested", "Pass Cancelled", "Support", "No Support"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
                                         </Select>
                                     </FormControl>
                                 </Labeled>
@@ -414,6 +600,7 @@ export default function VisibilitySchedule() {
                                             ))}
                                             <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Action</TableCell>
                                             <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
+                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Post Pass Status</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -437,36 +624,55 @@ export default function VisibilitySchedule() {
                                                 {/* Status Column */}
                                                 <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                                                     {tab === "availability" ? (
+                                                        renderAvailabilityStatus(r)
+                                                    ) : (
+                                                        /* Pass Scheduled: single toggle Support ↔ No Support */
                                                         <Button
-                                                            onClick={() => r.pass_status === "idle" ? updateVsStatus(r.id, "requested") : setCancelPromptId(r.id)}
                                                             size="small"
                                                             disabled={!canWrite}
-                                                            sx={r.pass_status === "idle" ? { ...purpleBtn, py: 0.2, px: 1, minWidth: 120 } : { ...grayBtn, py: 0.2, px: 1, minWidth: 120 }}>
-                                                            {r.pass_status === "idle" ? "Request Pass" : "Pass requested"}
+                                                            onClick={() => handleScheduledToggle(r)}
+                                                            sx={r.pass_status === "supported"
+                                                                ? { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110 }
+                                                                : { ...redBtn, py: 0.2, px: 1.5, minWidth: 110 }
+                                                            }>
+                                                            {r.pass_status === "supported" ? "Support" : "No Support"}
                                                         </Button>
-                                                    ) : (
-                                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: "center" }}>
-                                                            <Button size="small"
-                                                                disabled={!canWrite}
-                                                                variant={r.pass_status === "supported" ? "contained" : "outlined"}
-                                                                onClick={() => r.pass_status === "supported" ? null : (r.pass_status === "requested" ? supportPass(r.id) : setStatusPromptId({ id: r.id, newStatus: "supported" }))}
-                                                                sx={r.pass_status === "supported" ? { ...purpleBtn, py: 0.2 } : { borderColor: vars.border, color: vars.textDim, py: 0.2 }}>
-                                                                Support
-                                                            </Button>
-                                                            <Button size="small"
-                                                                disabled={!canWrite}
-                                                                variant={r.pass_status === "no_support" ? "contained" : "outlined"}
-                                                                onClick={() => r.pass_status === "no_support" ? null : (r.pass_status === "requested" ? updateVsStatus(r.id, "no_support") : setStatusPromptId({ id: r.id, newStatus: "no_support" }))}
-                                                                sx={r.pass_status === "no_support" ? { ...redBtn, py: 0.2 } : { borderColor: vars.border, color: vars.textDim, py: 0.2 }}>
-                                                                No Support
-                                                            </Button>
-                                                        </Box>
                                                     )}
+                                                </TableCell>
+
+                                                {/* Post Pass Status Column – toggle button */}
+                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                    {(() => {
+                                                        const isCompleted = (r.post_pass_status || "Pending") === "Completed";
+                                                        const nextStatus = isCompleted ? "Pending" : "Completed";
+                                                        return (
+                                                            <Button
+                                                                size="small"
+                                                                disabled={!canWrite}
+                                                                onClick={() => setPostPassPrompt({ id: r.id, newStatus: nextStatus })}
+                                                                sx={{
+                                                                    textTransform: "none",
+                                                                    fontWeight: 700,
+                                                                    fontSize: 12,
+                                                                    py: 0.3,
+                                                                    px: 1.5,
+                                                                    minWidth: 100,
+                                                                    bgcolor: isCompleted ? "#16a34a" : "#d97706",
+                                                                    color: "#fff",
+                                                                    borderRadius: 1,
+                                                                    "&:hover": { bgcolor: isCompleted ? "#15803d" : "#b45309" },
+                                                                    "&.Mui-disabled": { opacity: 0.5 },
+                                                                }}
+                                                            >
+                                                                {isCompleted ? "Completed" : "Pending"}
+                                                            </Button>
+                                                        );
+                                                    })()}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                         {visibleRows.length === 0 && (
-                                            <TableRow><TableCell colSpan={10} sx={{ textAlign: "center", py: 4, color: vars.textDim }}>No passes found.</TableCell></TableRow>
+                                            <TableRow><TableCell colSpan={12} sx={{ textAlign: "center", py: 4, color: vars.textDim }}>No passes found.</TableCell></TableRow>
                                         )}
                                     </TableBody>
                                 </Table>

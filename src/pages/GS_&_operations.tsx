@@ -1333,10 +1333,24 @@ const antennaFormValid =
   bandRows.length > 0;
 
   const handleAddAntenna = async () => {
-    if (!antennaFormValid) {
-  alert("⚠️ All fields marked with * are mandatory.");
-  return;
-}
+    // Validate individual fields and give descriptive errors
+    const missing: string[] = [];
+    if (!antType.trim()) missing.push("Antenna Name");
+    if (!antLocation.trim()) missing.push("Location");
+    if (!antSize.trim()) missing.push("Antenna Size");
+    if (!antEIRP.trim()) missing.push("EIRP (dBW)");
+    if (!antTxPol.length) missing.push("Transmit Polarization");
+    if (!antRxPol.length) missing.push("Receive Polarization");
+    if (!azFrom || !azTo || !elFrom || !elTo) missing.push("Antenna Travel Range");
+    if (!antTrackVel.trim()) missing.push("Tracking Velocity");
+    if (!antTrackAcc.trim()) missing.push("Tracking Acceleration");
+    if (!antTrackModes.trim()) missing.push("Tracking Modes");
+    if (!bandRows.length) missing.push("At least one Band/Carrier (use the Add button inside the Bands section)");
+
+    if (missing.length > 0) {
+      alert(`⚠️ Please fill in the following required fields:\n\n• ${missing.join("\n• ")}`);
+      return;
+    }
 
 const antennaName = antType.trim();
 
@@ -1390,10 +1404,9 @@ const created = isAdmin
 
 
       const row: AntennaRow = {
-         id: created?.id ?? created?.request_id ?? Date.now(),
-
+        id: created?.id ?? created?.request_id ?? Date.now(),
         type: payload.antenna_type,
-        location: payload.location, // ✅ ADD
+        location: payload.location,
         size_m: payload.size_m,
         eirp_dbw: payload.eirp_dbw,
         tx_polarization: payload.tx_polarization,
@@ -1403,28 +1416,24 @@ const created = isAdmin
         tracking_acceleration: payload.tracking_acceleration,
         tracking_modes: payload.tracking_modes,
         bands: payload.bands,
-          // gts: payload.receive_gt,
+        status: isAdmin ? "APPROVED" : "PENDING",
       };
-// if (isAdmin
-// ) {
-//   setAntRows((prev) => [...prev, row]);
-// }
-      clearAntennaForm();
-alert(
-  isAdmin
 
-    ? t("Antenna added ✅")
-    : t("Antenna sent for approval ⏳")
-);      setAntInner("view");
-   if (isAdmin
-) {
-  setAntRows((prev) => [...prev, row]);
-  setAntennaOpts((prev) =>
-    Array.from(
-      new Set([...prev, `${row.type} / ${row.location || "-"}`])
-    ).sort()
-  );
-}
+      // Always update the local list so the row is visible immediately
+      setAntRows((prev) => [...prev, row]);
+      setAntennaOpts((prev) =>
+        Array.from(
+          new Set([...prev, `${row.type} / ${row.location || "-"}`])
+        ).sort()
+      );
+
+      clearAntennaForm();
+      alert(
+        isAdmin
+          ? t("Antenna added ✅")
+          : t("Antenna sent for approval ⏳")
+      );
+      setAntInner("view");
 
 
 
@@ -2954,26 +2963,36 @@ bgcolor:
                       </Box>
                     </Box> */}
 
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-                   {antennaFormValid && (
-  <Button
-    variant="contained"
-    onClick={() => {
-      setCaptchaAction({ kind: "addAntenna" });
-      setCaptchaOpen(true);
-    }}
-    sx={{
-      textTransform: "none",
-      fontWeight: 700,
-      bgcolor: COLORS.purple,
-      color: "#fff",
-      "&:hover": { bgcolor: "#6b46f1" },
-    }}
-  >
-    {t("Add")}
-  </Button>
-)}
-
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, mt: 2 }}>
+                      <Button
+                        variant="outlined"
+                        onClick={clearAntennaForm}
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 600,
+                          borderColor: vars.border,
+                          color: vars.textDim,
+                          "&:hover": { borderColor: vars.border, bgcolor: vars.bgHover },
+                        }}
+                      >
+                        {t("Clear")}
+                      </Button>
+                      <Button
+                        variant="contained"
+                        onClick={() => {
+                          setCaptchaAction({ kind: "addAntenna" });
+                          setCaptchaOpen(true);
+                        }}
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          bgcolor: COLORS.purple,
+                          color: "#fff",
+                          "&:hover": { bgcolor: "#6b46f1" },
+                        }}
+                      >
+                        {t("Add Antenna")}
+                      </Button>
                     </Box>
                   </Box>
                 ) : (

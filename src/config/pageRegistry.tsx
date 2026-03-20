@@ -194,13 +194,14 @@ export const APP_PAGES: AppPage[] = [
     location: "sidebar",
     icon: <AssignmentIcon />,
   },
-  {
-    key: "passes",
-    label: "Passes List",
-    route: "/passes",
-    location: "sidebar",
-    icon: <RocketLaunchIcon />,
-  },
+  // Passes List is hidden as per changes requested by alok sir
+  // {
+  //   key: "passes",
+  //   label: "Passes List",
+  //   route: "/passes",
+  //   location: "sidebar",
+  //   icon: <RocketLaunchIcon />,
+  // },
   {
     key: "documents",
     label: "Documents",
@@ -230,13 +231,13 @@ export const APP_PAGES: AppPage[] = [
     location: "sidebar",
     icon: <AssignmentTurnedInIcon />,
   },
-  {
-    key: "issues",
-    label: "Report Issue",
-    route: "/issues",
-    location: "sidebar",
-    icon: <HelpOutlineIcon />,
-  },
+  // {
+  //   key: "issues",
+  //   label: "Report Issue",
+  //   route: "/issues",
+  //   location: "sidebar",
+  //   icon: <HelpOutlineIcon />,
+  // },
 
   /* -------- VISIBILITY TABS (VIRTUAL) -------- */
   {
@@ -259,13 +260,14 @@ export const APP_PAGES: AppPage[] = [
     route: "/gsoperations",
     location: "topbar",
   },
-  {
-    key: "add_pass",
-    label: "Add Passes",
-    route: "/add/pass",
-    location: "topbar",
-    viewerHidden: true,
-  },
+  //  commented as per changes requested by alok sir
+  // {
+  //   key: "add_pass",
+  //   label: "Add Passes",
+  //   route: "/add/pass",
+  //   location: "topbar",
+  //   viewerHidden: true,
+  // },
   {
     key: "add_license",
     label: "Add License",
