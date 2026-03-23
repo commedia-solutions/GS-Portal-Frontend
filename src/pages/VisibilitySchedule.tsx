@@ -341,7 +341,8 @@ export default function VisibilitySchedule() {
     /* ---- Toggle Support button (Scheduled tab) ---- */
     const handleScheduledToggle = (r: VSRow) => {
         if (!canWrite) return;
-        const newStatus = r.pass_status === "supported" ? "no_support" : "supported";
+        const isSupport = r.pass_status === "supported" || r.pass_status === "pass_requested";
+        const newStatus = isSupport ? "no_support" : "supported";
         setScheduledPrompt({ row: r, newStatus });
     };
 
@@ -368,7 +369,11 @@ export default function VisibilitySchedule() {
 
         if (pass_status === "pass_cancelled") {
             return (
-                <Button size="small" disabled sx={{ ...orangeBtn, py: 0.2, px: 1, minWidth: 130, opacity: 0.7, cursor: "default" }}>
+                <Button
+                    size="small"
+                    disabled={!canWrite}
+                    onClick={() => setRequestPassRowId(r.id)}
+                    sx={{ ...orangeBtn, py: 0.2, px: 1, minWidth: 130 }}>
                     Pass Cancelled
                 </Button>
             );
@@ -418,7 +423,7 @@ export default function VisibilitySchedule() {
             <Button
                 size="small"
                 disabled={!canWrite}
-                onClick={() => updateVsStatus(r.id, "pass_requested")}
+                onClick={() => setRequestPassRowId(r.id)}
                 sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
                 Request Pass
             </Button>
@@ -631,11 +636,11 @@ export default function VisibilitySchedule() {
                                                             size="small"
                                                             disabled={!canWrite}
                                                             onClick={() => handleScheduledToggle(r)}
-                                                            sx={r.pass_status === "supported"
+                                                            sx={(r.pass_status === "supported" || r.pass_status === "pass_requested")
                                                                 ? { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110 }
                                                                 : { ...redBtn, py: 0.2, px: 1.5, minWidth: 110 }
                                                             }>
-                                                            {r.pass_status === "supported" ? "Support" : "No Support"}
+                                                            {(r.pass_status === "supported" || r.pass_status === "pass_requested") ? "Support" : "No Support"}
                                                         </Button>
                                                     )}
                                                 </TableCell>
