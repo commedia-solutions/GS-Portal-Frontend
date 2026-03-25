@@ -328,12 +328,21 @@ export default function AddLicense() {
       const map: Record<string, string[]> = {};
 
       arr.forEach((r) => {
-        const station = String(r.station_name ?? "").trim();
+        const stationsRaw = String(r.station_name ?? "");
         const sat = String(r.satellite_name ?? "").trim();
-        if (!station || !sat) return;
+        if (!stationsRaw || !sat) return;
 
-        if (!map[station]) map[station] = [];
-        if (!map[station].includes(sat)) map[station].push(sat);
+        const stations = stationsRaw.split(",");
+
+        stations.forEach((st) => {
+          const station = st.trim();
+          if (!station) return;
+
+          if (!map[station]) map[station] = [];
+          if (!map[station].includes(sat)) {
+            map[station].push(sat);
+          }
+        });
       });
 
       console.log("SATELLITE MAP:", map);
