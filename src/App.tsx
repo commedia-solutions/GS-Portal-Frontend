@@ -504,6 +504,9 @@ import PassSchedule from "./pages/PassSchedule";
 // Visibility Schedule
 import VisibilitySchedule from "./pages/VisibilitySchedule";
 
+// Pass List (published passes from visibility_schedule)
+import PassListVisSchedule from "./pages/List_pages/PassList_VisSchedule";
+
 // RBAC helpers
 import { AuthProvider, useAuth, RequirePermission, PERMISSION, NotAuthorized } from "./auth";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -587,6 +590,9 @@ function AppRoutes() {
 
         {/* Visibility Schedule */}
         <Route path="/visibility-schedule" element={<VisibilitySchedule />} />
+
+        {/* Pass List */}
+        <Route path="/pass-list" element={<PassListVisSchedule />} />
 
         {/* Unauthorized */}
         <Route path="/unauthorized" element={<NotAuthorized />} />

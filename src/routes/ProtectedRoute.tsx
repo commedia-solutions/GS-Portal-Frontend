@@ -43,6 +43,7 @@ function hasPageAccess(pathname: string): boolean {
     if (pathname.startsWith("/requests")) return pages.includes("requests");
     if (pathname.startsWith("/issues")) return pages.includes("issues");
     if (pathname.startsWith("/visibility-schedule")) return pages.includes("visibility_schedule");
+    if (pathname.startsWith("/pass-list")) return pages.includes("pass_list");
 
     if (pathname.startsWith("/userprofile")) return true;
 

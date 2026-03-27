@@ -151,6 +151,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 
 /* ---------------- TYPES ---------------- */
 
@@ -171,15 +172,26 @@ export type AppPage = {
 
 export const APP_PAGES: AppPage[] = [
   /* -------- COMMON -------- */
-  {
-    key: "dashboard",
-    label: "Dashboard",
-    route: "/dashboard",
-    location: "both",
-    icon: <DashboardIcon />,
-  },
+
+
+
+  // {
+  //   key: "dashboard",
+  //   label: "Dashboard",
+  //   route: "/dashboard",
+  //   location: "both",
+  //   icon: <DashboardIcon />,
+  // },
 
   /* -------- SIDEBAR -------- */
+
+  {
+    key: "pass_list",
+    label: "Pass List",
+    route: "/pass-list",
+    location: "sidebar",
+    icon: <FormatListBulletedIcon />,
+  },
   {
     key: "satellites",
     label: "Satellites List",
@@ -198,10 +210,10 @@ export const APP_PAGES: AppPage[] = [
   // {
   //   key: "passes",
   //   label: "Passes List",
-  //   route: "/passes",
   //   location: "sidebar",
   //   icon: <RocketLaunchIcon />,
   // },
+
   {
     key: "documents",
     label: "Documents",

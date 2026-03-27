@@ -17,6 +17,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import isroLogo from "../assets/isro_logo.png";
 import { useAuth } from "../auth";
 import { usePageAccess } from "../auth/usePageAccess";
@@ -141,6 +142,15 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
     to="/licenses"
     icon={<AssignmentIcon />}
     label={t("License List")}
+    expanded={expanded}
+  />
+)}
+
+             {(hasPageAccess("pass_availability") || hasPageAccess("pass_scheduled")) && (
+  <NavItem
+    to="/pass-list"
+    icon={<FormatListBulletedIcon />}
+    label={t("Pass List")}
     expanded={expanded}
   />
 )}

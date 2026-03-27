@@ -9,14 +9,16 @@ import {
 import { Select, MenuItem, FormControl } from "@mui/material";
 import {
     EditOutlined as EditOutlinedIcon,
-    DownloadOutlined as DownloadOutlinedIcon
+    DownloadOutlined as DownloadOutlinedIcon,
+    DeleteOutlined as DeleteOutlinedIcon,
+    PublishOutlined as PublishOutlinedIcon,
 } from "@mui/icons-material";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 import MainLayout from "../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../components/TopNav";
-import api from "../api/http";
+import api, { apiFetch } from "../api/http";
 import { vars, sxPresets } from "../ui/toast/themeBridge";
 import { useI18n } from "../i18n";
 import { useActionAccess } from "../auth/useActionAccess";
@@ -76,6 +78,10 @@ const orangeBtn = {
     textTransform: "none" as const, fontWeight: 700, bgcolor: "#c2410c", color: "#fff",
     "&:hover": { bgcolor: "#9a3412" },
 };
+const greenBtn = {
+    textTransform: "none" as const, fontWeight: 700, bgcolor: "#16a34a", color: "#fff",
+    "&:hover": { bgcolor: "#14833e" },
+};
 
 /* ============= Data types ============= */
 type PassStatus = "idle" | "pass_requested" | "pass_cancelled" | "requested" | "supported" | "no_support";
@@ -85,6 +91,12 @@ interface VSRow {
     max_ele: string; aos: string; los: string; operations: string;
     pass_status: PassStatus;
     post_pass_status: "Pending" | "Completed";
+}
+
+interface DraftRow {
+    id: number; date_text: string; sc: string; stn: string; orbit: string;
+    max_ele: string; aos: string; los: string; operations: string;
+    pass_status: PassStatus;
 }
 
 /* Detect if ops column contains TM/TC/TR/PB tokens */
@@ -183,6 +195,9 @@ function RequestPassDialog({
     );
 }
 
+/* ============= TABLE HEAD / CELL SX ============= */
+const theadCellSx = { color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" } as const;
+
 export default function VisibilitySchedule() {
     const { t } = useI18n();
     const { hasReadAccess, hasWriteAccess } = useActionAccess();
@@ -190,7 +205,7 @@ export default function VisibilitySchedule() {
     const [tab, setTab] = React.useState<"availability" | "scheduled">(hasReadAccess("pass_availability") ? "availability" : "scheduled");
     const canWrite = tab === "availability" ? hasWriteAccess("pass_availability") : hasWriteAccess("pass_scheduled");
 
-    /* ---- Data ---- */
+    /* ---- Main VS Data ---- */
     const [vsRows, setVsRows] = React.useState<VSRow[]>([]);
     const [loading, setLoading] = React.useState(false);
 
@@ -208,6 +223,24 @@ export default function VisibilitySchedule() {
 
     React.useEffect(() => { fetchData(); }, [fetchData]);
 
+    /* ---- Draft Data ---- */
+    const [draftRows, setDraftRows] = React.useState<DraftRow[]>([]);
+    const [draftLoading, setDraftLoading] = React.useState(false);
+    const [selectedDraftIds, setSelectedDraftIds] = React.useState<number[]>([]);
+
+    const fetchDraft = React.useCallback(async () => {
+        setDraftLoading(true);
+        try {
+            const res = await api.get("/api/visibility-schedule/draft");
+            setDraftRows(Array.isArray(res) ? res : (res?.data || []));
+        } catch (e) {
+            console.error(e);
+            setDraftRows([]);
+        } finally { setDraftLoading(false); }
+    }, []);
+
+    React.useEffect(() => { fetchDraft(); }, [fetchDraft]);
+
     /* ---- File Upload ---- */
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
     const [file, setFile] = React.useState<File | null>(null);
@@ -219,9 +252,10 @@ export default function VisibilitySchedule() {
         try {
             const fd = new FormData(); fd.append("file", file);
             await api.post("/api/visibility-schedule/bulk", fd);
-            await fetchData();
+            await fetchDraft();
             setFile(null);
-            alert(t("Upload successful"));
+            setSelectedDraftIds([]);
+            alert(t("Upload successful – passes added to draft table"));
         } catch (e: any) {
             const errData = e?.response?.data;
             if (errData?.validation && Array.isArray(errData.validation)) {
@@ -233,7 +267,50 @@ export default function VisibilitySchedule() {
         finally { setUploading(false); }
     };
 
-    /* ---- Filters & Pagination ---- */
+    /* ---- Draft checkbox logic ---- */
+    const allDraftSelected = draftRows.length > 0 && draftRows.every(r => selectedDraftIds.includes(r.id));
+    const someDraftSelected = selectedDraftIds.length > 0 && !allDraftSelected;
+
+    const toggleDraftSelect = (id: number) => {
+        setSelectedDraftIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+    const toggleAllDraft = () => {
+        if (allDraftSelected) setSelectedDraftIds([]);
+        else setSelectedDraftIds(draftRows.map(r => r.id));
+    };
+
+    /* ---- Delete Draft Rows ---- */
+    const [deleteDraftPrompt, setDeleteDraftPrompt] = React.useState(false);
+    const handleDeleteDraft = async () => {
+        try {
+            await apiFetch("/api/visibility-schedule/draft", {
+                method: "DELETE",
+                body: JSON.stringify({ ids: selectedDraftIds }),
+            });
+            await fetchDraft();
+            setSelectedDraftIds([]);
+        } catch { alert("Failed to delete draft rows"); }
+        setDeleteDraftPrompt(false);
+    };
+
+    /* ---- Publish Draft ---- */
+    const [publishing, setPublishing] = React.useState(false);
+    const [publishPrompt, setPublishPrompt] = React.useState(false);
+    const handlePublish = async () => {
+        setPublishing(true);
+        try {
+            await api.post("/api/visibility-schedule/draft/publish", {});
+            await fetchData();
+            await fetchDraft();
+            setSelectedDraftIds([]);
+            alert("Passes published successfully to Visibility Schedule.");
+        } catch (e: any) {
+            alert("Publish failed: " + (e?.response?.data?.error || e?.message));
+        } finally { setPublishing(false); }
+        setPublishPrompt(false);
+    };
+
+    /* ---- Filters & Pagination (main table) ---- */
     const [page, setPage] = React.useState(0);
     const [rowsPerPage, setRowsPerPage] = React.useState(25);
 
@@ -307,12 +384,10 @@ export default function VisibilitySchedule() {
     };
 
     /* Popups */
-    const [cancelPromptId, setCancelPromptId] = React.useState<number | null>(null);
-    const [requestPassRowId, setRequestPassRowId] = React.useState<number | null>(null);
+    const [cancelPrompt, setCancelPrompt] = React.useState<{ id: number; isDraft: boolean } | null>(null);
+    const [requestPassPrompt, setRequestPassPrompt] = React.useState<{ id: number; isDraft: boolean } | null>(null);
     const [editRow, setEditRow] = React.useState<VSRow | null>(null);
-    // Scheduled status change confirmation
     const [scheduledPrompt, setScheduledPrompt] = React.useState<{ row: VSRow; newStatus: string } | null>(null);
-    // Post Pass Status change confirmation
     const [postPassPrompt, setPostPassPrompt] = React.useState<{ id: number; newStatus: string } | null>(null);
 
     const saveEdit = async () => {
@@ -341,8 +416,15 @@ export default function VisibilitySchedule() {
     /* ---- Toggle Support button (Scheduled tab) ---- */
     const handleScheduledToggle = (r: VSRow) => {
         if (!canWrite) return;
-        const isSupport = r.pass_status === "supported" || r.pass_status === "pass_requested";
-        const newStatus = isSupport ? "no_support" : "supported";
+        
+        // 1. If currently "pass_requested" or "idle" -> silent update to "supported"
+        if (r.pass_status !== "supported" && r.pass_status !== "no_support") {
+            supportPass(r.id);
+            return;
+        }
+
+        // 2. If already "supported" or "no_support" -> show prompt
+        const newStatus = r.pass_status === "supported" ? "no_support" : "supported";
         setScheduledPrompt({ row: r, newStatus });
     };
 
@@ -357,22 +439,34 @@ export default function VisibilitySchedule() {
         setScheduledPrompt(null);
     };
 
+    const updateDraftStatus = async (id: number, status: string, extraFields?: Record<string, string>) => {
+        try {
+            await apiFetch(`/api/visibility-schedule/draft/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ pass_status: status, ...extraFields }),
+            });
+            setDraftRows(prev => prev.map(r => r.id === id ? { ...r, pass_status: status as any, ...extraFields } : r));
+        } catch (e) { alert("Failed to update draft status"); }
+    };
+
     const confirmPostPassStatus = async () => {
         if (!postPassPrompt) return;
         await updatePostPassStatus(postPassPrompt.id, postPassPrompt.newStatus);
         setPostPassPrompt(null);
     };
 
-    /* ---- Availability status button renderer ---- */
-    const renderAvailabilityStatus = (r: VSRow) => {
+    /* ---- Availability status button renderer (used for both main table and draft table) ---- */
+    const renderAvailabilityStatus = (r: VSRow | DraftRow, isDraft = false) => {
         const { pass_status, operations } = r;
+
+        const updateFn = isDraft 
+            ? (status: string, extra?: any) => updateDraftStatus(r.id, status, extra)
+            : (status: string, extra?: any) => updateVsStatus(r.id, status, extra);
 
         if (pass_status === "pass_cancelled") {
             return (
-                <Button
-                    size="small"
-                    disabled={!canWrite}
-                    onClick={() => setRequestPassRowId(r.id)}
+                <Button size="small" disabled={!canWrite}
+                    onClick={() => setRequestPassPrompt({ id: r.id, isDraft })}
                     sx={{ ...orangeBtn, py: 0.2, px: 1, minWidth: 130 }}>
                     Pass Cancelled
                 </Button>
@@ -381,24 +475,18 @@ export default function VisibilitySchedule() {
 
         if (pass_status === "pass_requested" || pass_status === "requested") {
             return (
-                <Button
-                    size="small"
-                    disabled={!canWrite}
-                    onClick={() => setCancelPromptId(r.id)}
+                <Button size="small" disabled={!canWrite}
+                    onClick={() => setCancelPrompt({ id: r.id, isDraft })}
                     sx={{ ...grayBtn, py: 0.2, px: 1, minWidth: 130 }}>
                     Pass Requested
                 </Button>
             );
         }
 
-        // idle state: check what ops say
         if (operations && operations.toUpperCase() === "NO SUPPORT") {
-            // Show "Request Pass" – opens op selection dialog
             return (
-                <Button
-                    size="small"
-                    disabled={!canWrite}
-                    onClick={() => setRequestPassRowId(r.id)}
+                <Button size="small" disabled={!canWrite}
+                    onClick={() => setRequestPassPrompt({ id: r.id, isDraft })}
                     sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
                     Request Pass
                 </Button>
@@ -406,44 +494,78 @@ export default function VisibilitySchedule() {
         }
 
         if (opsHaveSupport(operations)) {
-            // TM/TC/TR/PB present but status somehow reset to idle – allow re-requesting
             return (
-                <Button
-                    size="small"
-                    disabled={!canWrite}
-                    onClick={() => updateVsStatus(r.id, "pass_requested")}
+                <Button size="small" disabled={!canWrite}
+                    onClick={() => updateFn("pass_requested")}
                     sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
                     Request Pass
                 </Button>
             );
         }
 
-        // Generic idle state
         return (
-            <Button
-                size="small"
-                disabled={!canWrite}
-                onClick={() => setRequestPassRowId(r.id)}
+            <Button size="small" disabled={!canWrite}
+                onClick={() => setRequestPassPrompt({ id: r.id, isDraft })}
                 sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
                 Request Pass
             </Button>
         );
     };
 
+    /* ---- Draft Filters & Pagination ---- */
+    const [draftPage, setDraftPage] = React.useState(0);
+    const [draftRowsPerPage, setDraftRowsPerPage] = React.useState(25);
+    const [draftStation, setDraftStation] = React.useState("All");
+    const [draftSatellite, setDraftSatellite] = React.useState("All");
+    const [draftStatusFilter, setDraftStatusFilter] = React.useState("All");
+    const [draftFromDate, setDraftFromDate] = React.useState<Date | null>(null);
+    const [draftToDate, setDraftToDate] = React.useState<Date | null>(null);
+
+    const safeDraftRows = Array.isArray(draftRows) ? draftRows : [];
+    const draftStationOptions = ["All", ...Array.from(new Set(safeDraftRows.map(r => r.stn).filter(Boolean)))];
+    const draftSatOptions = ["All", ...Array.from(new Set(safeDraftRows.map(r => r.sc).filter(Boolean)))];
+
+    const clearDraftFilters = () => {
+        setDraftStation("All"); setDraftSatellite("All"); setDraftStatusFilter("All");
+        setDraftFromDate(null); setDraftToDate(null);
+    };
+
+    const filteredDraftRows = safeDraftRows.filter(r => {
+        if (draftStation !== "All" && r.stn !== draftStation) return false;
+        if (draftSatellite !== "All" && r.sc !== draftSatellite) return false;
+        if (draftStatusFilter !== "All") {
+            if (draftStatusFilter === "Pending" && !["idle", "pass_requested"].includes(r.pass_status)) return false;
+            if (draftStatusFilter === "Pass Requested" && r.pass_status !== "pass_requested") return false;
+            if (draftStatusFilter === "Pass Cancelled" && r.pass_status !== "pass_cancelled") return false;
+        }
+        if (draftFromDate || draftToDate) {
+            const parts = r.date_text.split(/[/-]/).map((x) => parseInt(x, 10));
+            const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (draftFromDate && dt < new Date(new Date(draftFromDate).setHours(0, 0, 0, 0))) return false;
+            if (draftToDate && dt > new Date(new Date(draftToDate).setHours(23, 59, 59, 999))) return false;
+        }
+        return true;
+    });
+
+    const visibleDraftRows = filteredDraftRows.slice(draftPage * draftRowsPerPage, draftPage * draftRowsPerPage + draftRowsPerPage);
+
     return (
         <MainLayout title="">
-            <Backdrop open={uploading || loading} sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.modal + 1 }}>
+            <Backdrop open={uploading || loading || publishing || draftLoading} sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.modal + 1 }}>
                 <CircularProgress color="inherit" />
             </Backdrop>
 
             {/* Cancel Request Dialog */}
-            <Dialog open={cancelPromptId !== null} onClose={() => setCancelPromptId(null)} PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+            <Dialog open={cancelPrompt !== null} onClose={() => setCancelPrompt(null)} PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
                 <DialogTitle sx={{ fontWeight: 700 }}>Do you want to cancel the Pass Request?</DialogTitle>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setCancelPromptId(null)} sx={{ color: vars.textDim }}>No</Button>
+                    <Button onClick={() => setCancelPrompt(null)} sx={{ color: vars.textDim }}>No</Button>
                     <Button onClick={() => {
-                        if (cancelPromptId !== null) updateVsStatus(cancelPromptId, "pass_cancelled");
-                        setCancelPromptId(null);
+                        if (cancelPrompt !== null) {
+                            if (cancelPrompt.isDraft) updateDraftStatus(cancelPrompt.id, "pass_cancelled");
+                            else updateVsStatus(cancelPrompt.id, "pass_cancelled");
+                        }
+                        setCancelPrompt(null);
                     }} variant="contained" sx={purpleBtn}>Yes</Button>
                 </DialogActions>
             </Dialog>
@@ -466,26 +588,47 @@ export default function VisibilitySchedule() {
                 </DialogActions>
             </Dialog>
 
+            {/* Delete Draft Confirmation */}
+            <Dialog open={deleteDraftPrompt} onClose={() => setDeleteDraftPrompt(false)} PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+                <DialogTitle sx={{ fontWeight: 700 }}>Delete {selectedDraftIds.length > 0 ? `${selectedDraftIds.length} selected` : "all"} draft pass{selectedDraftIds.length !== 1 ? "es" : ""}?</DialogTitle>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setDeleteDraftPrompt(false)} sx={{ color: vars.textDim }}>Cancel</Button>
+                    <Button onClick={handleDeleteDraft} variant="contained" sx={redBtn}>Delete</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Publish Confirmation */}
+            <Dialog open={publishPrompt} onClose={() => setPublishPrompt(false)} PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+                <DialogTitle sx={{ fontWeight: 700 }}>Publish {draftRows.length} draft pass{draftRows.length !== 1 ? "es" : ""} to Visibility Schedule?</DialogTitle>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setPublishPrompt(false)} sx={{ color: vars.textDim }}>Cancel</Button>
+                    <Button onClick={handlePublish} variant="contained" sx={greenBtn}>Publish</Button>
+                </DialogActions>
+            </Dialog>
+
             {/* Request Pass Dialog (for No Support rows) */}
             <RequestPassDialog
-                open={requestPassRowId !== null}
-                onClose={() => setRequestPassRowId(null)}
+                open={requestPassPrompt !== null}
+                onClose={() => setRequestPassPrompt(null)}
                 onConfirm={(ops) => {
-                    if (requestPassRowId !== null) {
+                    if (requestPassPrompt !== null) {
                         const opsStr = ops.join(" ");
-                        // Update operations field with selected ops AND set status to pass_requested
-                        api.patch(`/api/visibility-schedule/${requestPassRowId}`, {
-                            pass_status: "pass_requested",
-                            operations: opsStr,
-                        }).then(() => {
-                            setVsRows(prev => prev.map(r =>
-                                r.id === requestPassRowId
-                                    ? { ...r, pass_status: "pass_requested" as any, operations: opsStr }
-                                    : r
-                            ));
-                        }).catch(() => alert("Failed to request pass"));
+                        if (requestPassPrompt.isDraft) {
+                            updateDraftStatus(requestPassPrompt.id, "pass_requested", { operations: opsStr });
+                        } else {
+                            api.patch(`/api/visibility-schedule/${requestPassPrompt.id}`, {
+                                pass_status: "pass_requested",
+                                operations: opsStr,
+                            }).then(() => {
+                                setVsRows(prev => prev.map(r =>
+                                    r.id === requestPassPrompt.id
+                                        ? { ...r, pass_status: "pass_requested" as any, operations: opsStr }
+                                        : r
+                                ));
+                            }).catch(() => alert("Failed to request pass"));
+                        }
                     }
-                    setRequestPassRowId(null);
+                    setRequestPassPrompt(null);
                 }}
             />
 
@@ -519,7 +662,7 @@ export default function VisibilitySchedule() {
                         </ToggleButtonGroup>
                     </Box>
 
-                    <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 2, ...SCROLLER_SX }}>
+                    <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto", p: 2, ...SCROLLER_SX }}>
                         {/* Upload Section (Only in Availability) */}
                         {tab === "availability" && (
                             <Card sx={{ ...CARD_SX, border: `1px solid ${vars.border}`, mb: 2, p: 0 }}>
@@ -536,154 +679,291 @@ export default function VisibilitySchedule() {
                             </Card>
                         )}
 
+                        {/* Draft Table (only in Availability tab) */}
+                        {tab === "availability" && (
+                            <Card sx={{
+                                ...CARD_SX,
+                                border: `1px solid ${vars.border}`,
+                                mb: 2,
+                                p: 0,
+                                "--passes-thead-bg": "#1a1a2e",
+                                "--passes-thead-text": "#7CA7FF",
+                                "--row-stripe": "rgba(255,255,255,0.04)",
+                                flex: 1, minHeight: 0, display: "flex", flexDirection: "column"
+                            }}>
+                                {/* Draft table header bar */}
+                                <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: UI.gap, flexWrap: "wrap" }}>
+                                    <Typography sx={{ fontWeight: 700, color: "#f59e0b", mr: 1 }}>
+                                        Draft Passes {draftRows.length > 0 ? `(${draftRows.length})` : ""}
+                                    </Typography>
+
+                                    <Labeled label={t("Stations")} width={UI.selectW}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={draftStation} onChange={(e) => { setDraftStation(e.target.value); setDraftPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {draftStationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+                                    </Labeled>
+
+                                    <Labeled label={t("Satellites")} width={UI.selectW}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={draftSatellite} onChange={(e) => { setDraftSatellite(e.target.value); setDraftPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {draftSatOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+                                    </Labeled>
+
+                                    <Labeled label={t("Status")} width={130}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={draftStatusFilter} onChange={(e) => { setDraftStatusFilter(e.target.value); setDraftPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {["All", "Pending", "Pass Requested", "Pass Cancelled"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+                                    </Labeled>
+
+                                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                                        <Labeled label={t("From Date")} width={UI.dateW}>
+                                            <DatePicker value={draftFromDate} onChange={(v) => { setDraftFromDate(v); setDraftPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                        </Labeled>
+                                        <Labeled label={t("To Date")} width={UI.dateW}>
+                                            <DatePicker value={draftToDate} onChange={(v) => { setDraftToDate(v); setDraftPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                        </Labeled>
+                                    </LocalizationProvider>
+
+                                    <Button onClick={clearDraftFilters} size="small" sx={{ color: "#2563eb", textTransform: "none", fontWeight: 700, mt: 2 }}>{t("Clear")}</Button>
+
+                                    <Box flexGrow={1} />
+
+                                    {/* Delete Selected button */}
+                                    {selectedDraftIds.length > 0 && canWrite && (
+                                        <Button
+                                            onClick={() => setDeleteDraftPrompt(true)}
+                                            size="small"
+                                            variant="contained"
+                                            startIcon={<DeleteOutlinedIcon />}
+                                            sx={{ ...redBtn, height: UI.ctrlH, minHeight: UI.ctrlH, fontSize: 12.5, borderRadius: 1 }}
+                                        >
+                                            Delete ({selectedDraftIds.length})
+                                        </Button>
+                                    )}
+
+                                    {/* Publish button */}
+                                    {canWrite && (
+                                        <Button
+                                            onClick={() => {
+                                                if (draftRows.length === 0) return alert("No draft passes to publish.");
+                                                setPublishPrompt(true);
+                                            }}
+                                            size="small"
+                                            variant="contained"
+                                            disabled={draftRows.length === 0 || publishing}
+                                            startIcon={<PublishOutlinedIcon />}
+                                            sx={{ bgcolor: "#7C57F2", color: "#fff", height: UI.ctrlH, minHeight: UI.ctrlH, fontSize: 12.5, fontWeight: 700, textTransform: "none", borderRadius: 1, "&:hover": { bgcolor: "#6b46f1" } }}
+                                        >
+                                            Publish
+                                        </Button>
+                                    )}
+                                </Box>
+
+                                <TableContainer sx={{ flex: 1, minHeight: 0, ...TABLE_SCROLL_SX }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                {/* Select All checkbox */}
+                                                <TableCell padding="checkbox" sx={{ ...theadCellSx, width: 44 }}>
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={allDraftSelected}
+                                                        indeterminate={someDraftSelected}
+                                                        onChange={toggleAllDraft}
+                                                        sx={{ color: "#7CA7FF", "&.Mui-checked": { color: "#7CA7FF" }, "&.MuiCheckbox-indeterminate": { color: "#7CA7FF" } }}
+                                                        disabled={draftRows.length === 0}
+                                                    />
+                                                </TableCell>
+                                                <TableCell sx={theadCellSx}>Sr No.</TableCell>
+                                                {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
+                                                    <TableCell key={h} sx={theadCellSx}>{h}</TableCell>
+                                                ))}
+                                                <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {visibleDraftRows.map((r, index) => (
+                                                <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
+                                                    <TableCell padding="checkbox">
+                                                        <Checkbox
+                                                            size="small"
+                                                            checked={selectedDraftIds.includes(r.id)}
+                                                            onChange={() => toggleDraftSelect(r.id)}
+                                                            sx={{ color: vars.textDim, "&.Mui-checked": { color: "#7C57F2" } }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(draftPage * draftRowsPerPage) + index + 1}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
+                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                        {renderAvailabilityStatus(r, true)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {visibleDraftRows.length === 0 && (
+                                                <TableRow><TableCell colSpan={12} sx={{ textAlign: "center", py: 3, color: vars.textDim }}>{draftLoading ? "Loading..." : "No draft passes. Upload a .ant file to begin."}</TableCell></TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                                <TablePagination component="div" count={filteredDraftRows.length} page={draftPage} onPageChange={(_, p) => setDraftPage(p)} rowsPerPage={draftRowsPerPage} onRowsPerPageChange={(e) => { setDraftRowsPerPage(parseInt(e.target.value, 10)); setDraftPage(0); }} rowsPerPageOptions={[25, 50, 100]} />
+                            </Card>
+                        )}
+
                         {/* Main Table Card */}
-                        <Card sx={{
-                            ...CARD_SX,
-                            border: `1px solid ${vars.border}`,
-                            flex: 1,
-                            p: 0,
-                            "--passes-thead-bg": "#000000",
-                            "--passes-thead-text": "#ffffff",
-                            "--row-stripe": "rgba(255,255,255,0.06)",
-                            ".theme-dark &": {
+                        {tab === "scheduled" && (
+                            <Card sx={{
+                                ...CARD_SX,
+                                border: `1px solid ${vars.border}`,
+                                flex: 1,
+                                p: 0,
                                 "--passes-thead-bg": "#000000",
                                 "--passes-thead-text": "#ffffff",
                                 "--row-stripe": "rgba(255,255,255,0.06)",
-                            }
-                        }}>
-                            {/* Filter Bar */}
-                            <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: UI.gap }}>
-                                <Typography sx={{ fontWeight: 700, color: "#7CA7FF", mr: 2 }}>{tab === "availability" ? "Data List" : "Scheduled Passes"}</Typography>
+                                ".theme-dark &": {
+                                    "--passes-thead-bg": "#000000",
+                                    "--passes-thead-text": "#ffffff",
+                                    "--row-stripe": "rgba(255,255,255,0.06)",
+                                }
+                            }}>
+                                {/* Filter Bar */}
+                                <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: UI.gap }}>
+                                    <Typography sx={{ fontWeight: 700, color: "#7CA7FF", mr: 2 }}>Scheduled Passes</Typography>
 
-                                <Labeled label={t("Stations")} width={UI.selectW}>
-                                    <FormControl size="small" fullWidth>
-                                        <Select value={station} onChange={(e) => { setStation(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
-                                            {stationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                                        </Select>
-                                    </FormControl>
-                                </Labeled>
-
-                                <Labeled label={t("Satellites")} width={UI.selectW}>
-                                    <FormControl size="small" fullWidth>
-                                        <Select value={satellite} onChange={(e) => { setSatellite(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
-                                            {satOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                                        </Select>
-                                    </FormControl>
-                                </Labeled>
-
-                                <Labeled label={t("Status")} width={140}>
-                                    <FormControl size="small" fullWidth>
-                                        <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
-                                            {["All", "Pending", "Pass Requested", "Pass Cancelled", "Support", "No Support"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
-                                        </Select>
-                                    </FormControl>
-                                </Labeled>
-
-                                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                                    <Labeled label={t("From Date")} width={UI.dateW}>
-                                        <DatePicker value={fromDate} onChange={(v) => { setFromDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                    <Labeled label={t("Stations")} width={UI.selectW}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={station} onChange={(e) => { setStation(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {stationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
                                     </Labeled>
-                                    <Labeled label={t("To Date")} width={UI.dateW}>
-                                        <DatePicker value={toDate} onChange={(v) => { setToDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+
+                                    <Labeled label={t("Satellites")} width={UI.selectW}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={satellite} onChange={(e) => { setSatellite(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {satOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
                                     </Labeled>
-                                </LocalizationProvider>
 
-                                <Button onClick={clearFilters} size="small" sx={{ color: "#2563eb", textTransform: "none", fontWeight: 700, mt: 2 }}>{t("Clear")}</Button>
+                                    <Labeled label={t("Status")} width={140}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {["All", "Pending", "Pass Requested", "Pass Cancelled", "Support", "No Support"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+                                    </Labeled>
 
-                                <Box flexGrow={1} />
+                                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                                        <Labeled label={t("From Date")} width={UI.dateW}>
+                                            <DatePicker value={fromDate} onChange={(v) => { setFromDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                        </Labeled>
+                                        <Labeled label={t("To Date")} width={UI.dateW}>
+                                            <DatePicker value={toDate} onChange={(v) => { setToDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                        </Labeled>
+                                    </LocalizationProvider>
 
-                                <Button onClick={handleCSV} size="small" variant="contained" startIcon={<DownloadOutlinedIcon />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: "#16a34a", color: "#fff", height: UI.ctrlH, minHeight: UI.ctrlH, lineHeight: `${UI.ctrlH}px`, borderRadius: 1, "& .MuiSvgIcon-root": { color: "#fff" }, "&:hover": { bgcolor: "#14833e", color: "#fff" } }}>CSV</Button>
-                            </Box>
+                                    <Button onClick={clearFilters} size="small" sx={{ color: "#2563eb", textTransform: "none", fontWeight: 700, mt: 2 }}>{t("Clear")}</Button>
 
-                            <TableContainer sx={{ maxHeight: "calc(100vh - 350px)", ...TABLE_SCROLL_SX }}>
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>Sr No.</TableCell>
-                                            {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
-                                                <TableCell key={h} sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>{h}</TableCell>
-                                            ))}
-                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Action</TableCell>
-                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
-                                            <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Post Pass Status</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {visibleRows.map((r, index) => (
-                                            <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(page * rowsPerPage) + index + 1}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
+                                    <Box flexGrow={1} />
 
-                                                {/* Edit Action */}
-                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                                                    <IconButton size="small" disabled={!canWrite} onClick={() => setEditRow(r)} sx={{ color: vars.textDim }}><EditOutlinedIcon fontSize="small" /></IconButton>
-                                                </TableCell>
+                                    <Button onClick={handleCSV} size="small" variant="contained" startIcon={<DownloadOutlinedIcon />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: "#16a34a", color: "#fff", height: UI.ctrlH, minHeight: UI.ctrlH, lineHeight: `${UI.ctrlH}px`, borderRadius: 1, "& .MuiSvgIcon-root": { color: "#fff" }, "&:hover": { bgcolor: "#14833e", color: "#fff" } }}>CSV</Button>
+                                </Box>
 
-                                                {/* Status Column */}
-                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                                                    {tab === "availability" ? (
-                                                        renderAvailabilityStatus(r)
-                                                    ) : (
-                                                        /* Pass Scheduled: single toggle Support ↔ No Support */
-                                                        <Button
-                                                            size="small"
-                                                            disabled={!canWrite}
-                                                            onClick={() => handleScheduledToggle(r)}
-                                                            sx={(r.pass_status === "supported" || r.pass_status === "pass_requested")
-                                                                ? { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110 }
-                                                                : { ...redBtn, py: 0.2, px: 1.5, minWidth: 110 }
-                                                            }>
-                                                            {(r.pass_status === "supported" || r.pass_status === "pass_requested") ? "Support" : "No Support"}
-                                                        </Button>
-                                                    )}
-                                                </TableCell>
+                                <TableContainer sx={{ flex: 1, minHeight: 0, ...TABLE_SCROLL_SX }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>Sr No.</TableCell>
+                                                {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
+                                                    <TableCell key={h} sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>{h}</TableCell>
+                                                ))}
+                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Action</TableCell>
+                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
+                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Post Pass Status</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {visibleRows.map((r, index) => (
+                                                <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(page * rowsPerPage) + index + 1}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
 
-                                                {/* Post Pass Status Column – toggle button */}
-                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                                                    {(() => {
-                                                        const isCompleted = (r.post_pass_status || "Pending") === "Completed";
-                                                        const nextStatus = isCompleted ? "Pending" : "Completed";
-                                                        return (
+                                                    {/* Edit Action */}
+                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                        <IconButton size="small" disabled={!canWrite} onClick={() => setEditRow(r)} sx={{ color: vars.textDim }}><EditOutlinedIcon fontSize="small" /></IconButton>
+                                                    </TableCell>
+
+                                                    {/* Status Column */}
+                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                                                             <Button
                                                                 size="small"
                                                                 disabled={!canWrite}
-                                                                onClick={() => setPostPassPrompt({ id: r.id, newStatus: nextStatus })}
-                                                                sx={{
-                                                                    textTransform: "none",
-                                                                    fontWeight: 700,
-                                                                    fontSize: 12,
-                                                                    py: 0.3,
-                                                                    px: 1.5,
-                                                                    minWidth: 100,
-                                                                    bgcolor: isCompleted ? "#16a34a" : "#d97706",
-                                                                    color: "#fff",
-                                                                    borderRadius: 1,
-                                                                    "&:hover": { bgcolor: isCompleted ? "#15803d" : "#b45309" },
-                                                                    "&.Mui-disabled": { opacity: 0.5 },
-                                                                }}
-                                                            >
-                                                                {isCompleted ? "Completed" : "Pending"}
+                                                                onClick={() => handleScheduledToggle(r)}
+                                                                sx={
+                                                                    r.pass_status === "supported"
+                                                                        ? { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110 }
+                                                                    : r.pass_status === "no_support"
+                                                                        ? { ...redBtn, py: 0.2, px: 1.5, minWidth: 110 }
+                                                                    : { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110, bgcolor: "rgba(124, 87, 242, 0.4)", "&:hover": { bgcolor: "rgba(124, 87, 242, 0.6)" } }
+                                                                }>
+                                                                {r.pass_status === "no_support" ? "No Support" : "Support"}
                                                             </Button>
-                                                        );
-                                                    })()}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        {visibleRows.length === 0 && (
-                                            <TableRow><TableCell colSpan={12} sx={{ textAlign: "center", py: 4, color: vars.textDim }}>No passes found.</TableCell></TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            <TablePagination component="div" count={filteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} />
-                        </Card>
+                                                    </TableCell>
+
+                                                    {/* Post Pass Status Column */}
+                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                        {(() => {
+                                                            const currentStatus = r.post_pass_status || "Pending";
+                                                            const isCompleted = currentStatus === "Completed";
+                                                            const nextStatus = isCompleted ? "Pending" : "Completed";
+                                                            return (
+                                                                <Button
+                                                                    size="small"
+                                                                    disabled={!canWrite}
+                                                                    onClick={() => setPostPassPrompt({ id: r.id, newStatus: nextStatus })}
+                                                                    sx={{
+                                                                        textTransform: "none", fontWeight: 700, fontSize: 12, py: 0.3, px: 1.5, minWidth: 100,
+                                                                        bgcolor: isCompleted ? "#16a34a" : "#d97706", color: "#fff", borderRadius: 1,
+                                                                        "&:hover": { bgcolor: isCompleted ? "#15803d" : "#b45309" },
+                                                                        "&.Mui-disabled": { opacity: 0.5 },
+                                                                    }}
+                                                                >
+                                                                    {currentStatus}
+                                                                </Button>
+                                                            );
+                                                        })()}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {visibleRows.length === 0 && (
+                                                <TableRow><TableCell colSpan={12} sx={{ textAlign: "center", py: 4, color: vars.textDim }}>No passes found.</TableCell></TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                                <TablePagination component="div" count={filteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} />
+                            </Card>
+                        )}
                     </Box>
                 </Card>
             </Box>
