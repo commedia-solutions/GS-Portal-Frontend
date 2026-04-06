@@ -126,6 +126,15 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
 )}
 
 
+             {hasPageAccess("pass_list") && (
+  <NavItem
+    to="/pass-list"
+    icon={<FormatListBulletedIcon />}
+    label={t("Pass List")}
+    expanded={expanded}
+  />
+)}
+
           
               {hasPageAccess("satellites") && (
 
@@ -142,15 +151,6 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
     to="/licenses"
     icon={<AssignmentIcon />}
     label={t("License List")}
-    expanded={expanded}
-  />
-)}
-
-             {(hasPageAccess("pass_availability") || hasPageAccess("pass_scheduled")) && (
-  <NavItem
-    to="/pass-list"
-    icon={<FormatListBulletedIcon />}
-    label={t("Pass List")}
     expanded={expanded}
   />
 )}

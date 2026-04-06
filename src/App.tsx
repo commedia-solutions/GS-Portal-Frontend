@@ -598,7 +598,7 @@ function AppRoutes() {
         <Route path="/unauthorized" element={<NotAuthorized />} />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/pass-list" replace />} />
       </Route>
     </Routes>
 

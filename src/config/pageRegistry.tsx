@@ -264,6 +264,12 @@ export const APP_PAGES: AppPage[] = [
     route: "",
     location: "none",
   },
+  {
+    key: "pass_requested",
+    label: "Pass Requested",
+    route: "",
+    location: "none",
+  },
 
   /* -------- TOP NAV -------- */
   {

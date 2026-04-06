@@ -389,7 +389,7 @@ const LDAPLogin: React.FC = () => {
         }
 
         sessionStorage.setItem("user", JSON.stringify(user));
-        navigate("/dashboard", { replace: true });
+        navigate("/pass-list", { replace: true });
       } catch {
         sessionStorage.removeItem("token");
         sessionStorage.removeItem("user");
@@ -446,7 +446,7 @@ const LDAPLogin: React.FC = () => {
       }
 
       toast.success("LDAP login successful! Redirecting…", TOAST_OPTS);
-      setTimeout(() => navigate("/dashboard"), 600);
+      setTimeout(() => navigate("/pass-list"), 600);
     } catch (err: any) {
       toast.error(err?.message || "Network error during LDAP login", TOAST_OPTS);
     } finally {

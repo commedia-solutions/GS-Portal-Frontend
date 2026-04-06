@@ -150,7 +150,7 @@ function Labeled({ label, children, width }: { label: string; children: React.Re
 }
 
 /* ====== Request Pass Dialog for No Support rows ====== */
-const ALL_OPS = ["TM", "TC", "TR", "PB"];
+const ALL_OPS = ["TM", "TC", "TR", "PB", "PL"];
 
 function RequestPassDialog({
     open, onClose, onConfirm,
@@ -202,8 +202,8 @@ export default function VisibilitySchedule() {
     const { t } = useI18n();
     const { hasReadAccess, hasWriteAccess } = useActionAccess();
 
-    const [tab, setTab] = React.useState<"availability" | "scheduled">(hasReadAccess("pass_availability") ? "availability" : "scheduled");
-    const canWrite = tab === "availability" ? hasWriteAccess("pass_availability") : hasWriteAccess("pass_scheduled");
+    const [tab, setTab] = React.useState<"availability" | "scheduled" | "requested">(hasReadAccess("pass_availability") ? "availability" : hasReadAccess("pass_scheduled") ? "scheduled" : "requested");
+    const canWrite = tab === "availability" ? hasWriteAccess("pass_availability") : tab === "scheduled" ? hasWriteAccess("pass_scheduled") : hasWriteAccess("pass_requested");
 
     /* ---- Main VS Data ---- */
     const [vsRows, setVsRows] = React.useState<VSRow[]>([]);
@@ -387,6 +387,7 @@ export default function VisibilitySchedule() {
     const [cancelPrompt, setCancelPrompt] = React.useState<{ id: number; isDraft: boolean } | null>(null);
     const [requestPassPrompt, setRequestPassPrompt] = React.useState<{ id: number; isDraft: boolean } | null>(null);
     const [editRow, setEditRow] = React.useState<VSRow | null>(null);
+    const [editDraftRow, setEditDraftRow] = React.useState<DraftRow | null>(null);
     const [scheduledPrompt, setScheduledPrompt] = React.useState<{ row: VSRow; newStatus: string } | null>(null);
     const [postPassPrompt, setPostPassPrompt] = React.useState<{ id: number; newStatus: string } | null>(null);
 
@@ -397,6 +398,18 @@ export default function VisibilitySchedule() {
             setVsRows(prev => prev.map(r => r.id === editRow.id ? editRow : r));
             setEditRow(null);
         } catch (e) { alert("Failed to update row"); }
+    };
+
+    const saveDraftEdit = async () => {
+        if (!editDraftRow) return;
+        try {
+            await apiFetch(`/api/visibility-schedule/draft/${editDraftRow.id}`, {
+                method: "PUT",
+                body: JSON.stringify(editDraftRow),
+            });
+            setDraftRows(prev => prev.map(r => r.id === editDraftRow.id ? editDraftRow : r));
+            setEditDraftRow(null);
+        } catch (e) { alert("Failed to update draft row"); }
     };
 
     /* Exports */
@@ -473,16 +486,6 @@ export default function VisibilitySchedule() {
             );
         }
 
-        if (pass_status === "pass_requested" || pass_status === "requested") {
-            return (
-                <Button size="small" disabled={!canWrite}
-                    onClick={() => setCancelPrompt({ id: r.id, isDraft })}
-                    sx={{ ...grayBtn, py: 0.2, px: 1, minWidth: 130 }}>
-                    Pass Requested
-                </Button>
-            );
-        }
-
         if (operations && operations.toUpperCase() === "NO SUPPORT") {
             return (
                 <Button size="small" disabled={!canWrite}
@@ -493,12 +496,12 @@ export default function VisibilitySchedule() {
             );
         }
 
-        if (opsHaveSupport(operations)) {
+        if (pass_status === "pass_requested" || pass_status === "requested" || opsHaveSupport(operations)) {
             return (
                 <Button size="small" disabled={!canWrite}
-                    onClick={() => updateFn("pass_requested")}
-                    sx={{ ...purpleBtn, py: 0.2, px: 1, minWidth: 130 }}>
-                    Request Pass
+                    onClick={() => setCancelPrompt({ id: r.id, isDraft })}
+                    sx={{ ...grayBtn, py: 0.2, px: 1, minWidth: 130 }}>
+                    Pass Requested
                 </Button>
             );
         }
@@ -562,8 +565,8 @@ export default function VisibilitySchedule() {
                     <Button onClick={() => setCancelPrompt(null)} sx={{ color: vars.textDim }}>No</Button>
                     <Button onClick={() => {
                         if (cancelPrompt !== null) {
-                            if (cancelPrompt.isDraft) updateDraftStatus(cancelPrompt.id, "pass_cancelled");
-                            else updateVsStatus(cancelPrompt.id, "pass_cancelled");
+                            if (cancelPrompt.isDraft) updateDraftStatus(cancelPrompt.id, "pass_cancelled", { operations: "NO SUPPORT" });
+                            else updateVsStatus(cancelPrompt.id, "pass_cancelled", { operations: "NO SUPPORT" });
                         }
                         setCancelPrompt(null);
                     }} variant="contained" sx={purpleBtn}>Yes</Button>
@@ -632,6 +635,22 @@ export default function VisibilitySchedule() {
                 }}
             />
 
+            {/* Edit Draft Row Dialog */}
+            <Dialog open={!!editDraftRow} onClose={() => setEditDraftRow(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
+                <DialogTitle sx={{ fontWeight: 700 }}>Edit Draft Pass Data</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                    {editDraftRow && ["date_text", "sc", "stn", "orbit", "max_ele", "aos", "los", "operations"].map((field) => (
+                        <TextField key={field} label={field.toUpperCase().replace("_TEXT", "")} size="small"
+                            value={(editDraftRow as any)[field] || ""} onChange={(e) => setEditDraftRow({ ...editDraftRow, [field]: e.target.value })}
+                            sx={(tm) => ({ "& .MuiOutlinedInput-root": { bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff", color: vars.text } })} />
+                    ))}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setEditDraftRow(null)} sx={{ color: vars.textDim }}>Cancel</Button>
+                    <Button onClick={saveDraftEdit} variant="contained" sx={purpleBtn}>Save</Button>
+                </DialogActions>
+            </Dialog>
+
             {/* Edit Row Dialog */}
             <Dialog open={!!editRow} onClose={() => setEditRow(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
                 <DialogTitle sx={{ fontWeight: 700 }}>Edit Pass Data</DialogTitle>
@@ -655,6 +674,9 @@ export default function VisibilitySchedule() {
                         <ToggleButtonGroup value={tab} exclusive onChange={(_, v) => { if (v) { setTab(v); setPage(0); } }} sx={{ borderRadius: 999, border: `1px solid ${vars.border}`, p: 0.5 }}>
                             {hasReadAccess("pass_availability") && (
                                 <ToggleButton value="availability" sx={pillSx}>{t("Pass Availability")}</ToggleButton>
+                            )}
+                            {hasReadAccess("pass_requested") && (
+                                <ToggleButton value="requested" sx={pillSx}>{t("Pass Requested")}</ToggleButton>
                             )}
                             {hasReadAccess("pass_scheduled") && (
                                 <ToggleButton value="scheduled" sx={pillSx}>{t("Pass Scheduled")}</ToggleButton>
@@ -784,6 +806,7 @@ export default function VisibilitySchedule() {
                                                 {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
                                                     <TableCell key={h} sx={theadCellSx}>{h}</TableCell>
                                                 ))}
+                                                <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Action</TableCell>
                                                 <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
                                             </TableRow>
                                         </TableHead>
@@ -807,6 +830,9 @@ export default function VisibilitySchedule() {
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
+                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                        <IconButton size="small" disabled={!canWrite} onClick={() => setEditDraftRow(r)} sx={{ color: vars.textDim }}><EditOutlinedIcon fontSize="small" /></IconButton>
+                                                    </TableCell>
                                                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                                                         {renderAvailabilityStatus(r, true)}
                                                     </TableCell>
@@ -890,7 +916,6 @@ export default function VisibilitySchedule() {
                                                 {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
                                                     <TableCell key={h} sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>{h}</TableCell>
                                                 ))}
-                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Action</TableCell>
                                                 <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
                                                 <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Post Pass Status</TableCell>
                                             </TableRow>
@@ -908,11 +933,6 @@ export default function VisibilitySchedule() {
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
 
-                                                    {/* Edit Action */}
-                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                                                        <IconButton size="small" disabled={!canWrite} onClick={() => setEditRow(r)} sx={{ color: vars.textDim }}><EditOutlinedIcon fontSize="small" /></IconButton>
-                                                    </TableCell>
-
                                                     {/* Status Column */}
                                                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                                                             <Button
@@ -928,6 +948,126 @@ export default function VisibilitySchedule() {
                                                                 }>
                                                                 {r.pass_status === "no_support" ? "No Support" : "Support"}
                                                             </Button>
+                                                    </TableCell>
+
+                                                    {/* Post Pass Status Column */}
+                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                        {(() => {
+                                                            const currentStatus = r.post_pass_status || "Pending";
+                                                            const isCompleted = currentStatus === "Completed";
+                                                            const nextStatus = isCompleted ? "Pending" : "Completed";
+                                                            return (
+                                                                <Button
+                                                                    size="small"
+                                                                    disabled={!canWrite}
+                                                                    onClick={() => setPostPassPrompt({ id: r.id, newStatus: nextStatus })}
+                                                                    sx={{
+                                                                        textTransform: "none", fontWeight: 700, fontSize: 12, py: 0.3, px: 1.5, minWidth: 100,
+                                                                        bgcolor: isCompleted ? "#16a34a" : "#d97706", color: "#fff", borderRadius: 1,
+                                                                        "&:hover": { bgcolor: isCompleted ? "#15803d" : "#b45309" },
+                                                                        "&.Mui-disabled": { opacity: 0.5 },
+                                                                    }}
+                                                                >
+                                                                    {currentStatus}
+                                                                </Button>
+                                                            );
+                                                        })()}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {visibleRows.length === 0 && (
+                                                <TableRow><TableCell colSpan={12} sx={{ textAlign: "center", py: 4, color: vars.textDim }}>No passes found.</TableCell></TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                                <TablePagination component="div" count={filteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} />
+                            </Card>
+                        )}
+
+                        {/* Pass Requested Tab */}
+                        {tab === "requested" && (
+                            <Card sx={{
+                                ...CARD_SX,
+                                border: `1px solid ${vars.border}`,
+                                flex: 1,
+                                p: 0,
+                                "--passes-thead-bg": "#000000",
+                                "--passes-thead-text": "#ffffff",
+                                "--row-stripe": "rgba(255,255,255,0.06)",
+                            }}>
+                                {/* Filter Bar */}
+                                <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: UI.gap }}>
+                                    <Typography sx={{ fontWeight: 700, color: "#7CA7FF", mr: 2 }}>Pass Requested</Typography>
+
+                                    <Labeled label={t("Stations")} width={UI.selectW}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={station} onChange={(e) => { setStation(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {stationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+                                    </Labeled>
+
+                                    <Labeled label={t("Satellites")} width={UI.selectW}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={satellite} onChange={(e) => { setSatellite(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {satOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+                                    </Labeled>
+
+                                    <Labeled label={t("Status")} width={140}>
+                                        <FormControl size="small" fullWidth>
+                                            <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
+                                                {["All", "Pending", "Pass Requested", "Pass Cancelled", "Support", "No Support"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+                                    </Labeled>
+
+                                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                                        <Labeled label={t("From Date")} width={UI.dateW}>
+                                            <DatePicker value={fromDate} onChange={(v) => { setFromDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                        </Labeled>
+                                        <Labeled label={t("To Date")} width={UI.dateW}>
+                                            <DatePicker value={toDate} onChange={(v) => { setToDate(v); setPage(0); }} slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
+                                        </Labeled>
+                                    </LocalizationProvider>
+
+                                    <Button onClick={clearFilters} size="small" sx={{ color: "#2563eb", textTransform: "none", fontWeight: 700, mt: 2 }}>{t("Clear")}</Button>
+
+                                    <Box flexGrow={1} />
+
+                                    <Button onClick={handleCSV} size="small" variant="contained" startIcon={<DownloadOutlinedIcon />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: "#16a34a", color: "#fff", height: UI.ctrlH, minHeight: UI.ctrlH, lineHeight: `${UI.ctrlH}px`, borderRadius: 1, "& .MuiSvgIcon-root": { color: "#fff" }, "&:hover": { bgcolor: "#14833e", color: "#fff" } }}>CSV</Button>
+                                </Box>
+
+                                <TableContainer sx={{ flex: 1, minHeight: 0, ...TABLE_SCROLL_SX }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>Sr No.</TableCell>
+                                                {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
+                                                    <TableCell key={h} sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>{h}</TableCell>
+                                                ))}
+                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
+                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Post Pass Status</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {visibleRows.map((r, index) => (
+                                                <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(page * rowsPerPage) + index + 1}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
+
+                                                    {/* Status Column – same as Draft/Availability logic */}
+                                                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                        {renderAvailabilityStatus(r, false)}
                                                     </TableCell>
 
                                                     {/* Post Pass Status Column */}
