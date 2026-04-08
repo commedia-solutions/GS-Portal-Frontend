@@ -241,6 +241,23 @@ export default function VisibilitySchedule() {
 
     React.useEffect(() => { fetchDraft(); }, [fetchDraft]);
 
+    /* ---- Satellites and Antennas List for Draft Edit Dropdowns ---- */
+    const [satelliteList, setSatelliteList] = React.useState<string[]>([]);
+    const [antennaList, setAntennaList] = React.useState<string[]>([]);
+
+    React.useEffect(() => {
+        api.get("/api/satellites").then((res: any) => {
+            const arr = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+            const names = Array.from(new Set(arr.map((s: any) => s.satellite_name).filter(Boolean)));
+            setSatelliteList(names as string[]);
+        }).catch(console.error);
+
+        api.get("/api/antennas/names/unique").then((res: any) => {
+            const arr = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+            setAntennaList(arr);
+        }).catch(console.error);
+    }, []);
+
     /* ---- File Upload ---- */
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
     const [file, setFile] = React.useState<File | null>(null);
@@ -639,11 +656,43 @@ export default function VisibilitySchedule() {
             <Dialog open={!!editDraftRow} onClose={() => setEditDraftRow(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
                 <DialogTitle sx={{ fontWeight: 700 }}>Edit Draft Pass Data</DialogTitle>
                 <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-                    {editDraftRow && ["date_text", "sc", "stn", "orbit", "max_ele", "aos", "los", "operations"].map((field) => (
-                        <TextField key={field} label={field.toUpperCase().replace("_TEXT", "")} size="small"
-                            value={(editDraftRow as any)[field] || ""} onChange={(e) => setEditDraftRow({ ...editDraftRow, [field]: e.target.value })}
-                            sx={(tm) => ({ "& .MuiOutlinedInput-root": { bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff", color: vars.text } })} />
-                    ))}
+                    {editDraftRow && ["date_text", "sc", "stn", "orbit", "max_ele", "aos", "los", "operations"].map((field) => {
+                        const isSc = field === "sc";
+                        const isStn = field === "stn";
+                        
+                        if (isSc || isStn) {
+                            return (
+                                <FormControl key={field} size="small" fullWidth>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: vars.textDim, mb: 0.5, textTransform: "uppercase" }}>
+                                        {field === "sc" ? "S/C" : "STN"}
+                                    </Typography>
+                                    <Select
+                                        value={(editDraftRow as any)[field] || ""}
+                                        onChange={(e) => setEditDraftRow({ ...editDraftRow, [field]: e.target.value })}
+                                        displayEmpty
+                                        sx={(tm) => ({
+                                            "& .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
+                                            bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff",
+                                            color: vars.text,
+                                            height: 40
+                                        })}
+                                        MenuProps={lightMenu}
+                                    >
+                                        <MenuItem disabled value="">Select {field === "sc" ? "S/C" : "STN"}</MenuItem>
+                                        {(isSc ? satelliteList : antennaList).map(opt => (
+                                            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            );
+                        }
+
+                        return (
+                            <TextField key={field} label={field.toUpperCase().replace("_TEXT", "")} size="small"
+                                value={(editDraftRow as any)[field] || ""} onChange={(e) => setEditDraftRow({ ...editDraftRow, [field]: e.target.value })}
+                                sx={(tm) => ({ "& .MuiOutlinedInput-root": { bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff", color: vars.text } })} />
+                        );
+                    })}
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => setEditDraftRow(null)} sx={{ color: vars.textDim }}>Cancel</Button>
