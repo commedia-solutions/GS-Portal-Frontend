@@ -358,8 +358,16 @@ export default function AddLicense() {
   const fetchNextLicenseNo = useCallback(async () => {
     try {
       const j: any = await api.get("/api/licenses?limit=1");
-      const total = Number(j?.total ?? 0);
-      setLicenseReqNo(`${LICENSE_PREFIX}${String(total + 1).padStart(3, "0")}`);
+      const lastRow = j?.data?.[0];
+      let nextNum = Number(j?.total ?? 0) + 1;
+      
+      if (lastRow?.license_req_no?.startsWith(LICENSE_PREFIX)) {
+        const lastNum = parseInt(lastRow.license_req_no.replace(LICENSE_PREFIX, ""), 10);
+        if (!isNaN(lastNum) && lastNum >= nextNum) {
+          nextNum = lastNum + 1;
+        }
+      }
+      setLicenseReqNo(`${LICENSE_PREFIX}${String(nextNum).padStart(3, "0")}`);
     } catch {
       setLicenseReqNo(`${LICENSE_PREFIX}${Math.floor(Math.random() * 900 + 100)}`);
     }

@@ -270,6 +270,12 @@ export const APP_PAGES: AppPage[] = [
     route: "",
     location: "none",
   },
+  {
+    key: "pass_upload",
+    label: "Pass Upload",
+    route: "",
+    location: "none",
+  },
 
   /* -------- TOP NAV -------- */
   {

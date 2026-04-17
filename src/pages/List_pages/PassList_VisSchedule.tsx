@@ -213,6 +213,12 @@ export default function PassListVisSchedule() {
 
     const theadCellSx = {
         color: "#ffffff", fontWeight: 700, bgcolor: "#000000", whiteSpace: "nowrap",
+        padding: "10px 14px", overflow: "hidden", textOverflow: "ellipsis",
+    } as const;
+
+    const bodyCellSx = {
+        padding: "10px 14px", overflow: "hidden", textOverflow: "ellipsis",
+        whiteSpace: "nowrap", minWidth: "80px",
     } as const;
 
     return (
@@ -325,7 +331,7 @@ export default function PassListVisSchedule() {
                                     </TableHead>
                                     <TableBody>
                                         {visible.map((r, index) => (
-                                            <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
+                                            <TableRow key={r.id} sx={{ bgcolor: index % 2 === 0 ? "var(--row-odd)" : "var(--row-even)" }}>
                                                 <TableCell padding="checkbox">
                                                     <Checkbox size="small"
                                                         checked={selectedIds.includes(r.id)}
@@ -333,19 +339,19 @@ export default function PassListVisSchedule() {
                                                         disabled={!canWrite}
                                                         sx={{ color: vars.textDim, "&.Mui-checked": { color: "#7CA7FF" } }} />
                                                 </TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(page * rowsPerPage) + index + 1}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
-                                                <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
-                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{(page * rowsPerPage) + index + 1}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.date_text}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.sc}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.stn}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.orbit}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.max_ele}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.aos}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.los}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.operations}</TableCell>
+                                                <TableCell align="center" sx={{ ...bodyCellSx, overflow: "visible" }}>
                                                     <PassStatusBadge status={r.pass_status} />
                                                 </TableCell>
-                                                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                                                <TableCell align="center" sx={{ ...bodyCellSx, overflow: "visible" }}>
                                                     <PostPassBadge status={r.post_pass_status || "Pending"} />
                                                 </TableCell>
                                             </TableRow>

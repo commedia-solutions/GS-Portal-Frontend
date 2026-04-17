@@ -12,7 +12,6 @@ import {
 
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 
-import { useAuth } from "../auth";
 import { vars, sxPresets } from "../ui/toast/themeBridge";
 import { useI18n } from "../i18n";
 
@@ -59,8 +58,6 @@ function authHeader(): HeadersInit {
 /* ===================== Component ===================== */
 export default function RightPanel() {
   const { t } = useI18n();
-  const { hasRole } = useAuth();
-  const isGuest = hasRole("guest");
 
   /* ========== NOTE ==========
      The "Upcoming Passes" feature and all reminder/notification logic
@@ -110,7 +107,6 @@ export default function RightPanel() {
   }, []);
 
   React.useEffect(() => {
-    if (isGuest) return;
     const ctrl = new AbortController();
     fetchRecent(ctrl.signal);
     const tmr = window.setInterval(() => fetchRecent(ctrl.signal), POLL_MS);
@@ -118,7 +114,7 @@ export default function RightPanel() {
       ctrl.abort();
       window.clearInterval(tmr);
     };
-  }, [fetchRecent, isGuest]);
+  }, [fetchRecent]);
 
   /* ---------- render ---------- */
   return (
@@ -151,7 +147,6 @@ export default function RightPanel() {
         {/* The whole Upcoming Passes pane was removed as requested. */}
 
         {/* ---------- Recent Requests ---------- */}
-        {!isGuest && (
           <>
             {/* <Divider sx={{ borderColor: vars.border }} /> */}
             <Box
@@ -311,7 +306,6 @@ export default function RightPanel() {
               )}
             </Box>
           </>
-        )}
       </Box>
     </Box>
   );

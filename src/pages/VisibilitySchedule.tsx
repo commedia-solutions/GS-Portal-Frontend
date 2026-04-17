@@ -446,7 +446,7 @@ export default function VisibilitySchedule() {
     /* ---- Toggle Support button (Scheduled tab) ---- */
     const handleScheduledToggle = (r: VSRow) => {
         if (!canWrite) return;
-        
+
         // 1. If currently "pass_requested" or "idle" -> silent update to "supported"
         if (r.pass_status !== "supported" && r.pass_status !== "no_support") {
             supportPass(r.id);
@@ -489,7 +489,7 @@ export default function VisibilitySchedule() {
     const renderAvailabilityStatus = (r: VSRow | DraftRow, isDraft = false) => {
         const { pass_status, operations } = r;
 
-        const updateFn = isDraft 
+        const updateFn = isDraft
             ? (status: string, extra?: any) => updateDraftStatus(r.id, status, extra)
             : (status: string, extra?: any) => updateVsStatus(r.id, status, extra);
 
@@ -659,7 +659,7 @@ export default function VisibilitySchedule() {
                     {editDraftRow && ["date_text", "sc", "stn", "orbit", "max_ele", "aos", "los", "operations"].map((field) => {
                         const isSc = field === "sc";
                         const isStn = field === "stn";
-                        
+
                         if (isSc || isStn) {
                             return (
                                 <FormControl key={field} size="small" fullWidth>
@@ -741,7 +741,7 @@ export default function VisibilitySchedule() {
                                     <Typography sx={{ fontWeight: 700, color: "#7CA7FF" }}>Pass Visibility Upload</Typography>
                                 </Box>
                                 <Box sx={{ px: 2, py: 1.5, display: "flex", gap: 2, alignItems: "center" }}>
-                                    <input ref={fileInputRef} type="file" hidden accept=".ant" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                                    <input ref={fileInputRef} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] || null)} />
                                     <Button variant="contained" size="small" disabled={!canWrite} onClick={() => fileInputRef.current?.click()} sx={purpleBtn}>Select File</Button>
                                     <Typography sx={{ color: vars.textDim, fontSize: 13, flexGrow: 1 }}>{file ? file.name : "No file selected"}</Typography>
                                     <Button variant="outlined" size="small" onClick={() => setFile(null)} disabled={!file || !canWrite} sx={{ color: vars.textDim, borderColor: vars.border }}>Clear</Button>
@@ -984,19 +984,19 @@ export default function VisibilitySchedule() {
 
                                                     {/* Status Column */}
                                                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                                                            <Button
-                                                                size="small"
-                                                                disabled={!canWrite}
-                                                                onClick={() => handleScheduledToggle(r)}
-                                                                sx={
-                                                                    r.pass_status === "supported"
-                                                                        ? { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110 }
+                                                        <Button
+                                                            size="small"
+                                                            disabled={!canWrite}
+                                                            onClick={() => handleScheduledToggle(r)}
+                                                            sx={
+                                                                r.pass_status === "supported"
+                                                                    ? { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110 }
                                                                     : r.pass_status === "no_support"
                                                                         ? { ...redBtn, py: 0.2, px: 1.5, minWidth: 110 }
-                                                                    : { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110, bgcolor: "rgba(124, 87, 242, 0.4)", "&:hover": { bgcolor: "rgba(124, 87, 242, 0.6)" } }
-                                                                }>
-                                                                {r.pass_status === "no_support" ? "No Support" : "Support"}
-                                                            </Button>
+                                                                        : { ...purpleBtn, py: 0.2, px: 1.5, minWidth: 110, bgcolor: "rgba(124, 87, 242, 0.4)", "&:hover": { bgcolor: "rgba(124, 87, 242, 0.6)" } }
+                                                            }>
+                                                            {r.pass_status === "no_support" ? "No Support" : "Support"}
+                                                        </Button>
                                                     </TableCell>
 
                                                     {/* Post Pass Status Column */}

@@ -301,7 +301,6 @@ const [polOpts] = React.useState<string[]>(["LHCP", "RHCP", "OMNI"]);
       polarization: polsSel.join(", ").trim(),
       norad_id: noradId.trim() || null,
       itu_name: ituName.trim() || null,
-      
     };
 
     setPendingPayload(payload);

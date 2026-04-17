@@ -176,20 +176,33 @@ function ThemedScrollTable({
   isEditor: boolean;
 }) {
 
-  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 120), 0) + 16;
+  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
   const colTemplate = columns
-    .map((c) => (c.width != null ? `${c.width}px` : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`))
+    .map((c) => {
+      if (c.key === "action") return "120px";
+      return c.width != null ? `${c.width}px` : `minmax(${Math.max(c.min ?? 80, 80)}px, ${c.flex ?? 1}fr)`;
+    })
     .join(" ");
 
+  const cellSx = {
+    px: "14px",
+    py: "10px",
+    fontSize: 13,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: "80px",
+  } as const;
+
   return (
-    <Box>
-      <Box sx={{ width: "100%", minWidth: minTotal }}>
+    <Box sx={{ overflowX: "auto" }}>
+      <Box sx={{ width: "100%", minWidth: minTotal, tableLayout: "fixed" }}>
         {/* header uses CSS vars defined on Card */}
         <Box
           sx={{
             position: "sticky",
             top: 0,
-            zIndex: 1,
+            zIndex: 2,
             display: "grid",
             gridTemplateColumns: colTemplate,
             bgcolor: "var(--lic-thead-bg)",
@@ -200,13 +213,10 @@ function ThemedScrollTable({
             <Box
               key={String(c.key)}
               sx={{
-                px: CELL_PX,
-                py: 1,
+                ...cellSx,
                 fontWeight: 700,
-                fontSize: 13,
                 color: "var(--lic-thead-text)",
                 textAlign: c.align ?? "center",
-                whiteSpace: "nowrap",
               }}
             >
               {c.label}
@@ -222,8 +232,7 @@ function ThemedScrollTable({
               display: "grid",
               gridTemplateColumns: colTemplate,
               borderBottom: TOK.BORDER_STR,
-              bgcolor: "transparent",
-              "&:nth-of-type(odd)": { bgcolor: "var(--row-stripe)" },
+              bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
             }}
           >
             {columns.map((c) => {
@@ -232,11 +241,11 @@ function ThemedScrollTable({
     <Box
       key={`action-${idx}`}
       sx={{
-        px: CELL_PX,
-        py: 0.75,
+        ...cellSx,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
+        overflow: "visible",
       }}
     >
       {isEditor && (
@@ -267,9 +276,9 @@ if (c.key === "status") {
     <Box
 key={`status-${idx}`}
       sx={{
-        px: CELL_PX,
-        py: 1,
+        ...cellSx,
         textAlign: "center",
+        overflow: "visible",
       }}
     >
       <Box
@@ -293,19 +302,18 @@ key={`status-${idx}`}
   );
 }
 
+              const cellValue = String(r[c.key as keyof Row] ?? "");
               return (
                 <Box
                   key={String(c.key)}
+                  title={cellValue}
                   sx={{
-                    px: CELL_PX,
-                    py: 1,
-                    fontSize: 13,
+                    ...cellSx,
                     color: TOK.TEXT_DIM,
                     textAlign: c.align ?? "center",
-                    whiteSpace: "nowrap",
                   }}
                 >
-                  {r[c.key as keyof Row] as any}
+                  {cellValue}
                 </Box>
               );
             })}
@@ -313,7 +321,7 @@ key={`status-${idx}`}
         ))}
 
         {!rows.length && (
-          <Box sx={{ px: CELL_PX, py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
+          <Box sx={{ px: "14px", py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
             {emptyText}
           </Box>
         )}

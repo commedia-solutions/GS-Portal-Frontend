@@ -104,31 +104,31 @@ function makeSx(mode: "dark" | "light") {
   const C =
     mode === "light"
       ? {
-          CARD: "#FFFFFF",
-          CTRL: "#FFFFFF",
-          TEXT: "#0B1115",
-          TEXT_DIM: "rgba(11,17,21,0.75)",
-          ICON: "rgba(11,17,21,0.80)",
-          BORDER: "rgba(0,0,0,0.12)",
-          BORDER_WEAK: "rgba(0,0,0,0.10)",
-          HEADER_BG: "#464B4E",
-          HEADER_TEXT: "#FFFFFF",
-          HOVER: "rgba(0,0,0,0.035)",
-          SCROLL: "#c7c7c7",
-        }
+        CARD: "#FFFFFF",
+        CTRL: "#FFFFFF",
+        TEXT: "#0B1115",
+        TEXT_DIM: "rgba(11,17,21,0.75)",
+        ICON: "rgba(11,17,21,0.80)",
+        BORDER: "rgba(0,0,0,0.12)",
+        BORDER_WEAK: "rgba(0,0,0,0.10)",
+        HEADER_BG: "#464B4E",
+        HEADER_TEXT: "#FFFFFF",
+        HOVER: "rgba(0,0,0,0.035)",
+        SCROLL: "#c7c7c7",
+      }
       : {
-          CARD: "#1C1C1E",
-          CTRL: "#1C1C1E",
-          TEXT: "#E8E8EA",
-          TEXT_DIM: "rgba(232,232,234,0.72)",
-          ICON: "rgba(255,255,255,0.90)",
-          BORDER: "rgba(255,255,255,0.14)",
-          BORDER_WEAK: "rgba(255,255,255,0.10)",
-          HEADER_BG: "#000000",
-          HEADER_TEXT: "#FFFFFF",
-          HOVER: "rgba(255,255,255,0.06)",
-          SCROLL: "#3f3f3f",
-        };
+        CARD: "#1C1C1E",
+        CTRL: "#1C1C1E",
+        TEXT: "#E8E8EA",
+        TEXT_DIM: "rgba(232,232,234,0.72)",
+        ICON: "rgba(255,255,255,0.90)",
+        BORDER: "rgba(255,255,255,0.14)",
+        BORDER_WEAK: "rgba(255,255,255,0.10)",
+        HEADER_BG: "#000000",
+        HEADER_TEXT: "#FFFFFF",
+        HOVER: "rgba(255,255,255,0.06)",
+        SCROLL: "#3f3f3f",
+      };
 
   const CARD_SX = {
     bgcolor: C.CARD,
@@ -290,13 +290,16 @@ function DarkDocsTable({
   mode: "dark" | "light";
   C: ReturnType<typeof makeSx>["C"];
 }) {
-  const totalMinW = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 120), 0) + 16;
+  const totalMinW = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
   const template = columns
-    .map((c) => (c.width != null ? `${c.width}px` : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`))
+    .map((c) => {
+      if (c.key === "action") return "120px";
+      return c.width != null ? `${c.width}px` : `minmax(${Math.max(c.min ?? 80, 80)}px, ${c.flex ?? 1}fr)`;
+    })
     .join(" ");
 
-  const headerCellSx = { px: 0.75, py: 0.75, fontWeight: 700, fontSize: 13, color: C.HEADER_TEXT, whiteSpace: "nowrap" as const };
-  const bodyCellSx   = { px: 0.75, py: 0.75, fontSize: 13, color: mode === "light" ? C.TEXT : "#EAEAEA", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" };
+  const headerCellSx = { px: "14px", py: "10px", fontWeight: 700, fontSize: 13, color: C.HEADER_TEXT, whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "80px" };
+  const bodyCellSx = { px: "14px", py: "10px", fontSize: 13, color: mode === "light" ? C.TEXT : "#EAEAEA", whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "80px" };
 
   return (
     <Box>
@@ -306,7 +309,7 @@ function DarkDocsTable({
           sx={{
             position: "sticky",
             top: 0,
-            zIndex: 1,
+            zIndex: 2,
             display: "grid",
             gridTemplateColumns: template,
             bgcolor: C.HEADER_BG,
@@ -328,7 +331,7 @@ function DarkDocsTable({
               display: "grid",
               gridTemplateColumns: template,
               borderBottom: `1px solid ${C.BORDER_WEAK}`,
-              bgcolor: "transparent",
+              bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
             }}
           >
             {columns.map((c) => {
@@ -341,32 +344,32 @@ function DarkDocsTable({
                   </Box>
                 );
               }
-            if (c.key === "action") {
-  return (
-    <Box
-      key={`act-${idx}`}
-      sx={{ ...bodyCellSx, display: "flex", justifyContent: "center", alignItems: "center" }}
-    >
-      {onUpdate && (
-        <Button
-          size="small"
-          variant="contained"
-          sx={{
-            textTransform: "none",
-            fontWeight: 700,
-            fontSize: 12,
-            px: 1.1,
-            bgcolor: "#7C57F2",
-            "&:hover": { bgcolor: "#6b48ea" },
-          }}
-          onClick={() => onUpdate(r)}
-        >
-          Edit
-        </Button>
-      )}
-    </Box>
-  );
-}
+              if (c.key === "action") {
+                return (
+                  <Box
+                    key={`act-${idx}`}
+                    sx={{ ...bodyCellSx, display: "flex", justifyContent: "center", alignItems: "center" }}
+                  >
+                    {onUpdate && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          px: 1.1,
+                          bgcolor: "#7C57F2",
+                          "&:hover": { bgcolor: "#6b48ea" },
+                        }}
+                        onClick={() => onUpdate(r)}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </Box>
+                );
+              }
 
 
               return (
@@ -548,7 +551,9 @@ export default function DocumentsPage() {
 
   const { hasRole } = useAuth();
   const isAdmin = hasRole("admin");
-  const { isEditor } = useActionAccess();
+  const { isEditor, hasWriteAccess } = useActionAccess();
+  // We determine if they can upload via the granular `pass_upload` write access:
+  const canUploadPassLevel = hasWriteAccess("pass_upload");
 
 
   const [tab, setTab] = React.useState<"docs" | "pass">("docs");
@@ -606,7 +611,7 @@ export default function DocumentsPage() {
   React.useEffect(() => { refreshDocs(); refreshPass(); }, [refreshDocs, refreshPass]);
 
   const canUploadDoc = !!file && !!uploadType;
-  const canUploadPass = isAdmin && !!passFile;
+  const canUploadPass = canUploadPassLevel && !!passFile;
 
   // --- Upload actions (gated) ---
   const doUploadDoc = async () => {
@@ -626,7 +631,7 @@ export default function DocumentsPage() {
     } catch (e: any) { console.error(e); alert(e.message || "Failed to upload document"); }
   };
   const doUploadPass = async () => {
-    if (!isAdmin) { alert("Only admins can upload the passes schedule."); return; }
+    if (!canUploadPassLevel) { alert("You do not have permission to upload the passes schedule."); return; }
     if (!canUploadPass || !passFile) return;
     try {
       const form = new FormData();
@@ -678,36 +683,36 @@ export default function DocumentsPage() {
 
   // Build i18n’d column labels here (so they react to language changes)
   const DOC_COLUMNS: Column[] = React.useMemo(() => {
-  const cols: Column[] = [
-    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
-    { key: "name", label: t("Document"), min: 220, flex: 1.4, align: "left" },
-    { key: "type", label: t("Doc Type"), min: 140, flex: 1.0, align: "center" },
-    { key: "remarks", label: t("Remarks"), min: 200, flex: 1.2, align: "left" },
-    { key: "download", label: t("Download"), width: 80, align: "center" },
-  ];
+    const cols: Column[] = [
+      { key: "sr", label: t("Sr No"), width: 60, align: "center" },
+      { key: "name", label: t("Document"), min: 220, flex: 1.4, align: "left" },
+      { key: "type", label: t("Doc Type"), min: 140, flex: 1.0, align: "center" },
+      { key: "remarks", label: t("Remarks"), min: 200, flex: 1.2, align: "left" },
+      { key: "download", label: t("Download"), width: 80, align: "center" },
+    ];
 
-  if (isEditor) {
-    cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
-  }
+    if (isEditor) {
+      cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
+    }
 
-  return cols;
-}, [t, isEditor]);
+    return cols;
+  }, [t, isEditor]);
 
 
- const PASS_COLUMNS: Column[] = React.useMemo(() => {
-  const cols: Column[] = [
-    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
-    { key: "name", label: t("Document"), min: 260, flex: 1.5, align: "left" },
-    { key: "remarks", label: t("Remarks"), min: 220, flex: 1.2, align: "left" },
-    { key: "download", label: t("Download"), width: 80, align: "center" },
-  ];
+  const PASS_COLUMNS: Column[] = React.useMemo(() => {
+    const cols: Column[] = [
+      { key: "sr", label: t("Sr No"), width: 60, align: "center" },
+      { key: "name", label: t("Document"), min: 260, flex: 1.5, align: "left" },
+      { key: "remarks", label: t("Remarks"), min: 220, flex: 1.2, align: "left" },
+      { key: "download", label: t("Download"), width: 80, align: "center" },
+    ];
 
-  if (isEditor) {
-    cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
-  }
+    if (isEditor) {
+      cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
+    }
 
-  return cols;
-}, [t, isEditor]);
+    return cols;
+  }, [t, isEditor]);
 
 
   return (
@@ -740,7 +745,7 @@ export default function DocumentsPage() {
               }}
             >
               <ToggleButton value="docs" disableRipple sx={toggleBtnSx}>{t("Documents")}</ToggleButton>
-              <ToggleButton value="pass" disableRipple sx={toggleBtnSx}>{t("Passes Schedule")}</ToggleButton>
+              <ToggleButton value="pass" disableRipple sx={toggleBtnSx}>{t("Pass Upload")}</ToggleButton>
             </ToggleButtonGroup>
 
             <Box />
@@ -786,17 +791,17 @@ export default function DocumentsPage() {
 
           {/* Upload rows */}
           {tab === "docs" && isEditor ? (
-  <>
-    <Box
-      sx={{
-        px: 1.25,
-        py: 1,
-        display: "grid",
-        gridTemplateColumns: "auto 160px 240px auto auto auto",
-        alignItems: "center",
-        gap: 1,
-      }}
-    >
+            <>
+              <Box
+                sx={{
+                  px: 1.25,
+                  py: 1,
+                  display: "grid",
+                  gridTemplateColumns: "auto 160px 240px auto auto auto",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
 
                 <Typography sx={{ fontWeight: 600, fontSize: 18, color: C.TEXT }}>{t("Upload Documents")}</Typography>
 
@@ -811,7 +816,7 @@ export default function DocumentsPage() {
                   >
                     <MenuItem value="">{t("Select Type")}</MenuItem>
                     {[
-                      "License report","Satellite report","Passes report","Project plan","Flow chart","Design Document","User manual","Other",
+                      "License report", "Satellite report", "Passes report", "Project plan", "Flow chart", "Design Document", "User manual", "Other",
                     ].map((d) => (<MenuItem key={d} value={d}>{t(d)}</MenuItem>))}
                   </Select>
                 </FormControl>
@@ -860,7 +865,7 @@ export default function DocumentsPage() {
             </>
           ) : (
             <>
-              {isAdmin && (
+              {canUploadPassLevel && (
                 <>
                   <Box
                     sx={{
@@ -873,7 +878,7 @@ export default function DocumentsPage() {
                       bgcolor: "transparent",
                     }}
                   >
-                    <Typography sx={{ fontWeight: 600, fontSize: 18, color: C.TEXT }}>{t("Passes Schedule")}</Typography>
+                    <Typography sx={{ fontWeight: 600, fontSize: 18, color: C.TEXT }}>{t("Pass Upload")}</Typography>
 
                     <Box>
                       <input id="pass-file-input" type="file" style={{ display: "none" }} onChange={handleFilePickPass} />
@@ -927,31 +932,31 @@ export default function DocumentsPage() {
               <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX, bgcolor: "transparent" }}>
                 {tab === "docs" ? (
                   <DarkDocsTable
-  rows={docsPaged}
-  columns={DOC_COLUMNS}
-  onDownload={onDownload}
-  onUpdate={
-    isEditor
-      ? (r) => setEditDoc({ id: r.id, name: r.name, type: r.type, remarks: r.remarks })
-      : () => {}
-  }
-  mode={mode}
-  C={C}
-/>
+                    rows={docsPaged}
+                    columns={DOC_COLUMNS}
+                    onDownload={onDownload}
+                    onUpdate={
+                      isEditor
+                        ? (r) => setEditDoc({ id: r.id, name: r.name, type: r.type, remarks: r.remarks })
+                        : () => { }
+                    }
+                    mode={mode}
+                    C={C}
+                  />
 
                 ) : (
                   <DarkDocsTable
-  rows={passPaged}
-  columns={PASS_COLUMNS}
-  onDownload={onDownload}
-  onUpdate={
-    isEditor
-      ? (r) => setEditPass({ id: r.id, name: r.name, remarks: r.remarks })
-      : () => {}
-  }
-  mode={mode}
-  C={C}
-/>
+                    rows={passPaged}
+                    columns={PASS_COLUMNS}
+                    onDownload={onDownload}
+                    onUpdate={
+                      isEditor
+                        ? (r) => setEditPass({ id: r.id, name: r.name, remarks: r.remarks })
+                        : () => { }
+                    }
+                    mode={mode}
+                    C={C}
+                  />
 
                 )}
               </Box>

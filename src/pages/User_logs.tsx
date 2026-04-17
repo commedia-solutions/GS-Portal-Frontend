@@ -183,7 +183,7 @@ function ThemedScrollTable({
         sx={{
           position: "sticky",
           top: 0,
-          zIndex: 1,
+          zIndex: 2,
           display: "grid",
           gridTemplateColumns: "80px 200px 160px 160px 290px 100px",
           bgcolor: "var(--logs-thead-bg)",
@@ -195,13 +195,16 @@ function ThemedScrollTable({
             <Box
               key={label}
               sx={{
-                px: 1.25,
-                py: 1,
+                px: "14px",
+                py: "10px",
                 fontWeight: 700,
                 fontSize: 13,
                 color: "var(--logs-thead-text)",
                 textAlign: "center",
                 whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                minWidth: "80px",
               }}
             >
               {label}
@@ -217,7 +220,7 @@ function ThemedScrollTable({
             display: "grid",
             gridTemplateColumns: "80px 200px 160px 160px 290px 100px",
             borderBottom: TOK.BORDER_STR,
-            bgcolor: idx % 2 ? "rgba(255,255,255,0.02)" : "transparent",
+            bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
             "&:hover": { bgcolor: TOK.HOVER },
           }}
         >
@@ -225,14 +228,15 @@ function ThemedScrollTable({
             <Box
               key={k}
               sx={{
-                px: 1.25,
-                py: 1,
+                px: "14px",
+                py: "10px",
                 fontSize: 13,
                 color: TOK.TEXT_DIM,
                 textAlign: "center",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
+                minWidth: "80px",
               }}
               title={(r as any)[k] ?? ""}
             >
@@ -241,7 +245,7 @@ function ThemedScrollTable({
           ))}
 
           {/* ✅ View Button */}
-          <Box sx={{ px: 1.25, py: 0.6, textAlign: "center" }}>
+          <Box sx={{ px: "14px", py: "10px", textAlign: "center" }}>
             <Button
               size="small"
               variant="outlined"
@@ -714,184 +718,153 @@ export default function PortalLogsPage() {
 
               {tab === "event" && (
                 <Box sx={{ mt: 1 }}>
-                  <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
-                    Details
-                  </Typography>
-
                   <Box
                     sx={{
-                      bgcolor: "rgba(255,255,255,0.05)",
-                      border: TOK.BORDER_WEAK,
-                      borderRadius: 2,
-                      p: 1.5,
-                      fontSize: 13,
-                      color: TOK.TEXT_DIM,
-                      maxHeight: 280,
-                      overflow: "auto",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
+                      maxHeight: "60vh",
+                      overflowY: "auto",
+                      p: 0.5,
+                      "&::-webkit-scrollbar": { width: 8 },
+                      "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.2)", borderRadius: 8 },
                     }}
                   >
                     {(() => {
                       const details = selectedRow.remarks;
-
-                      if (!details) return "No details available";
+                      if (!details) return <Typography sx={{ color: TOK.TEXT_DIM }}>No details available.</Typography>;
 
                       const oldVal = details?.oldValue || null;
                       const newVal = details?.newValue || null;
+                      const payload = details?.payload || null;
 
-                      const formatIfDate = (val: any) => {
-                        if (!val) return "—";
+                      const ignoreKeys = new Set([
+                        "created_at", "updated_at", "createdAt", "updatedAt", 
+                        "created_by", "updated_by", "deleted_by", "createdBy", 
+                        "updatedBy", "deletedBy"
+                      ]);
 
-                        if (typeof val === "number") {
-                          return new Date(val).toLocaleString("en-IN", {
-                            timeZone: "Asia/Kolkata",
-                          });
-                        }
-
+                      const formatValue = (val: any) => {
+                        if (val == null || val === "") return "—";
                         if (typeof val === "string") {
                           const d = new Date(val);
                           if (!isNaN(d.getTime()) && val.includes("T")) {
-                            return d.toLocaleString("en-IN", {
-                              timeZone: "Asia/Kolkata",
-                            });
+                            return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
                           }
+                          return val;
                         }
-
-                        return val;
+                        if (typeof val === "number") return String(val);
+                        if (typeof val === "boolean") return val ? "Yes" : "No";
+                        if (typeof val === "object") return JSON.stringify(val, null, 2);
+                        return String(val);
                       };
 
-                      if (
-                        oldVal &&
-                        newVal &&
-                        typeof oldVal === "object" &&
-                        typeof newVal === "object"
-                      ) {
-                        const changes: any[] = [];
-                        const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+                      const changes: any[] = [];
+                      let snapshot: any = {};
+                      const changedKeys = new Set<string>();
 
+                      if (oldVal && newVal && typeof oldVal === "object" && typeof newVal === "object") {
+                        const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
                         keys.forEach((k) => {
+                          if (ignoreKeys.has(k)) return;
                           const ov = oldVal[k];
                           const nv = newVal[k];
-
                           if (JSON.stringify(ov) !== JSON.stringify(nv)) {
-                            changes.push({
-                              field: k,
-                              old: ov,
-                              new: nv,
-                            });
+                            changes.push({ field: k, old: ov, new: nv });
+                            changedKeys.add(k);
                           }
                         });
-
-                        if (!changes.length) return "No changes detected.";
-
-                        return changes
-                          .map(
-                            (c) =>
-                              `Old ${toCamelCaseLabel(c.field)}: ${formatIfDate(c.old)}\nNew ${toCamelCaseLabel(c.field)}: ${formatIfDate(c.new)}`
-                          )
-                          .join("\n-------------------------\n");
+                        snapshot = newVal;
+                      } else if (!oldVal && newVal && typeof newVal === "object") {
+                        snapshot = newVal;
+                      } else if (oldVal && !newVal && typeof oldVal === "object") {
+                        snapshot = oldVal;
+                      } else if (payload && typeof payload === "object") {
+                        snapshot = payload;
+                      } else if (typeof details === "object") {
+                        snapshot = { ...details };
+                        delete snapshot.oldValue;
+                        delete snapshot.newValue;
+                        delete snapshot.payload;
                       }
 
-                      return (() => {
-                        const details = selectedRow.remarks;
-                        if (!details) return "No details available";
+                      const snapKeys = Object.keys(snapshot).filter(k => !ignoreKeys.has(k) && snapshot[k] !== undefined);
 
-                        const oldVal = details?.oldValue || null;
-                        const newVal = details?.newValue || null;
+                      return (
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {changes.length > 0 && (
+                            <Box>
+                              <Typography sx={{ fontWeight: 800, fontSize: 13, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "0.5px" }}>
+                                WHAT CHANGED
+                              </Typography>
+                              <Box sx={{ border: "1px solid var(--border-weak)", borderRadius: 1, overflow: "hidden" }}>
+                                <Box sx={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) 1.5fr 1.5fr", bgcolor: "rgba(0,0,0,0.2)", borderBottom: "1px solid var(--border-weak)" }}>
+                                  {["Field", "Old value", "New value"].map((h, i) => (
+                                    <Box key={h} sx={{ p: 1.25, fontSize: 13, fontWeight: 700, color: TOK.TEXT, borderRight: i !== 2 ? "1px solid var(--border-weak)" : "none" }}>{h}</Box>
+                                  ))}
+                                </Box>
+                                {changes.map((c, i) => (
+                                  <Box key={c.field} sx={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) 1.5fr 1.5fr", borderBottom: i < changes.length - 1 ? "1px solid var(--border-weak)" : "none" }}>
+                                    <Box sx={{ p: 1.25, fontSize: 13, color: TOK.TEXT, fontWeight: 700, display: "flex", alignItems: "center", borderRight: "1px solid var(--border-weak)", wordBreak: "break-all" }}>
+                                      {c.field}
+                                    </Box>
+                                    <Box sx={{ p: 1.25, display: "flex", alignItems: "center", borderRight: "1px solid var(--border-weak)" }}>
+                                      <Box sx={{ px: 1, py: 0.25, borderRadius: 1, fontSize: 13, fontWeight: 700, 
+                                                 bgcolor: (c.old == null || c.old === "") ? "#fee2e2" : "rgba(120,120,120,0.2)", 
+                                                 color: (c.old == null || c.old === "") ? "#b91c1c" : TOK.TEXT, wordBreak: "break-all" }}>
+                                        {formatValue(c.old)}
+                                      </Box>
+                                    </Box>
+                                    <Box sx={{ p: 1.25, display: "flex", alignItems: "center" }}>
+                                      <Box sx={{ px: 1, py: 0.25, borderRadius: 1, fontSize: 13, fontWeight: 700, 
+                                                 bgcolor: (c.new == null || c.new === "") ? "#fee2e2" : "#dcfce7", 
+                                                 color: (c.new == null || c.new === "") ? "#b91c1c" : "#166534", wordBreak: "break-all" }}>
+                                        {formatValue(c.new)}
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Box>
+                            </Box>
+                          )}
 
-                        const ignoreKeys = new Set([
-                          "created_at",
-                          "updated_at",
-                          "createdAt",
-                          "updatedAt",
-                          "created_by",
-                          "updated_by",
-                          "deleted_by",
-                          "createdBy",
-                          "updatedBy",
-                          "deletedBy",
-                        ]);
+                          {snapKeys.length > 0 && (
+                            <Box>
+                              <Typography sx={{ fontWeight: 800, fontSize: 13, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "0.5px" }}>
+                                FULL SNAPSHOT
+                              </Typography>
+                              <Box sx={{ border: "1px solid var(--border-weak)", borderRadius: 1, overflow: "hidden" }}>
+                                {snapKeys.map((k, i) => {
+                                  const isChanged = changedKeys.has(k);
+                                  return (
+                                    <Box key={k} sx={{ 
+                                      display: "grid", 
+                                      gridTemplateColumns: "30% 70%", 
+                                      borderBottom: i < snapKeys.length - 1 ? "1px solid var(--border-weak)" : "none",
+                                      bgcolor: isChanged ? "#fdf8e6" : (i % 2 === 0 ? "rgba(0,0,0,0.15)" : "transparent"),
+                                    }}>
+                                      <Box sx={{ 
+                                          p: 1.25, fontSize: 13, fontWeight: isChanged ? 700 : 600, 
+                                          borderRight: "1px solid var(--border-weak)", display: "flex", alignItems: "center",
+                                          color: isChanged ? "#8c5b16" : TOK.TEXT_DIM, wordBreak: "break-all"
+                                      }}>
+                                        {k}
+                                      </Box>
+                                      <Box sx={{ 
+                                          p: 1.25, fontSize: 13, fontWeight: isChanged ? 500 : 700, 
+                                          color: isChanged ? "#8c5b16" : TOK.TEXT, display: "flex", alignItems: "center", wordBreak: "break-all" 
+                                      }}>
+                                        {formatValue(snapshot[k])}
+                                      </Box>
+                                    </Box>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          )}
 
-                        const formatValue = (val: any) => {
-                          if (val == null) return "—";
-
-                          if (typeof val === "string") {
-                            const d = new Date(val);
-                            if (!isNaN(d.getTime()) && val.includes("T")) {
-                              return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-                            }
-                            return val;
-                          }
-
-                          if (typeof val === "number") return String(val);
-
-                          if (typeof val === "boolean") return val ? "Yes" : "No";
-
-                          if (typeof val === "object") return JSON.stringify(val, null, 2);
-
-                          return String(val);
-                        };
-
-                        // ✅ CREATE operation
-                        if (!oldVal && newVal && typeof newVal === "object") {
-                          return Object.keys(newVal)
-                            .filter((k) => !ignoreKeys.has(k))
-                            .map((k) => `${toCamelCaseLabel(k)}: ${formatValue(newVal[k])}`)
-                            .join("\n-------------------------\n");
-                        }
-
-                        // ✅ UPDATE operation
-                        if (oldVal && newVal && typeof oldVal === "object" && typeof newVal === "object") {
-                          const changes: any[] = [];
-                          const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
-
-                          keys.forEach((k) => {
-                            if (ignoreKeys.has(k)) return;
-
-                            const ov = oldVal[k];
-                            const nv = newVal[k];
-
-                            if (JSON.stringify(ov) !== JSON.stringify(nv)) {
-                              changes.push({ field: k, old: ov, new: nv });
-                            }
-                          });
-
-                          if (!changes.length) return "No changes detected.";
-
-                          return changes
-                            .map(
-                              (c) =>
-                                `Old ${toCamelCaseLabel(c.field)}: ${formatValue(c.old)}\nNew ${toCamelCaseLabel(c.field)}: ${formatValue(c.new)}`
-                            )
-                            .join("\n-------------------------\n");
-                        }
-
-                        // ✅ DELETE operation
-                        if (oldVal && !newVal && typeof oldVal === "object") {
-                          return Object.keys(oldVal)
-                            .filter((k) => !ignoreKeys.has(k))
-                            .map((k) => `${toCamelCaseLabel(k)}: ${formatValue(oldVal[k])}`)
-                            .join("\n-------------------------\n");
-                        }
-
-                        // ❌ LIST / GET should not show big dump
-                        if (selectedRow.action.includes("LIST") || selectedRow.action.includes("GET")) {
-                          return "No operation details (View/List action).";
-                        }
-
-                        // ✅ Fallback to raw details iteration if no oldValue/newValue specifically structured mapping found
-                        if (details && typeof details === "object" && Object.keys(details).length > 0) {
-                          const source = details.payload && typeof details.payload === "object" ? details.payload : details;
-                          return Object.keys(source)
-                            .filter((k) => !ignoreKeys.has(k) && !["oldValue", "newValue"].includes(k)) // in case they were empty
-                            .map((k) => `${toCamelCaseLabel(k)}: ${formatValue(source[k])}`)
-                            .join("\n-------------------------\n");
-                        }
-
-                        return "No meaningful details found.";
-                      })();
-
+                          {changes.length === 0 && snapKeys.length === 0 && (
+                             <Typography sx={{ color: TOK.TEXT_DIM }}>No meaningful details found for this operation.</Typography>
+                          )}
+                        </Box>
+                      );
                     })()}
                   </Box>
                 </Box>

@@ -242,16 +242,16 @@ function StatusChip({ value, t }: { value: Status; t: (k: string) => string }) {
 
 /* ---------- Table columns ---------- */
 const COLUMNS: Column[] = [
-  { key: "ticketNo", label: "Ticket No", width: 90, align: "center" },
-  { key: "user", label: "User", width: 130, align: "left" },
-  { key: "reqTo", label: "Req To", width: 130, align: "left" },
-  { key: "categories", label: "Category", width: 140, align: "left" },
-  { key: "priority", label: "Priority", width: 70, align: "center" },
-  { key: "status", label: "Status", width: 110, align: "center" },
-  { key: "description", label: "Description", width: 220, align: "left" },
-  { key: "remarks", label: "Remarks", width: 180, align: "left" },
-  { key: "createdAt", label: "Created At", width: 170, align: "center" },
-  { key: "action", label: "Action", width: 90, align: "center" },
+  { key: "ticketNo", label: "Ticket No", width: 9, align: "center" },
+  { key: "user", label: "User", width: 10, align: "left" },
+  { key: "reqTo", label: "Req To", width: 10, align: "left" },
+  { key: "categories", label: "Category", width: 12, align: "left" },
+  { key: "priority", label: "Priority", width: 7, align: "center" },
+  { key: "status", label: "Status", width: 10, align: "center" },
+  { key: "description", label: "Description", width: 16, align: "left" },
+  { key: "remarks", label: "Remarks", width: 11, align: "left" },
+  { key: "createdAt", label: "Created At", width: 8, align: "center" },
+  { key: "action", label: "Action", width: 7, align: "center" },
 ];
 
 /* ---------- Table (theme-aware) ---------- */
@@ -271,156 +271,167 @@ function DarkScrollTable({
   t: (k: string) => string;
 }) {
 
-  const totalW = columns.reduce((acc, c) => acc + (c.width ?? 120), 0) + 16;
-
   return (
-    <Box>
-      <Box sx={{ width: totalW, minWidth: "100%" }}>
-        {/* header */}
-        <Box
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 1,
-            display: "grid",
-            gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-            bgcolor: "var(--reqs-thead-bg)",
-            borderBottom: BORDER_STR,
-          }}
-        >
-          {columns.map((c) => (
-            <Box
-              key={c.key}
-              sx={{
-                px: 1.25,
-                py: 1,
-                fontWeight: 700,
-                fontSize: 13,
-                color: "var(--reqs-thead-text)",
-                textAlign: c.align ?? "center",
-                whiteSpace: "nowrap",
+    <Box sx={{ width: "100%", overflowX: "auto" }}>
+      <table
+        style={{
+          width: "100%",
+          tableLayout: "fixed",
+          borderCollapse: "collapse",
+          minWidth: `${columns.length * 80}px`,
+        }}
+      >
+        <thead>
+          <tr style={{ backgroundColor: "var(--reqs-thead-bg)", borderBottom: BORDER_STR }}>
+            {columns.map((c) => (
+              <th
+                key={c.key}
+                style={{
+                  width: `${c.width}%`,
+                  minWidth: "80px",
+                  padding: "10px 14px",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "var(--reqs-thead-text)",
+                  textAlign: c.align ?? "center",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: "var(--reqs-thead-bg)",
+                }}
+                title={t(c.label)}
+              >
+                {t(c.label)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, idx) => (
+            <tr
+              key={r.id}
+              style={{
+                backgroundColor: idx % 2 === 0 ? "var(--row-even)" : "var(--row-odd)",
+                borderBottom: BORDER_STR,
               }}
             >
-              {t(c.label)}
-            </Box>
-          ))}
-        </Box>
-
-        {/* rows */}
-        {rows.map((r, idx) => (
-          <Box
-            key={r.id}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: columns.map((c) => `${c.width ?? 120}px`).join(" "),
-              borderBottom: BORDER_STR,
-              bgcolor: "transparent",
-              "&:nth-of-type(odd)": { bgcolor: "var(--row-stripe)" },
-              "&:hover": { bgcolor: HOVER },
-            }}
-          >
-            {columns.map((c) => {
-              if (c.key === "action") {
-                return (
-                  <Box
-                    key={`action-${idx}`}
-                    sx={{
-                      px: 1.25,
-                      py: 0.75,
-                      display: "flex",
-                      gap: 0.75,
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    {/* Update button only for Inbox */}
-                    {scope === "inbox" && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        sx={{
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          px: 1.25,
-                          bgcolor: ACCENT,
-                          color: "#fff",
-                        }}
-                        onClick={() => onUpdate(r)}
-                      >
-                        {t("Update")}
-                      </Button>
-                    )}
-
-                    {/* Delete button for BOTH Inbox and Sent */}
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      sx={{ minWidth: 32, px: 0.75 }}
-                      onClick={() => onDelete(r)}
+              {columns.map((c) => {
+                if (c.key === "action") {
+                  return (
+                    <td
+                      key={`action-${idx}`}
+                      style={{
+                        padding: "10px 14px",
+                        textAlign: "center",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
                     >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </Button>
+                      <Box sx={{ display: "flex", gap: 0.75, justifyContent: "center" }}>
+                        {scope === "inbox" && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: 700,
+                              fontSize: 12,
+                              px: 1.25,
+                              bgcolor: ACCENT,
+                              color: "#fff",
+                            }}
+                            onClick={() => onUpdate(r)}
+                          >
+                            {t("Update")}
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          sx={{ minWidth: 32, px: 0.75 }}
+                          onClick={() => onDelete(r)}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </Button>
+                      </Box>
+                    </td>
+                  );
+                }
 
-                  </Box>
-                );
-              }
+                if (c.key === "status") {
+                  return (
+                    <td
+                      key={`status-${idx}`}
+                      style={{
+                        padding: "10px 14px",
+                        textAlign: "center",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={t(r.status)}
+                    >
+                      <StatusChip value={r.status} t={t} />
+                    </td>
+                  );
+                }
 
-              if (c.key === "status") {
+                if (c.key === "categories") {
+                  const catStr = r.categories.join(", ") || "—";
+                  return (
+                    <td
+                      key={`cats-${idx}`}
+                      style={{
+                        padding: "10px 14px",
+                        fontSize: 13,
+                        color: TEXT,
+                        textAlign: c.align ?? "left",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={catStr}
+                    >
+                      {catStr}
+                    </td>
+                  );
+                }
+
+                const val = r[c.key as keyof ReqRow] as string;
                 return (
-                  <Box key={`status-${idx}`} sx={{ px: 1.25, py: 0.9, textAlign: "center" }}>
-                    <StatusChip value={r.status} t={t} />
-                  </Box>
-                );
-              }
-              if (c.key === "categories") {
-                return (
-                  <Box
-                    key={`cats-${idx}`}
-                    sx={{
-                      px: 1.25,
-                      py: 1,
+                  <td
+                    key={String(c.key)}
+                    style={{
+                      padding: "10px 14px",
                       fontSize: 13,
                       color: TEXT,
-                      textAlign: c.align ?? "left",
+                      textAlign: c.align ?? "center",
                       whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
-                    title={r.categories.join(", ")}
+                    title={val || "—"}
                   >
-                    {r.categories.join(", ") || "—"}
-                  </Box>
+                    {val || "—"}
+                  </td>
                 );
-              }
-              const val = r[c.key as keyof ReqRow] as any;
-              return (
-                <Box
-                  key={String(c.key)}
-                  sx={{
-                    px: 1.25,
-                    py: 1,
-                    fontSize: 13,
-                    color: TEXT,
-                    textAlign: c.align ?? "center",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                  title={val || ""}
-                >
-                  {val || "—"}
-                </Box>
-              );
-            })}
-          </Box>
-        ))}
-
-        {rows.length === 0 && (
-          <Box sx={{ px: 1.25, py: 2, color: TEXT_DIM, textAlign: "center" }}>
-            {t("No requests yet.")}
-          </Box>
-        )}
-      </Box>
+              })}
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={columns.length} style={{ padding: "16px", textAlign: "center", color: TEXT_DIM }}>
+                {t("No requests yet.")}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </Box>
   );
 }
@@ -1189,65 +1200,71 @@ export default function RequestsPage() {
               mt: 0.5,
             }}
           >
-            <TextField
-              label={t("Ticket No")}
-              value={updTicketNo}
-              size="small"
-              InputProps={{ readOnly: true }}
-              sx={controlSx}
-              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
-            />
+            <Box className="form-item" sx={{ display: "flex", flexDirection: "column" }}>
+              <Typography sx={LABEL_SX}>{t("Ticket No")}</Typography>
+              <TextField
+                value={updTicketNo}
+                size="small"
+                InputProps={{ readOnly: true }}
+                sx={controlSx}
+              />
+            </Box>
 
-            <TextField
-              label={t("Priority")}
-              select
-              value={updPriority}
-              size="small"
-              sx={{ ...controlSx, ...fillField }}
-              SelectProps={selectMenu as any}
-              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
-              disabled
-            >
-              {["P1", "P2", "P3"].map((p) => (
-                <MenuItem key={p} value={p}>
-                  {p}
-                </MenuItem>
-              ))}
-            </TextField>
+            <Box className="form-item" sx={{ display: "flex", flexDirection: "column" }}>
+              <Typography sx={LABEL_SX}>{t("Priority")}</Typography>
+              <TextField
+                select
+                value={updPriority}
+                size="small"
+                sx={{ ...controlSx, ...fillField }}
+                SelectProps={selectMenu as any}
+                disabled
+              >
+                {["P1", "P2", "P3"].map((p) => (
+                  <MenuItem key={p} value={p}>
+                    {p}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
 
-            <TextField
-              label={t("Requester")}
-              value={updRequester}
-              size="small"
-              InputProps={{ readOnly: true }}
-              sx={controlSx}
-              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
-            />
-            <TextField
-              label={t("Req To")}
-              value={updTarget}
-              size="small"
-              InputProps={{ readOnly: true }}
-              sx={controlSx}
-              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
-            />
+            <Box className="form-item" sx={{ display: "flex", flexDirection: "column" }}>
+              <Typography sx={LABEL_SX}>{t("Requester")}</Typography>
+              <TextField
+                value={updRequester}
+                size="small"
+                InputProps={{ readOnly: true }}
+                sx={controlSx}
+              />
+            </Box>
 
-            <TextField
-              label={t("Status")}
-              select
-              value={updStatus}
-              onChange={(e) => setUpdStatus(e.target.value as Status)}
-              size="small"
-              sx={{ ...controlSx, ...fillField }}
-              SelectProps={selectMenu as any}
-              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
-            >
-              {["In Review", "In Progress", "On Hold", "Done", "Cancelled"].map((s) => (
-                <MenuItem key={s} value={s}>
-                  {t(s)}
-                </MenuItem>
-              ))}
-            </TextField>
+            <Box className="form-item" sx={{ display: "flex", flexDirection: "column" }}>
+              <Typography sx={LABEL_SX}>{t("Req To")}</Typography>
+              <TextField
+                value={updTarget}
+                size="small"
+                InputProps={{ readOnly: true }}
+                sx={controlSx}
+              />
+            </Box>
+
+            <Box className="form-item" sx={{ display: "flex", flexDirection: "column" }}>
+              <Typography sx={LABEL_SX}>{t("Status")}</Typography>
+              <TextField
+                select
+                value={updStatus}
+                onChange={(e) => setUpdStatus(e.target.value as Status)}
+                size="small"
+                sx={{ ...controlSx, ...fillField }}
+                SelectProps={selectMenu as any}
+              >
+                {["In Review", "In Progress", "On Hold", "Done", "Cancelled"].map((s) => (
+                  <MenuItem key={s} value={s}>
+                    {t(s)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
 
             <Box />
 
@@ -1270,36 +1287,39 @@ export default function RequestsPage() {
               </Stack>
             </Box>
 
-            <Box sx={{ gridColumn: "1 / -1" }}>
+            <Box sx={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column" }}>
+              <Typography sx={LABEL_SX}>{t("Description")}</Typography>
               <TextField
-                label={t("Description")}
                 value={updDescription}
                 size="small"
                 multiline
                 minRows={3}
                 fullWidth
-                sx={controlSx}
-                InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+                sx={{
+                  ...controlSx,
+                  ...fillField,
+                  "& .MuiOutlinedInput-root": { height: "auto", alignItems: "flex-start", padding: "10px 12px" },
+                  "& .MuiInputBase-input": { height: "auto", padding: 0, lineHeight: 1.4, fontSize: 13 },
+                }}
                 InputProps={{ readOnly: true }}
               />
             </Box>
 
-            <Box sx={{ gridColumn: "1 / -1" }}>
+            <Box sx={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column" }}>
+              <Typography sx={LABEL_SX}>{t("Remarks (note for this update)")}</Typography>
               <TextField
-                label={t("Remarks (note for this update)")}
                 value={updRemarks}
                 onChange={(e) => setUpdRemarks(e.target.value)}
                 size="small"
                 multiline
-                minRows={2}
+                minRows={3}
                 fullWidth
                 sx={{
                   ...controlSx,
                   ...fillField,
-                  "& .MuiOutlinedInput-root": { height: "auto", alignItems: "start" },
-                  "& .MuiInputBase-input": { height: "auto", padding: "10px 12px", lineHeight: 1.25, fontSize: 13 },
+                  "& .MuiOutlinedInput-root": { height: "auto", alignItems: "flex-start", padding: "10px 12px" },
+                  "& .MuiInputBase-input": { height: "auto", padding: 0, lineHeight: 1.4, fontSize: 13 },
                 }}
-                InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
               />
             </Box>
           </Box>

@@ -67,7 +67,7 @@ export function setAuthToken(token: string | null, remember = true) {
 function isPublicPath(p: string) {
   // accept both absolute and relative use
   const path = p.startsWith("http") ? new URL(p).pathname : p;
-  return path.startsWith("/api/aws-contacts") || path.startsWith("/api/pass-schedule");
+  return path.startsWith("/api/aws-contacts") || path.startsWith("/api/pass-schedule/bulk");
 }
 
 function buildQS(params?: Record<string, any>, basePath = ""): string {

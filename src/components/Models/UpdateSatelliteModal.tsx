@@ -180,15 +180,7 @@ export default function UpdateSatelliteModal({
   }
 
   try {
-    // Polarizations
-    const jp = await api.get<any>("/api/polarizations");
-    const rowsP: any[] = Array.isArray(jp?.data) ? jp.data : Array.isArray(jp) ? jp : [];
-    const listP = Array.from(
-      new Set(
-        rowsP.map((p: any) => String(p.polarization ?? p.name ?? "").trim()).filter(Boolean)
-      )
-    );
-    setPols(listP);
+    setPols(["LHCP", "RHCP", "OMNI"]);
   } catch (e) {
     console.error("Failed to load polarizations", e);
     setPols([]);
@@ -300,7 +292,7 @@ const doUpdate = async () => {
       polarization: joinCSV(polsSel),
     };
 
-    await api.put(`/api/satellites/${encodeURIComponent(form.satId)}`, payload);
+    await api.put(`/api/satellites/${encodeURIComponent(String(form.id))}`, payload);
 
     alert("Satellite updated successfully.");
     onSave({
@@ -323,7 +315,7 @@ const doDelete = async () => {
 
   try {
     setSaving(true);
-    await api.del(`/api/satellites/${encodeURIComponent(form.satId)}`);
+    await api.del(`/api/satellites/${encodeURIComponent(String(form.id))}`);
     alert("Satellite deleted.");
     onDelete(form.satId);
     onClose();
