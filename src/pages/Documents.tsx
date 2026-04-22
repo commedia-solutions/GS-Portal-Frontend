@@ -282,6 +282,7 @@ function DarkDocsTable({
   onUpdate,
   mode,
   C,
+  onResize,
 }: {
   rows: DocumentRow[];
   columns: Column[];
@@ -289,6 +290,7 @@ function DarkDocsTable({
   onUpdate: (r: DocumentRow) => void;
   mode: "dark" | "light";
   C: ReturnType<typeof makeSx>["C"];
+  onResize?: (key: string, width: number) => void;
 }) {
   const totalMinW = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
   const template = columns
@@ -317,8 +319,42 @@ function DarkDocsTable({
           }}
         >
           {columns.map((c) => (
-            <Box key={String(c.key)} sx={{ ...headerCellSx, textAlign: c.align ?? "center" }}>
+            <Box
+              key={String(c.key)}
+              sx={{
+                ...headerCellSx,
+                textAlign: c.align ?? "center",
+                position: "relative",
+                "& .resizer": {
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  height: "100%",
+                  width: "4px",
+                  cursor: "col-resize",
+                  "&:hover": { bgcolor: "#7C57F2" },
+                },
+              }}
+            >
               {c.label}
+              {onResize && (c.key === "name" || c.key === "remarks") && (
+                <Box
+                  className="resizer"
+                  onMouseDown={(e) => {
+                    const startX = e.pageX;
+                    const startWidth = c.width ?? c.min ?? 80;
+                    const onMove = (me: MouseEvent) => {
+                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
+                    };
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove);
+                      document.removeEventListener("mouseup", onUp);
+                    };
+                    document.addEventListener("mousemove", onMove);
+                    document.addEventListener("mouseup", onUp);
+                  }}
+                />
+              )}
             </Box>
           ))}
         </Box>
@@ -332,6 +368,7 @@ function DarkDocsTable({
               gridTemplateColumns: template,
               borderBottom: `1px solid ${C.BORDER_WEAK}`,
               bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
+              "&:hover": { bgcolor: C.HOVER },
             }}
           >
             {columns.map((c) => {
@@ -373,7 +410,7 @@ function DarkDocsTable({
 
 
               return (
-                <Box key={String(c.key)} sx={{ ...bodyCellSx, textAlign: c.align ?? "center" }} title={String(r[c.key as keyof DocumentRow] ?? "")}>
+                <Box key={String(c.key)} sx={{ ...bodyCellSx, textAlign: c.align ?? "center", width: c.width ? `${c.width}px` : "auto" }} title={String(r[c.key as keyof DocumentRow] ?? "")}>
                   {r[c.key as keyof DocumentRow] as any}
                 </Box>
               );
@@ -550,7 +587,6 @@ export default function DocumentsPage() {
     React.useMemo(() => makeSx(mode), [mode]);
 
   const { hasRole } = useAuth();
-  const isAdmin = hasRole("admin");
   const { isEditor, hasWriteAccess } = useActionAccess();
   // We determine if they can upload via the granular `pass_upload` write access:
   const canUploadPassLevel = hasWriteAccess("pass_upload");
@@ -678,41 +714,42 @@ export default function DocumentsPage() {
   const docsPaged = React.useMemo(() => docsFiltered.slice(docsPage * docsRpp, docsPage * docsRpp + docsRpp), [docsFiltered, docsPage, docsRpp]);
   const passPaged = React.useMemo(() => passFiltered.slice(passPage * passRpp, passPage * passRpp + passRpp), [passFiltered, passPage, passRpp]);
 
+  const [docCols, setDocCols] = React.useState<Column[]>([
+    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
+    { key: "name", label: t("Document"), min: 220, flex: 1.4, align: "left" },
+    { key: "type", label: t("Doc Type"), min: 140, flex: 1.0, align: "center" },
+    { key: "remarks", label: t("Remarks"), min: 200, flex: 1.2, align: "left" },
+  ]);
+
+  const [passCols, setPassCols] = React.useState<Column[]>([
+    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
+    { key: "name", label: t("Document"), min: 260, flex: 1.5, align: "left" },
+    { key: "remarks", label: t("Remarks"), min: 220, flex: 1.2, align: "left" },
+  ]);
+
+  const handleResizeDocs = (key: string, width: number) => {
+    setDocCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
+  };
+  const handleResizePass = (key: string, width: number) => {
+    setPassCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
+  };
+
   const onDownload = async (r: DocumentRow) => { try { await downloadFrom(r.url, r.name); } catch (e: any) { console.error(e); alert(e.message || "Download failed"); } };
   const handleTab = (_e: React.MouseEvent<HTMLElement>, next: "docs" | "pass" | null) => { if (next) setTab(next); };
 
-  // Build i18n’d column labels here (so they react to language changes)
-  const DOC_COLUMNS: Column[] = React.useMemo(() => {
-    const cols: Column[] = [
-      { key: "sr", label: t("Sr No"), width: 60, align: "center" },
-      { key: "name", label: t("Document"), min: 220, flex: 1.4, align: "left" },
-      { key: "type", label: t("Doc Type"), min: 140, flex: 1.0, align: "center" },
-      { key: "remarks", label: t("Remarks"), min: 200, flex: 1.2, align: "left" },
-      { key: "download", label: t("Download"), width: 80, align: "center" },
-    ];
-
-    if (isEditor) {
-      cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
-    }
-
+  const DOC_COLUMNS_FINAL = React.useMemo(() => {
+    const cols = [...docCols];
+    cols.push({ key: "download", label: t("Download"), width: 80, align: "center" });
+    if (isEditor) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
     return cols;
-  }, [t, isEditor]);
+  }, [docCols, t, isEditor]);
 
-
-  const PASS_COLUMNS: Column[] = React.useMemo(() => {
-    const cols: Column[] = [
-      { key: "sr", label: t("Sr No"), width: 60, align: "center" },
-      { key: "name", label: t("Document"), min: 260, flex: 1.5, align: "left" },
-      { key: "remarks", label: t("Remarks"), min: 220, flex: 1.2, align: "left" },
-      { key: "download", label: t("Download"), width: 80, align: "center" },
-    ];
-
-    if (isEditor) {
-      cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
-    }
-
+  const PASS_COLUMNS_FINAL = React.useMemo(() => {
+    const cols = [...passCols];
+    cols.push({ key: "download", label: t("Download"), width: 80, align: "center" });
+    if (isEditor) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
     return cols;
-  }, [t, isEditor]);
+  }, [passCols, t, isEditor]);
 
 
   return (
@@ -933,7 +970,7 @@ export default function DocumentsPage() {
                 {tab === "docs" ? (
                   <DarkDocsTable
                     rows={docsPaged}
-                    columns={DOC_COLUMNS}
+                    columns={DOC_COLUMNS_FINAL}
                     onDownload={onDownload}
                     onUpdate={
                       isEditor
@@ -942,12 +979,13 @@ export default function DocumentsPage() {
                     }
                     mode={mode}
                     C={C}
+                    onResize={handleResizeDocs}
                   />
 
                 ) : (
                   <DarkDocsTable
                     rows={passPaged}
-                    columns={PASS_COLUMNS}
+                    columns={PASS_COLUMNS_FINAL}
                     onDownload={onDownload}
                     onUpdate={
                       isEditor
@@ -956,6 +994,7 @@ export default function DocumentsPage() {
                     }
                     mode={mode}
                     C={C}
+                    onResize={handleResizePass}
                   />
 
                 )}

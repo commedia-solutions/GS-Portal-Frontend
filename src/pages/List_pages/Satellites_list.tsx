@@ -99,7 +99,6 @@ type Column = {
   align?: "left" | "center" | "right";
 };
 
-const CELL_PX = "clamp(6px, 0.8vw, 12px)";
 
 function ThemedScrollTable({
   rows,
@@ -107,12 +106,14 @@ function ThemedScrollTable({
   onEdit,
   emptyText,
   isEditor,
+  onResize,
 }: {
   rows: Row[];
   columns: Column[];
   onEdit: (r: Row) => void;
   emptyText: string;
   isEditor: boolean;
+  onResize?: (key: string, width: number) => void;
 }) {
 
   const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
@@ -156,9 +157,37 @@ function ThemedScrollTable({
                 fontWeight: 700,
                 color: "var(--sat-thead-text)",
                 textAlign: c.align ?? "center",
+                position: "relative",
+                "& .resizer": {
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  height: "100%",
+                  width: "4px",
+                  cursor: "col-resize",
+                  "&:hover": { bgcolor: TOK.ACCENT },
+                },
               }}
             >
               {c.label}
+              {onResize && ["station", "pol"].includes(String(c.key)) && (
+                <Box
+                  className="resizer"
+                  onMouseDown={(e) => {
+                    const startX = e.pageX;
+                    const startWidth = c.width ?? c.min ?? 80;
+                    const onMove = (me: MouseEvent) => {
+                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
+                    };
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove);
+                      document.removeEventListener("mouseup", onUp);
+                    };
+                    document.addEventListener("mousemove", onMove);
+                    document.addEventListener("mouseup", onUp);
+                  }}
+                />
+              )}
             </Box>
           ))}
         </Box>
@@ -212,6 +241,7 @@ function ThemedScrollTable({
                     ...cellSx,
                     color: TOK.TEXT_DIM,
                     textAlign: c.align ?? "center",
+                    width: c.width ? `${c.width}px` : "auto",
                   }}
                 >
                   {cellValue}
@@ -367,8 +397,7 @@ const handleEdit = (r: Row) => {
     setModalOpen(false);
   };
 
- const COLUMNS: Column[] = React.useMemo(() => {
-  const cols: Column[] = [
+  const [dynamicCols, setDynamicCols] = React.useState<Column[]>([
     { key: "sr", label: t("Sr No"), width: 72, align: "center" },
     { key: "satId", label: t("Satellite ID"), min: 120, flex: 1, align: "center" },
     { key: "satName", label: t("Satellite Name"), min: 160, flex: 1.1, align: "center" },
@@ -378,14 +407,17 @@ const handleEdit = (r: Row) => {
     { key: "pol", label: t("Polarization"), min: 140, flex: 1, align: "center" },
     { key: "addedBy", label: t("Added By"), min: 140, flex: 1, align: "center" },
     { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1.2, align: "center" },
-  ];
+  ]);
 
-  if (canEdit) {
-    cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
-  }
+  const handleResize = (key: string, width: number) => {
+    setDynamicCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
+  };
 
-  return cols;
-}, [t, canEdit]);
+  const FINAL_COLUMNS = React.useMemo(() => {
+    const cols = [...dynamicCols];
+    if (canEdit) cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
+    return cols;
+  }, [dynamicCols, t, canEdit]);
 
   return (
     <MainLayout title="">
@@ -498,13 +530,14 @@ const handleEdit = (r: Row) => {
                   "&::-webkit-scrollbar-track": { background: "transparent" },
                 }}
               >
-               <ThemedScrollTable
-  rows={paged}
-  columns={COLUMNS}
-  onEdit={handleEdit}
-  emptyText={t("No satellites found.")}
-isEditor={canEdit}
-/>
+                <ThemedScrollTable
+                  rows={paged}
+                  columns={FINAL_COLUMNS}
+                  onEdit={handleEdit}
+                  emptyText={t("No satellites found.")}
+                  isEditor={canEdit}
+                  onResize={handleResize}
+                />
 
               </Box>
             </Box>

@@ -241,17 +241,17 @@ function StatusChip({ value, t }: { value: Status; t: (k: string) => string }) {
 }
 
 /* ---------- Table columns ---------- */
-const COLUMNS: Column[] = [
-  { key: "ticketNo", label: "Ticket No", width: 9, align: "center" },
-  { key: "user", label: "User", width: 10, align: "left" },
-  { key: "reqTo", label: "Req To", width: 10, align: "left" },
-  { key: "categories", label: "Category", width: 12, align: "left" },
-  { key: "priority", label: "Priority", width: 7, align: "center" },
-  { key: "status", label: "Status", width: 10, align: "center" },
-  { key: "description", label: "Description", width: 16, align: "left" },
-  { key: "remarks", label: "Remarks", width: 11, align: "left" },
-  { key: "createdAt", label: "Created At", width: 8, align: "center" },
-  { key: "action", label: "Action", width: 7, align: "center" },
+const DEFAULT_COLUMNS: Column[] = [
+  { key: "ticketNo", label: "Ticket No", width: 90, align: "center" },
+  { key: "user", label: "User", width: 120, align: "left" },
+  { key: "reqTo", label: "Req To", width: 120, align: "left" },
+  { key: "categories", label: "Category", width: 140, align: "left" },
+  { key: "priority", label: "Priority", width: 80, align: "center" },
+  { key: "status", label: "Status", width: 120, align: "center" },
+  { key: "description", label: "Description", width: 250, align: "left" },
+  { key: "remarks", label: "Remarks", width: 180, align: "left" },
+  { key: "createdAt", label: "Created At", width: 150, align: "center" },
+  { key: "action", label: "Action", width: 100, align: "center" },
 ];
 
 /* ---------- Table (theme-aware) ---------- */
@@ -262,6 +262,7 @@ function DarkScrollTable({
   onDelete,
   scope,
   t,
+  onResize,
 }: {
   rows: ReqRow[];
   columns: Column[];
@@ -269,7 +270,25 @@ function DarkScrollTable({
   onDelete: (row: ReqRow) => void;
   scope: "inbox" | "sent";
   t: (k: string) => string;
+  onResize: (key: string, width: number) => void;
 }) {
+  const handleMouseDown = (key: string, e: React.MouseEvent) => {
+    const startX = e.pageX;
+    const startWidth = columns.find(c => c.key === key)?.width || 100;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(50, startWidth + (moveEvent.pageX - startX));
+      onResize(key, newWidth);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
 
   return (
     <Box sx={{ width: "100%", overflowX: "auto" }}>
@@ -287,8 +306,8 @@ function DarkScrollTable({
               <th
                 key={c.key}
                 style={{
-                  width: `${c.width}%`,
-                  minWidth: "80px",
+                  width: `${c.width}px`,
+                  minWidth: `${c.width}px`,
                   padding: "10px 14px",
                   fontWeight: 700,
                   fontSize: 13,
@@ -304,7 +323,26 @@ function DarkScrollTable({
                 }}
                 title={t(c.label)}
               >
-                {t(c.label)}
+                <div style={{ display: "flex", alignItems: "center", position: "relative", justifyContent: c.align === "center" ? "center" : "flex-start" }}>
+                  {t(c.label)}
+                  {["description", "remarks"].includes(c.key) && (
+                    <div
+                      onMouseDown={(e) => handleMouseDown(c.key, e)}
+                      style={{
+                        position: "absolute",
+                        right: -14,
+                        top: -10,
+                        height: 40,
+                        width: 4,
+                        cursor: "col-resize",
+                        backgroundColor: "transparent",
+                        zIndex: 3,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--accent)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                    />
+                  )}
+                </div>
               </th>
             ))}
           </tr>
@@ -332,7 +370,7 @@ function DarkScrollTable({
                       }}
                     >
                       <Box sx={{ display: "flex", gap: 0.75, justifyContent: "center" }}>
-                        {scope === "inbox" && (
+                        {scope === "inbox" ? (
                           <Button
                             size="small"
                             variant="contained"
@@ -348,16 +386,17 @@ function DarkScrollTable({
                           >
                             {t("Update")}
                           </Button>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            sx={{ minWidth: 32, px: 0.75 }}
+                            onClick={() => onDelete(r)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </Button>
                         )}
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          sx={{ minWidth: 32, px: 0.75 }}
-                          onClick={() => onDelete(r)}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </Button>
                       </Box>
                     </td>
                   );
@@ -606,6 +645,11 @@ export default function RequestsPage() {
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [loadingList, setLoadingList] = React.useState(false);
 
+  const [columns, setColumns] = React.useState(DEFAULT_COLUMNS);
+  const handleResize = (key: string, width: number) => {
+    setColumns(prev => prev.map(c => (c.key === key ? { ...c, width } : c)));
+  };
+
   // const UPDATE_STATUS_OPTIONS = ["In Review", "In Progress", "On Hold", "Done", "Cancelled"] as const;
 
   // me
@@ -842,7 +886,6 @@ export default function RequestsPage() {
   //   [scope]
   // );
 
-  const columnsForScope = React.useMemo(() => COLUMNS, []);
 
   return (
     <MainLayout title="">
@@ -1126,11 +1169,12 @@ export default function RequestsPage() {
                 <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX }}>
                   <DarkScrollTable
                     rows={paged}
-                    columns={columnsForScope}
+                    columns={columns}
                     onUpdate={openUpdate}
                     onDelete={handleDelete}
                     scope={scope}
                     t={t}
+                    onResize={handleResize}
                   />
                 </Box>
                 {loadingList && <Box sx={{ textAlign: "center", color: TEXT_DIM, py: 1 }}>{t("Loading…")}</Box>}

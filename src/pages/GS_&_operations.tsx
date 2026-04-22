@@ -72,7 +72,7 @@ const CARD_SX = {
 const theadBg = (t: Theme) => (t.palette.mode === "dark" ? "#1D1D20" : "#464b4e");
 
 const theadText = (t: Theme) => (t.palette.mode === "light" ? "#fff" : vars.text);
-const bodyText = (t: Theme) => (t.palette.mode === "light" ? "#000" : vars.text);
+const bodyText = (t: Theme) => (t.palette.mode === "light" ? "#fff" : vars.text);
 
 // Accent + pill helpers (match IAM light/dark behavior)
 const GREEN = "#7CFF8D";
@@ -144,6 +144,169 @@ const controlSx = {
   },
   "& .MuiSvgIcon-root": { color: vars.text },
 } as const;
+
+/* ---------- table logic (from Satellites_list) ---------- */
+function ThemedScrollTable({
+  rows,
+  columns,
+  onEdit,
+  emptyText,
+  canEdit,
+  onResize,
+  theadBg,
+  theadText,
+  bodyText
+}: {
+  rows: GSRow[];
+  columns: any[];
+  onEdit: (r: GSRow) => void;
+  emptyText: string;
+  canEdit: boolean;
+  onResize?: (key: string, width: number) => void;
+  theadBg: string;
+  theadText: string;
+  bodyText: string;
+}) {
+  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
+  const colTemplate = columns
+    .map((c) => {
+      if (c.key === "action") return "120px";
+      return c.width != null ? `${c.width}px` : `minmax(${Math.max(c.min ?? 80, 80)}px, ${c.flex ?? 1}fr)`;
+    })
+    .join(" ");
+
+  const cellSx = {
+    px: "14px",
+    py: "10px",
+    fontSize: 13,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: "80px",
+  } as const;
+
+  return (
+    <Box sx={{ overflowX: "auto" }}>
+      <Box sx={{ width: "100%", minWidth: minTotal, tableLayout: "fixed" }}>
+        {/* header */}
+        <Box
+          sx={{
+            position: "sticky",
+            top: 0,
+            zIndex: 2,
+            display: "grid",
+            gridTemplateColumns: colTemplate,
+            bgcolor: theadBg,
+            borderBottom: `1px solid ${vars.border}`,
+          }}
+        >
+          {columns.map((c) => (
+            <Box
+              key={String(c.key)}
+              sx={{
+                ...cellSx,
+                fontWeight: 700,
+                color: theadText,
+                textAlign: c.align ?? "center",
+                position: "relative",
+                "& .resizer": {
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  height: "100%",
+                  width: "4px",
+                  cursor: "col-resize",
+                  "&:hover": { bgcolor: vars.accent },
+                },
+              }}
+            >
+              {c.label}
+              {onResize && ["partner", "location", "antenna", "addedBy"].includes(String(c.key)) && (
+                <Box
+                  className="resizer"
+                  onMouseDown={(e) => {
+                    const startX = e.pageX;
+                    const startWidth = c.width ?? c.min ?? 80;
+                    const onMove = (me: MouseEvent) => {
+                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
+                    };
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove);
+                      document.removeEventListener("mouseup", onUp);
+                    };
+                    document.addEventListener("mousemove", onMove);
+                    document.addEventListener("mouseup", onUp);
+                  }}
+                />
+              )}
+            </Box>
+          ))}
+        </Box>
+
+        {/* rows */}
+        {rows.map((r, idx) => (
+          <Box
+            key={r.id ?? idx}
+            sx={{
+              display: "grid",
+              gridTemplateColumns: colTemplate,
+              borderBottom: `1px solid ${vars.borderWeak}`,
+              bgcolor: idx % 2 === 0 ? "transparent" : vars.bgHover,
+            }}
+          >
+            {columns.map((c) => {
+              if (c.key === "action") {
+                return (
+                  <Box
+                    key={`action-${idx}`}
+                    sx={{ ...cellSx, display: "flex", justifyContent: "center", alignItems: "center", overflow: "visible" }}
+                  >
+                    <Button
+                      size="small"
+                      variant="contained"
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        px: 1.25,
+                        bgcolor: PRIMARY,
+                        color: "#fff",
+                        "&:hover": { bgcolor: "#6b46f1" },
+                      }}
+                      onClick={() => onEdit(r)}
+                    >
+                      Edit
+                    </Button>
+                  </Box>
+                );
+              }
+              const cellValue = String((r as any)[c.key] ?? "");
+              return (
+                <Box
+                  key={String(c.key)}
+                  title={cellValue}
+                  sx={{
+                    ...cellSx,
+                    color: bodyText,
+                    textAlign: c.align ?? "center",
+                  }}
+                >
+                  {cellValue}
+                </Box>
+              );
+            })}
+          </Box>
+        ))}
+
+        {!rows.length && (
+          <Box sx={{ px: "14px", py: 2, color: vars.textDim, textAlign: "center" }}>
+            No ground stations found.
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+}
 
 /** interior fill + placeholder/text (same as Add Passes / Licenses / Satellites) */
 const filledField = (t: any) => {
@@ -236,11 +399,9 @@ type ApiGS = {
 type GSRow = {
   id: number;
   partner: string;
-  station: string;
+  location: string;
+  antenna: string;
   addedBy: string;
-  antenna?: string;
-  // lat?: string;
-  // lng?: string;
 };
 type PolRow = { id: number; sat: string; pol: string };
 type AntBand = {
@@ -275,9 +436,9 @@ tracking_modes: string;
 const apiGsToUi = (g: ApiGS): GSRow => ({
   id: g.id,
   partner: g.supporting_partner,
-  station: g.ground_station,
+  location: g.ground_station || "-",
+  antenna: (g.antenna_name as any) ?? (g.antenna_type as any) ?? (g.antenna as any) ?? "-",
   addedBy: g.added_by ?? "Admin",
-  antenna: `${(g.antenna_name as any) ?? (g.antenna_type as any) ?? (g.antenna as any) ?? ""} / ${g.ground_station ?? "-"}`,
 });
 
 const apiPolToUi = (p: { id: number; satellite_name: string; polarization: string }): PolRow => ({
@@ -460,6 +621,7 @@ function ListPanel({
 /* ======================================================= */
 export default function Gsoperations() {
   const { user } = useAuth();
+  const theme = vars.textDim === "rgba(255,255,255,0.6)" ? "dark" : "light"; // Heuristic for theme
 const u = user as any;
 
 const role = String(
@@ -502,19 +664,37 @@ const canEditAntenna = isAdmin || isEditor;
   /* ---------------- Ground Stations ---------------- */
   const [gsInner, setGsInner] = React.useState<"add" | "view">("add");
   const [partner, setPartner] = React.useState("");
-  // const [gsName, setGsName] = React.useState("");
-  const [antennaSel, setAntennaSel] = React.useState<string>("");
-  const [selectedAntenna, setSelectedAntenna] =
-  React.useState<AntennaRow | null>(null);
+  const [locationSel, setLocationSel] = React.useState("");
+  const [antennaSels, setAntennaSels] = React.useState<string[]>([]);
+  const [previewAntennas, setPreviewAntennas] = React.useState<AntennaRow[]>([]);
 
   // const [lat, setLat] = React.useState("");
   // const [lng, setLng] = React.useState("");
   const [rows, setRows] = React.useState<GSRow[]>([]);
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(20);
+  const [locationOpts, setLocationOpts] = React.useState<string[]>([]);
   const [antennaOpts, setAntennaOpts] = React.useState<string[]>([]);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editRow, setEditRow] = React.useState<GSDialogRow | null>(null);
+
+  const [gsCols, setGsCols] = React.useState<any[]>([
+    { key: "sr", label: t("Sr No"), width: 80, align: "center" },
+    { key: "partner", label: t("TTC Service Provider"), min: 180, flex: 1.5, align: "center" },
+    { key: "location", label: t("Location"), min: 140, flex: 1.2, align: "center" },
+    { key: "antenna", label: t("Antenna"), min: 200, flex: 2, align: "center" },
+    { key: "addedBy", label: t("Added By"), min: 140, flex: 1, align: "center" },
+  ]);
+
+  const handleGsResize = (key: string, width: number) => {
+    setGsCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
+  };
+
+  const FINAL_GS_COLS = React.useMemo(() => {
+    const cols = [...gsCols];
+    if (isAdmin || isEditor) cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
+    return cols;
+  }, [gsCols, isAdmin, isEditor, t]);
 
   /* ---------------- Operations ---------------- */
   const [opName, setOpName] = React.useState("");
@@ -642,10 +822,8 @@ setBandRows([]);
         const cells = [
           String(i + 1),
           r.partner || "-",
-          r.station || "-",
+          r.location || "-",
           r.antenna || "-",
-          // r.lat || "-",
-          // r.lng || "-",
         ]
           .map(
             (c) =>
@@ -883,16 +1061,9 @@ const merged = isAdmin
 setTimeout(() => setAntPage(0), 0);
 console.log("✅ FINAL ANT ROWS:", merged);
 
-    /* 4️⃣ Dropdown only APPROVED */
-setAntennaOpts(
-  Array.from(
-    new Set(
-      approved
-        .filter(a => a.type && a.location)
-        .map(a => `${a.type.trim()} / ${a.location.trim()}`)
-    )
-  )
-);
+    /* 4️⃣ Dropdown options: Unique Locations and Antennas mapped to Locations */
+    const locs = Array.from(new Set(approved.filter(a => a.location).map(a => a.location.trim()))).sort();
+    setLocationOpts(locs);
   } catch (e: any) {
     console.error("Load antennas failed:", e);
   }
@@ -933,34 +1104,31 @@ setAntennaOpts(
 
   /* ================= Actions ================= */
  const handleAddStation = async () => {
-  if (!partner || !antennaSel) {
-    alert("Please select TTC Service Provider and Antenna / Location");
+  if (!partner || !locationSel || !antennaSels.length) {
+    alert("Please select TTC Service Provider, Location, and at least one Antenna");
     return;
   }
 
-  const [antennaName, location] = antennaSel
-    .split("/")
-    .map(v => v.trim());
-
   const payload = {
     supporting_partner: partner.trim(),
-    ground_station: location,
-    antenna: antennaName,
+    ground_station: locationSel.trim(),
+    antenna: antennaSels.join(", "),
     added_by: user?.username || "system",
   };
 
   try {
-const created: ApiGS = await api.post(GS_API, payload, {
-  headers: {
-    "x-module-name": "gs_operations",
-    "x-page-name": "/operations",
-  },
-});
+    const created: ApiGS = await api.post(GS_API, payload, {
+      headers: {
+        "x-module-name": "gs_operations",
+        "x-page-name": "/operations",
+      },
+    });
 
     setRows(prev => [...prev, apiGsToUi(created)]);
     setPartner("");
-    setAntennaSel("");
-    setSelectedAntenna(null);
+    setLocationSel("");
+    setAntennaSels([]);
+    setPreviewAntennas([]);
 
     alert("Ground Station added successfully ✅");
     setGsInner("view");
@@ -1421,11 +1589,11 @@ const created = isAdmin
 
       // Always update the local list so the row is visible immediately
       setAntRows((prev) => [...prev, row]);
-      setAntennaOpts((prev) =>
-        Array.from(
-          new Set([...prev, `${row.type} / ${row.location || "-"}`])
-        ).sort()
-      );
+      
+      // Update location and antenna dropdowns
+      if (row.location && !locationOpts.includes(row.location)) {
+        setLocationOpts(prev => [...prev, row.location].sort());
+      }
 
       clearAntennaForm();
       alert(
@@ -1535,11 +1703,11 @@ bands: (() => {
       };
       setAntRows((prev) => prev.map((r) => (r.id === updated.id ? newRow : r)));
       setAntEditOpen(false);
-      setAntennaOpts((prev) =>
-  Array.from(
-    new Set([...prev, `${newRow.type} / ${newRow.location || "-"}`])
-  ).sort()
-);
+      
+      // Update locations
+      if (newRow.location && !locationOpts.includes(newRow.location)) {
+        setLocationOpts(prev => [...prev, newRow.location].sort());
+      }
 
       alert(t("Antenna updated ✅"));
     } catch (e: any) {
@@ -1606,9 +1774,15 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
   }, [captchaAction]);
 
   /* Derived */
-  const pagedStations = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const pagedStations = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((r, i) => ({
+    ...r,
+    sr: page * rowsPerPage + i + 1,
+  }));
   const pagedPol = polRows.slice(polPage * polRowsPerPage, polPage * polRowsPerPage + polRowsPerPage);
-  const pagedAnts = antRows.slice(antPage * antRpp, antPage * antRpp + antRpp);
+  const pagedAnts = antRows.slice(antPage * antRpp, antPage * antRpp + antRpp).map((r, i) => ({
+    ...r,
+    sr: antPage * antRpp + i + 1,
+  }));
 
   return (
     <MainLayout title="">
@@ -1817,38 +1991,70 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
                         />
                       </Box> */}
                       <Box className="form-item">
-                        <Typography sx={LABEL_SX}>{t("Antenna / Location")}</Typography>
+                        <Typography sx={LABEL_SX}>{t("Location")}</Typography>
                         <FormControl fullWidth size="small">
                           <Select<string>
-  value={antennaSel}
-  onChange={(e: SelectChangeEvent<string>) => {
-    const value = e.target.value as string;
-    setAntennaSel(value);
-
-    // value example: "X-Band / Mumbai"
-    const [type, location] = value.split("/").map(v => v.trim());
-
-const found = antRows.find(
-  a =>
-    a.type?.trim().toLowerCase() === type?.trim().toLowerCase() &&
-    a.location?.trim().toLowerCase() === location?.trim().toLowerCase()
-);
-
-
-    setSelectedAntenna(found || null);
-  }}
-
+                            value={locationSel}
+                            onChange={(e) => {
+                              const loc = e.target.value;
+                              setLocationSel(loc);
+                              setAntennaSels([]);
+                              setPreviewAntennas([]);
+                              
+                              // Filter antennas for this location
+                              const filtered = antRows
+                                .filter(a => a.location?.trim().toLowerCase() === loc.trim().toLowerCase() && a.status === "APPROVED")
+                                .map(a => a.type.trim());
+                              setAntennaOpts(Array.from(new Set(filtered)).sort());
+                            }}
                             displayEmpty
-                            renderValue={(v) => (v ? (v as string) : t("Select Antenna / Location"))}
+                            renderValue={(v) => v || t("Select Location")}
                             sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
                             MenuProps={darkMenu}
                           >
                             <MenuItem disabled value="">
-                              {t("Select Antenna / Location")}
+                              {t("Select Location")}
+                            </MenuItem>
+                            {locationOpts.map((l) => (
+                              <MenuItem key={l} value={l}>
+                                <ListItemText primary={l} />
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
+
+                      <Box className="form-item">
+                        <Typography sx={LABEL_SX}>{t("Antenna")}</Typography>
+                        <FormControl fullWidth size="small" disabled={!locationSel}>
+                          <Select<string[]>
+                            multiple
+                            value={antennaSels}
+                            onChange={(e) => {
+                              const val = e.target.value as string[];
+                              setAntennaSels(val);
+                              
+                              // Track technical details for all selected antennas
+                              const matched = val.map(at => {
+                                return antRows.find(
+                                  a => a.type?.trim().toLowerCase() === at.trim().toLowerCase() && 
+                                       a.location?.trim().toLowerCase() === locationSel.trim().toLowerCase() &&
+                                       a.status === "APPROVED"
+                                );
+                              }).filter(Boolean) as AntennaRow[];
+                              setPreviewAntennas(matched);
+                            }}
+                            displayEmpty
+                            renderValue={(selected) => (selected.length === 0 ? t("Select Antennas") : selected.join(", "))}
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                            MenuProps={darkMenu}
+                          >
+                            <MenuItem disabled value="">
+                              {t("Select Antennas")}
                             </MenuItem>
                             {antennaOpts.map((a) => (
-  <MenuItem key={a} value={a}>
-
+                              <MenuItem key={a} value={a}>
+                                <Checkbox checked={antennaSels.indexOf(a) > -1} />
                                 <ListItemText primary={a} />
                               </MenuItem>
                             ))}
@@ -1937,8 +2143,9 @@ const found = antRows.find(
                       </Box> */}
                     {/* </Box> */}
 
-{selectedAntenna && (
+{previewAntennas.map((ant, idx) => (
   <Box
+    key={ant.id || idx}
     sx={{
       mt: 2,
       border: `1px solid ${vars.border}`,
@@ -1994,54 +2201,37 @@ const found = antRows.find(
 
     fontSize: 13,
     bgcolor: vars.bgApp,
-    opacity: selectedAntenna?.status === "PENDING" ? 0.85 : 1,
+    opacity: ant.status === "PENDING" ? 0.85 : 1,
     minWidth: 1100,
   }}
 >
 
-<Box sx={cellSx}>1</Box>
-<Box sx={cellSx}>{selectedAntenna.type}</Box>
-<Box sx={cellSx}>{selectedAntenna.location || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.size_m || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.eirp_dbw || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.tx_polarization || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.rx_polarization || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.travel_range || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.tracking_velocity || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.tracking_acceleration || "-"}</Box>
-<Box sx={cellSx}>{selectedAntenna.tracking_modes || "-"}</Box>
+<Box sx={cellSx}>{idx + 1}</Box>
+<Box sx={cellSx}>{ant.type}</Box>
+<Box sx={cellSx}>{ant.location || "-"}</Box>
+<Box sx={cellSx}>{ant.size_m || "-"}</Box>
+<Box sx={cellSx}>{ant.eirp_dbw || "-"}</Box>
+<Box sx={cellSx}>{ant.tx_polarization || "-"}</Box>
+<Box sx={cellSx}>{ant.rx_polarization || "-"}</Box>
+<Box sx={cellSx}>{ant.travel_range || "-"}</Box>
+<Box sx={cellSx}>{ant.tracking_velocity || "-"}</Box>
+<Box sx={cellSx}>{ant.tracking_acceleration || "-"}</Box>
+<Box sx={cellSx}>{ant.tracking_modes || "-"}</Box>
 
 {isAdmin && (
   <Box sx={cellSx}>
-    <StatusBadge status={selectedAntenna.status ?? "APPROVED"} />
+    <StatusBadge status={ant.status ?? "APPROVED"} />
   </Box>
 )}
 
 <Box sx={cellSx}>
-  {selectedAntenna.bands.length
-    ? selectedAntenna.bands.map(b => b.band).join(", ")
+  {ant.bands.length
+    ? ant.bands.map(b => b.band).join(", ")
     : "-"}
 </Box>
-
-{/* <Box sx={cellSx}>—</Box>
-
-<Box sx={{ px: 1, py: 1, fontSize: 12, textAlign: "center" }}>
-  <div>
-    <b>Bands:</b>{" "}
-    {selectedAntenna.bands.length
-      ? selectedAntenna.bands.map(b => b.band).join(", ")
-      : "-"}
-  </div> */}
-  {/* <div>
-    <b>G/T:</b>{" "}
-    {selectedAntenna.gts.length
-      ? selectedAntenna.gts.map(g => `${g.band}:${g.gt}`).join(", ")
-      : "-"}
-  </div> */}
-{/* </Box> */}
     </Box>
   </Box>
-)}
+))}
                     <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
 
 
@@ -2061,91 +2251,32 @@ const found = antRows.find(
                     </Box>
                   </Box>
                 ) : (
-                  <>
-                    <Box sx={{ flex: 1, minHeight: 0, px: 1, pb: 1, ...SCROLLER_SX }}>
+                  <Box sx={{ flex: 1, minHeight: 0, px: 2, pb: 2, display: "flex", flexDirection: "column" }}>
+                    <Box sx={{ flex: 1, minHeight: 0, borderRadius: 1, overflow: "hidden" }}>
                       <Box
                         sx={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 1,
-                          display: "grid",
-                gridTemplateColumns: "80px 1.6fr 2fr 120px",
-
-                          bgcolor: (tMUI) => theadBg(tMUI as Theme),
-                          borderBottom: `1px solid ${vars.border}`,
+                          height: "100%",
+                          overflow: "auto",
+                          scrollbarWidth: "thin",
+                          scrollbarColor: `${vars.border} transparent`,
+                          "&::-webkit-scrollbar": { width: 8, height: 8 },
+                          "&::-webkit-scrollbar-thumb": { background: vars.border, borderRadius: 8 },
+                          "&::-webkit-scrollbar-track": { background: "transparent" },
                         }}
                       >
-                        {[
-                          t("Sr No"),
-                          t("TTC Service Provider"),
-                          // t("Ground Station"),
-                          t("Antenna / Location"),
-                          // t("Latitude"),
-                          // t("Longitude"),
-                          t("Action"),
-                        ].map((h) => (
-                          <Box
-                            key={h}
-                            sx={{
-                              px: 1.25,
-                              py: 1,
-                              fontWeight: 700,
-                              fontSize: 13,
-                              color: (tMUI) => theadText(tMUI as Theme),
-                              textAlign: "center",
-                            }}
-                          >
-                            {h}
-                          </Box>
-                        ))}
+                        <ThemedScrollTable
+                          rows={pagedStations}
+                          columns={FINAL_GS_COLS}
+                          onEdit={(r) => handleUpdateStation({ ...r, station: r.location } as any)}
+                          emptyText={t("No ground stations found.")}
+                          canEdit={isAdmin || isEditor}
+                          onResize={handleGsResize}
+                          theadBg={theadBg({ palette: { mode: theme } } as any)}
+                          theadText={theadText({ palette: { mode: theme } } as any)}
+                          bodyText={bodyText({ palette: { mode: theme } } as any)}
+                        />
                       </Box>
-
-                      {pagedStations.map((r, idx) => (
-                        <Box
-                          key={r.id}
-                          sx={{
-                            display: "grid",
-                            gridTemplateColumns:
-  "80px 1.6fr 2fr 120px",
-
-                            alignItems: "center",
-                            borderBottom: `1px solid ${vars.borderWeak}`,
-                            bgcolor:
-                              (page * rowsPerPage + idx) % 2
-                                ? vars.bgHover
-                                : "transparent",
-                          }}
-                        >
-                          <Box sx={{ px: 1.25, py: 1, textAlign: "center", fontSize: 13, color: (tMUI) => bodyText(tMUI as Theme) }}>
-                            {page * rowsPerPage + idx + 1}
-                          </Box>
-                          <Box sx={cellSx}>{r.partner}</Box>
-                          {/* <Box sx={cellSx}>{r.station}</Box> */}
-                          <Box sx={cellSx}>{r.antenna || "-"}</Box>
-                          {/* <Box sx={cellSx}>{r.lat || "-"}</Box>
-                          <Box sx={cellSx}>{r.lng || "-"}</Box> */}
-                          <Box sx={{ px: 1.25, py: 0.75, textAlign: "center" }}>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              onClick={() => handleUpdateStation(r)}
-                              sx={{
-                                minWidth: 70,
-                                height: 28,
-                                fontSize: 12,
-                                textTransform: "none",
-                                fontWeight: 700,
-                                bgcolor: PRIMARY,
-                                "&:hover": { bgcolor: "#6b46f1" },
-                              }}
-                            >
-                              {t("Edit")}
-                            </Button>
-                          </Box>
-                        </Box>
-                      ))}
                     </Box>
-
                     <Box sx={{ borderTop: `1px solid ${vars.border}`, px: 1, py: 0.75 }}>
                       <TablePagination
                         component="div"
@@ -2161,7 +2292,7 @@ const found = antRows.find(
                         sx={paginationSx}
                       />
                     </Box>
-                  </>
+                  </Box>
                 )}
               </>
             )}
@@ -3354,7 +3485,7 @@ const cellSx = {
   py: 1,
   textAlign: "center" as const,
   fontSize: 13,
-  color: (t: any) => bodyText(t),
+  color: "#fff",
 };
 // pagination text/icons: black in light, existing in dark
 const paginationSx = {

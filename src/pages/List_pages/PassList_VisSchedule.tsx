@@ -4,7 +4,7 @@ import React from "react";
 import {
     Box, Card, Button, Typography, Backdrop, CircularProgress,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    TablePagination, Checkbox, Dialog, DialogTitle, DialogActions, IconButton
+    TablePagination, Checkbox, Dialog, DialogTitle, DialogActions
 } from "@mui/material";
 import { Select, MenuItem, FormControl } from "@mui/material";
 import { DownloadOutlined as DownloadOutlinedIcon, DeleteOutlined as DeleteOutlinedIcon } from "@mui/icons-material";
@@ -149,7 +149,8 @@ export default function PassListVisSchedule() {
         if (station !== "All" && r.stn !== station) return false;
         if (satellite !== "All" && r.sc !== satellite) return false;
         if (fromDate || toDate) {
-            const parts = r.date_text.split(/[/-]/).map(x => parseInt(x, 10));
+            const rowDate = (r.date_text || "").replace(/-/g, " ");
+            const parts = rowDate.split(" ").map(x => parseInt(x, 10));
             const dt = new Date(parts[0], parts[1] - 1, parts[2]);
             if (fromDate && dt < new Date(new Date(fromDate).setHours(0, 0, 0, 0))) return false;
             if (toDate && dt > new Date(new Date(toDate).setHours(23, 59, 59, 999))) return false;
@@ -322,9 +323,14 @@ export default function PassListVisSchedule() {
                                                     sx={{ color: "rgba(255,255,255,0.3)", "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#fff" } }} />
                                             </TableCell>
                                             <TableCell sx={theadCellSx}>Sr No.</TableCell>
-                                            {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
-                                                <TableCell key={h} sx={theadCellSx}>{h}</TableCell>
-                                            ))}
+                                            <TableCell sx={theadCellSx}>{t("DATE")} (yyyy mm dd)</TableCell>
+                                            <TableCell sx={theadCellSx}>{t("S/C")}</TableCell>
+                                            <TableCell sx={theadCellSx}>{t("STN")}</TableCell>
+                                            <TableCell sx={theadCellSx}>{t("ORBIT")}</TableCell>
+                                            <TableCell sx={theadCellSx}>{t("Max")}</TableCell>
+                                            <TableCell sx={theadCellSx}>{t("AOS")} (hh:mm:ss)</TableCell>
+                                            <TableCell sx={theadCellSx}>{t("LOS")} (hh:mm:ss)</TableCell>
+                                            <TableCell sx={theadCellSx}>{t("OPERATIONS")}</TableCell>
                                             <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
                                             <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Post Pass Status</TableCell>
                                         </TableRow>
@@ -340,7 +346,7 @@ export default function PassListVisSchedule() {
                                                         sx={{ color: vars.textDim, "&.Mui-checked": { color: "#7CA7FF" } }} />
                                                 </TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{(page * rowsPerPage) + index + 1}</TableCell>
-                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.date_text}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{(r.date_text || "").replace(/-/g, " ")}</TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.sc}</TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.stn}</TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.orbit}</TableCell>

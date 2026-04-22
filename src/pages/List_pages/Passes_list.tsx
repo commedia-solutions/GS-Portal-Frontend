@@ -463,7 +463,7 @@ export default function PassesList() {
   const COLUMNS: Column[] = React.useMemo(() => {
     const cols: Column[] = [
       { key: "sr", label: t("Sr"), width: 60, align: "center" },
-      { key: "date", label: t("Date"), width: 110, align: "center" },
+      { key: "date", label: `${t("Date")} (yyyy mm dd)`, width: 140, align: "center" },
       { key: "sat", label: t("Satellite"), width: 100, align: "center" },
       { key: "stn", label: t("Station"), width: 100, align: "center" },
       { key: "band", label: t("Band / Carrier"), width: 200, align: "center" },
@@ -471,7 +471,7 @@ export default function PassesList() {
       { key: "orb", label: t("Orbit"), width: 90, align: "center" },
       { key: "maxEl", label: t("Max (El)°"), width: 90, align: "center" },
       {
-        key: "aos", label: t("AOS / LOS (UT)"), width: 180, align: "center",
+        key: "aos", label: `${t("AOS / LOS (UT)")} (hh:mm:ss)`, width: 220, align: "center",
         render: (r) => `${r.aos || "—"} / ${r.los || "—"}`
       },
       { key: "ops", label: t("Operations"), width: 130, align: "center" },
@@ -603,7 +603,7 @@ export default function PassesList() {
           id: p.id,
           sr: idx + 1,
           req: p.pass_req_no,
-          date: p.date_text,
+          date: (p.date_text || "").replace(/-/g, " "),
           sat: p.satellite_name,
           stn: p.supporting_station,
           band: formattedBand,

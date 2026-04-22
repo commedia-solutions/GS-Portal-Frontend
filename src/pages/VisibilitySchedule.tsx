@@ -91,6 +91,8 @@ interface VSRow {
     max_ele: string; aos: string; los: string; operations: string;
     pass_status: PassStatus;
     post_pass_status: "Pending" | "Completed";
+    // For resizing
+    colWidths?: Record<string, number>;
 }
 
 interface DraftRow {
@@ -196,7 +198,24 @@ function RequestPassDialog({
 }
 
 /* ============= TABLE HEAD / CELL SX ============= */
-const theadCellSx = { color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" } as const;
+const theadCellSx = {
+    color: "var(--passes-thead-text)",
+    fontWeight: 700,
+    bgcolor: "var(--passes-thead-bg)",
+    whiteSpace: "nowrap",
+    position: "relative",
+    "& .resizer": {
+        position: "absolute",
+        right: 0,
+        top: 0,
+        height: "100%",
+        width: "4px",
+        cursor: "col-resize",
+        userSelect: "none",
+        touchAction: "none",
+        "&:hover": { bgcolor: "secondary.main" },
+    },
+} as const;
 
 export default function VisibilitySchedule() {
     const { t } = useI18n();
@@ -204,6 +223,32 @@ export default function VisibilitySchedule() {
 
     const [tab, setTab] = React.useState<"availability" | "scheduled" | "requested">(hasReadAccess("pass_availability") ? "availability" : hasReadAccess("pass_scheduled") ? "scheduled" : "requested");
     const canWrite = tab === "availability" ? hasWriteAccess("pass_availability") : tab === "scheduled" ? hasWriteAccess("pass_scheduled") : hasWriteAccess("pass_requested");
+
+    // Resizing state
+    const [colWidths, setColWidths] = React.useState<Record<string, number>>({
+        sc: 100,
+        stn: 100,
+        operations: 150,
+        date_text: 120,
+    });
+
+    const handleResize = (key: string, e: React.MouseEvent) => {
+        const startX = e.pageX;
+        const startWidth = colWidths[key] || 100;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const newWidth = Math.max(50, startWidth + (moveEvent.pageX - startX));
+            setColWidths(prev => ({ ...prev, [key]: newWidth }));
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+    };
 
     /* ---- Main VS Data ---- */
     const [vsRows, setVsRows] = React.useState<VSRow[]>([]);
@@ -655,7 +700,7 @@ export default function VisibilitySchedule() {
             {/* Edit Draft Row Dialog */}
             <Dialog open={!!editDraftRow} onClose={() => setEditDraftRow(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
                 <DialogTitle sx={{ fontWeight: 700 }}>Edit Draft Pass Data</DialogTitle>
-                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 2, pb: 2 }}>
                     {editDraftRow && ["date_text", "sc", "stn", "orbit", "max_ele", "aos", "los", "operations"].map((field) => {
                         const isSc = field === "sc";
                         const isStn = field === "stn";
@@ -663,7 +708,7 @@ export default function VisibilitySchedule() {
                         if (isSc || isStn) {
                             return (
                                 <FormControl key={field} size="small" fullWidth>
-                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: vars.textDim, mb: 0.5, textTransform: "uppercase" }}>
+                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: vars.textDim, mb: 0.3, textTransform: "uppercase" }}>
                                         {field === "sc" ? "S/C" : "STN"}
                                     </Typography>
                                     <Select
@@ -674,7 +719,7 @@ export default function VisibilitySchedule() {
                                             "& .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
                                             bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff",
                                             color: vars.text,
-                                            height: 40
+                                            height: 36
                                         })}
                                         MenuProps={lightMenu}
                                     >
@@ -688,9 +733,14 @@ export default function VisibilitySchedule() {
                         }
 
                         return (
-                            <TextField key={field} label={field.toUpperCase().replace("_TEXT", "")} size="small"
-                                value={(editDraftRow as any)[field] || ""} onChange={(e) => setEditDraftRow({ ...editDraftRow, [field]: e.target.value })}
-                                sx={(tm) => ({ "& .MuiOutlinedInput-root": { bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff", color: vars.text } })} />
+                            <Box key={field}>
+                                <Typography sx={{ fontSize: 11, fontWeight: 700, color: vars.textDim, mb: 0.3 }}>
+                                    {field.toUpperCase().replace("_TEXT", "")}
+                                </Typography>
+                                <TextField fullWidth size="small"
+                                    value={(editDraftRow as any)[field] || ""} onChange={(e) => setEditDraftRow({ ...editDraftRow, [field]: e.target.value })}
+                                    sx={(tm) => ({ "& .MuiOutlinedInput-root": { height: 36, bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff", color: vars.text } })} />
+                            </Box>
                         );
                     })}
                 </DialogContent>
@@ -703,11 +753,16 @@ export default function VisibilitySchedule() {
             {/* Edit Row Dialog */}
             <Dialog open={!!editRow} onClose={() => setEditRow(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}>
                 <DialogTitle sx={{ fontWeight: 700 }}>Edit Pass Data</DialogTitle>
-                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 2, pb: 2 }}>
                     {editRow && ["date_text", "sc", "stn", "orbit", "max_ele", "aos", "los", "operations"].map((field) => (
-                        <TextField key={field} label={field.toUpperCase().replace("_TEXT", "")} size="small"
-                            value={(editRow as any)[field] || ""} onChange={(e) => setEditRow({ ...editRow, [field]: e.target.value })}
-                            sx={(tm) => ({ "& .MuiOutlinedInput-root": { bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff", color: vars.text } })} />
+                        <Box key={field}>
+                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: vars.textDim, mb: 0.3 }}>
+                                {field.toUpperCase().replace("_TEXT", "")}
+                            </Typography>
+                            <TextField fullWidth size="small"
+                                value={(editRow as any)[field] || ""} onChange={(e) => setEditRow({ ...editRow, [field]: e.target.value })}
+                                sx={(tm) => ({ "& .MuiOutlinedInput-root": { height: 36, bgcolor: tm.palette.mode === "dark" ? "#232325" : "#fff", color: vars.text } })} />
+                        </Box>
                     ))}
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -852,9 +907,30 @@ export default function VisibilitySchedule() {
                                                     />
                                                 </TableCell>
                                                 <TableCell sx={theadCellSx}>Sr No.</TableCell>
-                                                {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
-                                                    <TableCell key={h} sx={theadCellSx}>{h}</TableCell>
-                                                ))}
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.date_text }}>
+                                                    DATE (yyyy mm dd)
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.sc }}>
+                                                    S/C
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("sc", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.stn }}>
+                                                    STN
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("stn", e)} />
+                                                </TableCell>
+                                                <TableCell sx={theadCellSx}>ORBIT</TableCell>
+                                                <TableCell sx={theadCellSx}>Max</TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.aos }}>
+                                                    AOS (hh:mm:ss)
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.los }}>
+                                                    LOS (hh:mm:ss)
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.operations }}>
+                                                    OPERATIONS
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("operations", e)} />
+                                                </TableCell>
                                                 <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Action</TableCell>
                                                 <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
                                             </TableRow>
@@ -871,14 +947,14 @@ export default function VisibilitySchedule() {
                                                         />
                                                     </TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(draftPage * draftRowsPerPage) + index + 1}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.date_text }}>{r.date_text.replace(/-/g, ' ')}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.sc }}>{r.sc}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.stn }}>{r.stn}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.operations }}>{r.operations}</TableCell>
                                                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                                                         <IconButton size="small" disabled={!canWrite} onClick={() => setEditDraftRow(r)} sx={{ color: vars.textDim }}><EditOutlinedIcon fontSize="small" /></IconButton>
                                                     </TableCell>
@@ -961,26 +1037,47 @@ export default function VisibilitySchedule() {
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>Sr No.</TableCell>
-                                                {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
-                                                    <TableCell key={h} sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>{h}</TableCell>
-                                                ))}
-                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
-                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Post Pass Status</TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: 60 }}>Sr No.</TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.date_text }}>
+                                                    DATE (yyyy mm dd)
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.sc }}>
+                                                    S/C
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("sc", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.stn }}>
+                                                    STN
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("stn", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx }}>ORBIT</TableCell>
+                                                <TableCell sx={{ ...theadCellSx }}>Max</TableCell>
+                                                <TableCell sx={{ ...theadCellSx }}>
+                                                    AOS (hh:mm:ss)
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx }}>
+                                                    LOS (hh:mm:ss)
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.operations }}>
+                                                    OPERATIONS
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("operations", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
+                                                <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Post Pass Status</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {visibleRows.map((r, index) => (
                                                 <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(page * rowsPerPage) + index + 1}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.date_text }}>{r.date_text.replace(/-/g, ' ')}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.sc }}>{r.sc}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.stn }}>{r.stn}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.operations }}>{r.operations}</TableCell>
 
                                                     {/* Status Column */}
                                                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
@@ -1093,26 +1190,47 @@ export default function VisibilitySchedule() {
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>Sr No.</TableCell>
-                                                {["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS"].map(h => (
-                                                    <TableCell key={h} sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", whiteSpace: "nowrap" }}>{h}</TableCell>
-                                                ))}
-                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Status</TableCell>
-                                                <TableCell sx={{ color: "var(--passes-thead-text)", fontWeight: 700, bgcolor: "var(--passes-thead-bg)", textAlign: "center", whiteSpace: "nowrap" }}>Post Pass Status</TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: 60 }}>Sr No.</TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.date_text }}>
+                                                    DATE (yyyy mm dd)
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.sc }}>
+                                                    S/C
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("sc", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.stn }}>
+                                                    STN
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("stn", e)} />
+                                                </TableCell>
+                                                <TableCell sx={theadCellSx}>ORBIT</TableCell>
+                                                <TableCell sx={theadCellSx}>Max</TableCell>
+                                                <TableCell sx={theadCellSx}>
+                                                    AOS (hh:mm:ss)
+                                                </TableCell>
+                                                <TableCell sx={theadCellSx}>
+                                                    LOS (hh:mm:ss)
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, width: colWidths.operations }}>
+                                                    OPERATIONS
+                                                    <Box className="resizer" onMouseDown={(e) => handleResize("operations", e)} />
+                                                </TableCell>
+                                                <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
+                                                <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Post Pass Status</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {visibleRows.map((r, index) => (
                                                 <TableRow key={r.id} sx={{ bgcolor: index % 2 ? "var(--row-stripe)" : "transparent" }}>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{(page * rowsPerPage) + index + 1}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.date_text}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.sc}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.stn}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.date_text }}>{r.date_text.replace(/-/g, ' ')}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.sc }}>{r.sc}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.stn }}>{r.stn}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.orbit}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.max_ele}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.aos}</TableCell>
                                                     <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.los}</TableCell>
-                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap" }}>{r.operations}</TableCell>
+                                                    <TableCell sx={{ color: vars.text, whiteSpace: "nowrap", width: colWidths.operations }}>{r.operations}</TableCell>
 
                                                     {/* Status Column – same as Draft/Availability logic */}
                                                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>

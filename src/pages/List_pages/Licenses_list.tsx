@@ -160,7 +160,6 @@ const getLicenseStatusStyle = (status: string) => {
 };
 
 /* ---------- Table ---------- */
-const CELL_PX = "clamp(6px, 0.8vw, 12px)";
 
 function ThemedScrollTable({
   rows,
@@ -168,12 +167,14 @@ function ThemedScrollTable({
   onUpdate,
   emptyText,
   isEditor,
+  onResize,
 }: {
   rows: Row[];
   columns: Column[];
   onUpdate: (r: Row) => void;
   emptyText: string;
   isEditor: boolean;
+  onResize?: (key: string, width: number) => void;
 }) {
 
   const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
@@ -217,9 +218,37 @@ function ThemedScrollTable({
                 fontWeight: 700,
                 color: "var(--lic-thead-text)",
                 textAlign: c.align ?? "center",
+                position: "relative",
+                "& .resizer": {
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  height: "100%",
+                  width: "4px",
+                  cursor: "col-resize",
+                  "&:hover": { bgcolor: TOK.ACCENT },
+                },
               }}
             >
               {c.label}
+              {onResize && ["station", "status", "remarks"].includes(String(c.key)) && (
+                <Box
+                  className="resizer"
+                  onMouseDown={(e) => {
+                    const startX = e.pageX;
+                    const startWidth = c.width ?? c.min ?? 80;
+                    const onMove = (me: MouseEvent) => {
+                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
+                    };
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove);
+                      document.removeEventListener("mouseup", onUp);
+                    };
+                    document.addEventListener("mousemove", onMove);
+                    document.addEventListener("mouseup", onUp);
+                  }}
+                />
+              )}
             </Box>
           ))}
         </Box>
@@ -311,6 +340,7 @@ key={`status-${idx}`}
                     ...cellSx,
                     color: TOK.TEXT_DIM,
                     textAlign: c.align ?? "center",
+                    width: c.width ? `${c.width}px` : "auto",
                   }}
                 >
                   {cellValue}
@@ -347,32 +377,31 @@ const canEdit = hasWriteAccess("licenses");
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
- const COLUMNS: Column[] = React.useMemo(
-  () => {
-    const cols: Column[] = [
-      { key: "sr",       label: t("Sr No"),          width: 70, align: "center" },
-      { key: "satName",  label: t("Satellite Name"), min: 120, flex: 1.1, align: "center" },
-      { key: "station",  label: t("Station"),        min: 100, flex: 1,   align: "center" },
-      { key: "applied",  label: t("Applied Date"),   min: 120, flex: 0.9, align: "center" },
-      { key: "receipt",  label: t("Receipt Date"),   min: 120, flex: 0.9, align: "center" },
-      { key: "validity", label: t("Validity"),       min: 120, flex: 0.9, align: "center" },
-      { key: "band",     label: t("Band"),           min: 120, flex: 0.9, align: "center" },
-      { key: "downlink", label: t("Downlink"),       min: 110, flex: 0.8, align: "center" },
-      { key: "uplink",   label: t("Uplink"),         min: 110, flex: 0.8, align: "center" },
-      { key: "status",   label: t("Status"),         min: 100, flex: 0.7, align: "center" },
-        { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" }, // ✅ new
-  { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" }, // ✅ new
-      { key: "remarks",  label: t("Remarks"),        min: 120, flex: 1,   align: "center" },
-    ];
+  const [dynamicCols, setDynamicCols] = React.useState<Column[]>([
+    { key: "sr",       label: t("Sr No"),          width: 70, align: "center" },
+    { key: "satName",  label: t("Satellite Name"), min: 120, flex: 1.1, align: "center" },
+    { key: "station",  label: t("Station"),        min: 100, flex: 1,   align: "center" },
+    { key: "applied",  label: t("Applied Date"),   min: 120, flex: 0.9, align: "center" },
+    { key: "receipt",  label: t("Receipt Date"),   min: 120, flex: 0.9, align: "center" },
+    { key: "validity", label: t("Validity"),       min: 120, flex: 0.9, align: "center" },
+    { key: "band",     label: t("Band"),           min: 120, flex: 0.9, align: "center" },
+    { key: "downlink", label: t("Downlink"),       min: 110, flex: 0.8, align: "center" },
+    { key: "uplink",   label: t("Uplink"),         min: 110, flex: 0.8, align: "center" },
+    { key: "status",   label: t("Status"),         min: 100, flex: 0.7, align: "center" },
+    { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" },
+    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" },
+    { key: "remarks",  label: t("Remarks"),        min: 120, flex: 1,   align: "center" },
+  ]);
 
-    if (canEdit) {
-  cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
-}
+  const handleResize = (key: string, width: number) => {
+    setDynamicCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
+  };
 
+  const FINAL_COLUMNS = React.useMemo(() => {
+    const cols = [...dynamicCols];
+    if (canEdit) cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
     return cols;
-  },
-  [t, canEdit]
-);
+  }, [dynamicCols, t, canEdit]);
 
 
   const fetchRows = React.useCallback(async () => {
@@ -592,12 +621,13 @@ r.dateTime,
             <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden", bgcolor: "transparent" }}>
               <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX, bgcolor: "transparent" }}>
                 <ThemedScrollTable
-  rows={paged}
-  columns={COLUMNS}
-  onUpdate={openModal}
-  emptyText={t("No licenses found.")}
-  isEditor={canEdit}
-/>
+                  rows={paged}
+                  columns={FINAL_COLUMNS}
+                  onUpdate={openModal}
+                  emptyText={t("No licenses found.")}
+                  isEditor={canEdit}
+                  onResize={handleResize}
+                />
 
               </Box>
             </Box>
