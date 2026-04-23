@@ -71,8 +71,8 @@ const CARD_SX = {
 // IAM-like helpers (light-only tweaks)
 const theadBg = (t: Theme) => (t.palette.mode === "dark" ? "#1D1D20" : "#464b4e");
 
-const theadText = (t: Theme) => (t.palette.mode === "light" ? "#fff" : vars.text);
-const bodyText = (t: Theme) => (t.palette.mode === "light" ? "#fff" : vars.text);
+const theadText = (_t: Theme) => "#FFFFFF";
+const bodyText = (t: Theme) => (t.palette.mode === "light" ? "#FFFFFF" : vars.text);
 
 // Accent + pill helpers (match IAM light/dark behavior)
 const GREEN = "#7CFF8D";
@@ -80,9 +80,9 @@ const GREEN_BORDER_DARK = "rgba(124,255,141,0.18)";
 const SELECTED_BG_DARK = "#1D1D20";
 const SELECTED_BG_LIGHT = "#FFFFFF";
 
-const getSelectedBg   = (t: Theme) => (t.palette.mode === "dark" ? SELECTED_BG_DARK  : SELECTED_BG_LIGHT);
+const getSelectedBg = (t: Theme) => (t.palette.mode === "dark" ? SELECTED_BG_DARK : SELECTED_BG_LIGHT);
 const getSelectedBord = (t: Theme) => (t.palette.mode === "dark" ? GREEN_BORDER_DARK : GREEN);
-const getHoverBg      = (t: Theme) => (t.palette.mode === "dark" ? vars.bgHover : "#FFFFFF");
+const getHoverBg = (t: Theme) => (t.palette.mode === "dark" ? vars.bgHover : "#FFFFFF");
 
 // Reusable pill style (same as IAM)
 const pillSx = {
@@ -98,7 +98,7 @@ const pillSx = {
   "&.Mui-selected": {
     color: GREEN,
     bgcolor: (t: Theme) => getSelectedBg(t),
-    border:  (t: Theme) => `1px solid ${getSelectedBord(t)}`,
+    border: (t: Theme) => `1px solid ${getSelectedBord(t)}`,
     boxShadow: (t: Theme) =>
       t.palette.mode === "dark"
         ? "inset 0 0 0 1px rgba(124,255,141,0.06)"
@@ -150,8 +150,6 @@ function ThemedScrollTable({
   rows,
   columns,
   onEdit,
-  emptyText,
-  canEdit,
   onResize,
   theadBg,
   theadText,
@@ -160,8 +158,6 @@ function ThemedScrollTable({
   rows: GSRow[];
   columns: any[];
   onEdit: (r: GSRow) => void;
-  emptyText: string;
-  canEdit: boolean;
   onResize?: (key: string, width: number) => void;
   theadBg: string;
   theadText: string;
@@ -212,11 +208,12 @@ function ThemedScrollTable({
                 "& .resizer": {
                   position: "absolute",
                   right: 0,
-                  top: 0,
-                  height: "100%",
-                  width: "4px",
+                  top: "20%",
+                  height: "60%",
+                  width: "2px",
+                  bgcolor: (t: Theme) => t.palette.mode === "light" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.18)",
                   cursor: "col-resize",
-                  "&:hover": { bgcolor: vars.accent },
+                  "&:hover": { bgcolor: vars.accent, width: "4px" },
                 },
               }}
             >
@@ -423,11 +420,11 @@ type AntennaRow = {
   tx_polarization: string;
   rx_polarization: string; // ✅ ADD
   travel_range: string;
-tracking_velocity: string;
-tracking_acceleration: string;
-tracking_modes: string;
+  tracking_velocity: string;
+  tracking_acceleration: string;
+  tracking_modes: string;
   bands: AntBand[];
-    status?: "PENDING" | "APPROVED" | "REJECTED";
+  status?: "PENDING" | "APPROVED" | "REJECTED";
 
   // gts: AntGT[];
 };
@@ -468,19 +465,19 @@ function makeCaptcha(width = 220, height = 80, length = 5): Captcha {
     const x1 = rand(0, width), y1 = rand(0, height);
     const x2 = rand(0, width), y2 = rand(0, height);
     const op = rand(0.25, 0.45).toFixed(2);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(1,2)}"/>`;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(1, 2)}"/>`;
   }).join("");
   const dots = Array.from({ length: 35 }).map(() => {
     const x = rand(0, width), y = rand(0, height);
     const op = rand(0.15, 0.35).toFixed(2);
-    return `<circle cx="${x}" cy="${y}" r="${rand(0.8,2.2)}" fill="white" fill-opacity="${op}"/>`;
+    return `<circle cx="${x}" cy="${y}" r="${rand(0.8, 2.2)}" fill="white" fill-opacity="${op}"/>`;
   }).join("");
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
     <filter id="wavy">
-      <feTurbulence type="fractalNoise" baseFrequency="${rand(0.9,1.3)/100}" numOctaves="2" result="noise"/>
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="${rand(8,14)}" xChannelSelector="R" yChannelSelector="G"/>
+      <feTurbulence type="fractalNoise" baseFrequency="${rand(0.9, 1.3) / 100}" numOctaves="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="${rand(8, 14)}" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
     <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="#1a1a1d"/>
@@ -516,10 +513,10 @@ function CaptchaDialog({
       <DialogContent>
         <Box sx={{ display: "grid", gap: 1 }}>
           <img src={svgDataUrl(cap.svg)} alt="captcha"
-               style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${vars.border}` }} />
+            style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${vars.border}` }} />
           <Box sx={{ display: "flex", gap: 1 }}>
             <TextField value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("Type the letters")} size="small" fullWidth
-              sx={(tMUI) => ({ ...sxPresets.ctrl, "& .MuiOutlinedInput-root": { height: 36, background: (tMUI as any).palette.mode === "dark" ? "#232325" : "#fff" } })}/>
+              sx={(tMUI) => ({ ...sxPresets.ctrl, "& .MuiOutlinedInput-root": { height: 36, background: (tMUI as any).palette.mode === "dark" ? "#232325" : "#fff" } })} />
             <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: vars.border }}>
               {t("Refresh")}
             </Button>
@@ -621,40 +618,40 @@ function ListPanel({
 /* ======================================================= */
 export default function Gsoperations() {
   const { user } = useAuth();
-  const theme = vars.textDim === "rgba(255,255,255,0.6)" ? "dark" : "light"; // Heuristic for theme
-const u = user as any;
+  const theme = vars.textDim.includes("rgba(255,255,255,0.6)") ? "dark" : "light"; // Heuristic for theme
+  const u = user as any;
 
-const role = String(
-  u?.role ||
-  u?.roleName ||
-  sessionStorage.getItem("pmgt_role") ||
-  ""
-).toLowerCase();
+  const role = String(
+    u?.role ||
+    u?.roleName ||
+    sessionStorage.getItem("pmgt_role") ||
+    ""
+  ).toLowerCase();
 
-const roleType = String(
-  u?.roleType ||
-  sessionStorage.getItem("pmgt_role_type") ||
-  ""
-).toLowerCase();
+  const roleType = String(
+    u?.roleType ||
+    sessionStorage.getItem("pmgt_role_type") ||
+    ""
+  ).toLowerCase();
 
 
-const username = String(u?.username || "").toLowerCase();
+  const username = String(u?.username || "").toLowerCase();
 
-const isAdmin =
-  role === "admin" ||
-  role === "superadmin" ||
-  roleType === "admin" ||
-  username === "isroadmin";
+  const isAdmin =
+    role === "admin" ||
+    role === "superadmin" ||
+    roleType === "admin" ||
+    username === "isroadmin";
 
-const isEditor =
-  roleType === "editor" ||
-  roleType === "write" ||
-  role === "editor" ||
-  role === "write";
+  const isEditor =
+    roleType === "editor" ||
+    roleType === "write" ||
+    role === "editor" ||
+    role === "write";
 
-const canEditAntenna = isAdmin || isEditor;
+  const canEditAntenna = isAdmin || isEditor;
 
-// const ANT_GRID = isAdmin ? ANT_COLS_ADMIN : ANT_COLS_USER;
+  // const ANT_GRID = isAdmin ? ANT_COLS_ADMIN : ANT_COLS_USER;
   const { t } = useI18n();
 
   const [tab, setTab] = React.useState<TabKey>("stations");
@@ -725,13 +722,13 @@ const canEditAntenna = isAdmin || isEditor;
   const [antSize, setAntSize] = React.useState("");
   const [antEIRP, setAntEIRP] = React.useState("");
   const [antTxPol, setAntTxPol] = React.useState<string[]>([]);
-const [antRxPol, setAntRxPol] = React.useState<string[]>([]);
+  const [antRxPol, setAntRxPol] = React.useState<string[]>([]);
 
 
-const [azFrom, setAzFrom] = React.useState("");
-const [azTo, setAzTo] = React.useState("");
-const [elFrom, setElFrom] = React.useState("");
-const [elTo, setElTo] = React.useState("");
+  const [azFrom, setAzFrom] = React.useState("");
+  const [azTo, setAzTo] = React.useState("");
+  const [elFrom, setElFrom] = React.useState("");
+  const [elTo, setElTo] = React.useState("");
   const [antTrackVel, setAntTrackVel] = React.useState("");
   const [antTrackAcc, setAntTrackAcc] = React.useState("");
   const [antTrackModes, setAntTrackModes] = React.useState("");
@@ -739,8 +736,8 @@ const [elTo, setElTo] = React.useState("");
   // const [curUplink, setCurUplink] = React.useState("");
   // const [curDownlink, setCurDownlink] = React.useState("");
   const [curGT, setCurGT] = React.useState("");
-const [isUplink, setIsUplink] = React.useState(false);
-const [isDownlink, setIsDownlink] = React.useState(false);
+  const [isUplink, setIsUplink] = React.useState(false);
+  const [isDownlink, setIsDownlink] = React.useState(false);
 
   const [bandRows, setBandRows] = React.useState<AntBand[]>([]);
   // const [gtBand, setGtBand] = React.useState("");
@@ -757,14 +754,14 @@ const [isDownlink, setIsDownlink] = React.useState(false);
   );
 
 
-const ANT_COLS_ADMIN =
-"44px 52px 120px 100px 80px 100px 120px 120px 150px 100px 100px 120px 120px 250px 300px";
+  const ANT_COLS_ADMIN =
+    "44px 52px 120px 100px 80px 100px 120px 120px 150px 100px 100px 120px 120px 250px 300px";
 
-const ANT_COLS_USER =
-"44px 52px 120px 100px 80px 100px 120px 120px 150px 100px 100px 120px 250px 160px";
+  const ANT_COLS_USER =
+    "44px 52px 120px 100px 80px 100px 120px 120px 150px 100px 100px 120px 250px 160px";
 
 
-const ANT_GRID = isAdmin ? ANT_COLS_ADMIN : ANT_COLS_USER;
+  const ANT_GRID = isAdmin ? ANT_COLS_ADMIN : ANT_COLS_USER;
 
 
 
@@ -777,7 +774,7 @@ const ANT_GRID = isAdmin ? ANT_COLS_ADMIN : ANT_COLS_USER;
     setAntennaSel("");
     // setLat("");
     // setLng("");
-setSelectedAntenna(null);
+    setSelectedAntenna(null);
 
     setOpName("");
     setReqName("");
@@ -792,18 +789,18 @@ setSelectedAntenna(null);
     setAntEIRP("");
     setAntTxPol([]);
     setAntRxPol([]);
-    
-setAzFrom("");
-setAzTo("");
-setElFrom("");
-setElTo("");    setAntTrackVel("");
+
+    setAzFrom("");
+    setAzTo("");
+    setElFrom("");
+    setElTo(""); setAntTrackVel("");
     setAntTrackAcc("");
     setAntTrackModes("");
-  setCurBand("");
-setCurGT("");
-setIsUplink(false);
-setIsDownlink(false);
-setBandRows([]);
+    setCurBand("");
+    setCurGT("");
+    setIsUplink(false);
+    setIsDownlink(false);
+    setBandRows([]);
 
   };
 
@@ -847,15 +844,14 @@ tbody tr:nth-child(even) td { background:#fafafa; }
 <h1>${t("Ground Station Details")}</h1>
 <table>
 <thead><tr>${headers
-      .map(
-        (h) =>
-          `<th style="border:1px solid #aaa;padding:6px 8px;font:12px/1.3 system-ui,Segoe UI,Roboto">${h}</th>`
-      )
-      .join("")}</tr></thead>
-<tbody>${
-      rowsHtml ||
+        .map(
+          (h) =>
+            `<th style="border:1px solid #aaa;padding:6px 8px;font:12px/1.3 system-ui,Segoe UI,Roboto">${h}</th>`
+        )
+        .join("")}</tr></thead>
+<tbody>${rowsHtml ||
       `<tr><td colspan="${headers.length}" style="border:1px solid #aaa;padding:10px">${t("No data")}</td></tr>`
-    }</tbody>
+      }</tbody>
 </table>
 <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300);}</script>
 </body></html>`;
@@ -913,186 +909,186 @@ tbody tr:nth-child(even) td { background:#fafafa; }
     }
   }, [t]);
 
-const loadSupporters = React.useCallback(async () => {
-  try {
-    const json = await api.get<any>(
-      `${SUP_API}?limit=1000&sort_by=supporter_name&sort_order=asc`
-    );
-    setSupporters((json?.data ?? []).map((d: any) => d.supporter_name));
-  } catch (e: any) {
-    console.error(e);
-    alert(e?.message || t("Failed to load TTC Service Providers"));
-  }
-}, [t]);
+  const loadSupporters = React.useCallback(async () => {
+    try {
+      const json = await api.get<any>(
+        `${SUP_API}?limit=1000&sort_by=supporter_name&sort_order=asc`
+      );
+      setSupporters((json?.data ?? []).map((d: any) => d.supporter_name));
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || t("Failed to load TTC Service Providers"));
+    }
+  }, [t]);
 
 
-const loadAntennas = React.useCallback(async () => {
-  try {
-    /* 1️⃣ Load APPROVED antennas */
-   const antRes = await api.get<any>(
-  `${ANT_API}?limit=1000&sort_by=id&sort_order=asc&_=${Date.now()}`
-);
+  const loadAntennas = React.useCallback(async () => {
+    try {
+      /* 1️⃣ Load APPROVED antennas */
+      const antRes = await api.get<any>(
+        `${ANT_API}?limit=1000&sort_by=id&sort_order=asc&_=${Date.now()}`
+      );
 
-   const approved: AntennaRow[] = (antRes?.data ?? []).map((a: any) => {
+      const approved: AntennaRow[] = (antRes?.data ?? []).map((a: any) => {
 
-  // ✅ define BEFORE return
-  const gtMap = new Map(
-    (a.receive_gt || []).map((g: any) => [
-      g.band,
-      String(g.gt ?? "")
-    ])
-  );
+        // ✅ define BEFORE return
+        const gtMap = new Map(
+          (a.receive_gt || []).map((g: any) => [
+            g.band,
+            String(g.gt ?? "")
+          ])
+        );
 
-  // ✅ now return object
-  return {
-    id: a.id,
-    type: String(a.antenna_type ?? ""),
-    location: String(a.location ?? "-"),
-    size_m: String(a.size_m ?? ""),
-    eirp_dbw: String(a.eirp_dbw ?? ""),
-    tx_polarization: String(a.tx_polarization ?? ""),
-    rx_polarization: String(a.rx_polarization ?? ""),
-    travel_range: String(a.travel_range ?? ""),
-    tracking_velocity: String(a.tracking_velocity ?? ""),
-    tracking_acceleration: String(a.tracking_acceleration ?? ""),
-    tracking_modes: String(a.tracking_modes ?? ""),
+        // ✅ now return object
+        return {
+          id: a.id,
+          type: String(a.antenna_type ?? ""),
+          location: String(a.location ?? "-"),
+          size_m: String(a.size_m ?? ""),
+          eirp_dbw: String(a.eirp_dbw ?? ""),
+          tx_polarization: String(a.tx_polarization ?? ""),
+          rx_polarization: String(a.rx_polarization ?? ""),
+          travel_range: String(a.travel_range ?? ""),
+          tracking_velocity: String(a.tracking_velocity ?? ""),
+          tracking_acceleration: String(a.tracking_acceleration ?? ""),
+          tracking_modes: String(a.tracking_modes ?? ""),
 
-    bands: Array.isArray(a.bands)
-      ? a.bands.map((b: any) => ({
-          band: b.band,
-          gt: gtMap.get(b.band) || "",
-          uplink: Boolean(b.uplink),
-          downlink: Boolean(b.downlink),
-        }))
-      : [],
+          bands: Array.isArray(a.bands)
+            ? a.bands.map((b: any) => ({
+              band: b.band,
+              gt: gtMap.get(b.band) || "",
+              uplink: Boolean(b.uplink),
+              downlink: Boolean(b.downlink),
+            }))
+            : [],
 
-    status: "APPROVED",
-  };
-});
-
-
-    /* 2️⃣ Load PENDING antennas → ADMIN ONLY */
-    let pendingRows: AntennaRow[] = []; // ✅ DEFINE OUTSIDE
-
-if (isAdmin) {
-  try {
-   const reqRes = await api.get<any>(
-  `${ANT_REQ_API}?status=pending&_=${Date.now()}`
-);
-  const reqRows = Array.isArray(reqRes?.data)
-  ? reqRes.data
-  : Array.isArray(reqRes)
-  ? reqRes
-  : [];
-
-console.log("🧪 FULL PENDING RESPONSE:", reqRes);
-console.log("🧪 PENDING ARRAY:", reqRows);
-console.log("🧪 FIRST ROW:", reqRows?.[0]);
-console.log("🧪 payload:", reqRows?.[0]?.payload);
-console.log("🧪 payload_data:", reqRows?.[0]?.payload_data);
-
-    pendingRows = reqRows.map((r: any) => {
-const p =
-  r.payload_data && Object.keys(r.payload_data).length
-    ? r.payload_data
-    : r.payload && Object.keys(r.payload).length
-    ? r.payload
-    : {
-        antenna_type: r.antenna_type,
-        location: r.location,
-        size_m: r.size_m,
-        eirp_dbw: r.eirp_dbw,
-        tx_polarization: r.tx_polarization,
-        rx_polarization: r.rx_polarization,
-        travel_range: r.travel_range,
-        tracking_velocity: r.tracking_velocity,
-        tracking_acceleration: r.tracking_acceleration,
-        tracking_modes: r.tracking_modes,
-        bands: r.bands,
-      };
-
-  
-return {
-  id: Number(r.request_id),
-__requestId: Number(r.request_id),
-
-  type: String(p.antenna_type ?? "-"),
-  location: String(p.location ?? "-"),
-  size_m: String(p.size_m ?? "-"),
-  eirp_dbw: String(p.eirp_dbw ?? "-"),
-  tx_polarization: String(p.tx_polarization ?? "-"),
-  rx_polarization: String(p.rx_polarization ?? "-"),
-  travel_range: String(p.travel_range ?? "-"),
-
-  tracking_velocity: String(p.tracking_velocity ?? "-"),
-  tracking_acceleration: String(p.tracking_acceleration ?? "-"),
-  tracking_modes: String(p.tracking_modes ?? "-"),
-
-  bands: Array.isArray(p.bands)
-    ? p.bands.map((b: any) => ({
-        band: b.band ?? "-",
-        gt: b.gt ?? "",
-        uplink: Boolean(b.uplink),
-        downlink: Boolean(b.downlink),
-      }))
-    : [],
-
-  status: String(r.status || "PENDING"), // ✅ FIXED
-};
-
-    });
-
-  } catch (e) {
-    console.warn("Pending antenna load failed", e);
-  }
-}
+          status: "APPROVED",
+        };
+      });
 
 
-    /* 3️⃣ Merge + set */
-const merged = isAdmin
-  ? [...pendingRows, ...approved].sort((a, b) => {
-      if (a.status === "PENDING") return -1;
-      if (b.status === "PENDING") return 1;
-      return 0;
-    })
-  : approved;
+      /* 2️⃣ Load PENDING antennas → ADMIN ONLY */
+      let pendingRows: AntennaRow[] = []; // ✅ DEFINE OUTSIDE
 
-    setAntRows(() => merged);
-setTimeout(() => setAntPage(0), 0);
-console.log("✅ FINAL ANT ROWS:", merged);
+      if (isAdmin) {
+        try {
+          const reqRes = await api.get<any>(
+            `${ANT_REQ_API}?status=pending&_=${Date.now()}`
+          );
+          const reqRows = Array.isArray(reqRes?.data)
+            ? reqRes.data
+            : Array.isArray(reqRes)
+              ? reqRes
+              : [];
 
-    /* 4️⃣ Dropdown options: Unique Locations and Antennas mapped to Locations */
-    const locs = Array.from(new Set(approved.filter(a => a.location).map(a => a.location.trim()))).sort();
-    setLocationOpts(locs);
-  } catch (e: any) {
-    console.error("Load antennas failed:", e);
-  }
-}, [isAdmin]);
+          console.log("🧪 FULL PENDING RESPONSE:", reqRes);
+          console.log("🧪 PENDING ARRAY:", reqRows);
+          console.log("🧪 FIRST ROW:", reqRows?.[0]);
+          console.log("🧪 payload:", reqRows?.[0]?.payload);
+          console.log("🧪 payload_data:", reqRows?.[0]?.payload_data);
+
+          pendingRows = reqRows.map((r: any) => {
+            const p =
+              r.payload_data && Object.keys(r.payload_data).length
+                ? r.payload_data
+                : r.payload && Object.keys(r.payload).length
+                  ? r.payload
+                  : {
+                    antenna_type: r.antenna_type,
+                    location: r.location,
+                    size_m: r.size_m,
+                    eirp_dbw: r.eirp_dbw,
+                    tx_polarization: r.tx_polarization,
+                    rx_polarization: r.rx_polarization,
+                    travel_range: r.travel_range,
+                    tracking_velocity: r.tracking_velocity,
+                    tracking_acceleration: r.tracking_acceleration,
+                    tracking_modes: r.tracking_modes,
+                    bands: r.bands,
+                  };
+
+
+            return {
+              id: Number(r.request_id),
+              __requestId: Number(r.request_id),
+
+              type: String(p.antenna_type ?? "-"),
+              location: String(p.location ?? "-"),
+              size_m: String(p.size_m ?? "-"),
+              eirp_dbw: String(p.eirp_dbw ?? "-"),
+              tx_polarization: String(p.tx_polarization ?? "-"),
+              rx_polarization: String(p.rx_polarization ?? "-"),
+              travel_range: String(p.travel_range ?? "-"),
+
+              tracking_velocity: String(p.tracking_velocity ?? "-"),
+              tracking_acceleration: String(p.tracking_acceleration ?? "-"),
+              tracking_modes: String(p.tracking_modes ?? "-"),
+
+              bands: Array.isArray(p.bands)
+                ? p.bands.map((b: any) => ({
+                  band: b.band ?? "-",
+                  gt: b.gt ?? "",
+                  uplink: Boolean(b.uplink),
+                  downlink: Boolean(b.downlink),
+                }))
+                : [],
+
+              status: String(r.status || "PENDING"), // ✅ FIXED
+            };
+
+          });
+
+        } catch (e) {
+          console.warn("Pending antenna load failed", e);
+        }
+      }
+
+
+      /* 3️⃣ Merge + set */
+      const merged = isAdmin
+        ? [...pendingRows, ...approved].sort((a, b) => {
+          if (a.status === "PENDING") return -1;
+          if (b.status === "PENDING") return 1;
+          return 0;
+        })
+        : approved;
+
+      setAntRows(() => merged);
+      setTimeout(() => setAntPage(0), 0);
+      console.log("✅ FINAL ANT ROWS:", merged);
+
+      /* 4️⃣ Dropdown options: Unique Locations and Antennas mapped to Locations */
+      const locs = Array.from(new Set(approved.filter(a => a.location).map(a => a.location.trim()))).sort();
+      setLocationOpts(locs);
+    } catch (e: any) {
+      console.error("Load antennas failed:", e);
+    }
+  }, [isAdmin]);
 
 
 
   //  const [pendingAnts, setPendingAnts] = React.useState<any[]>([]);
 
-// const loadPendingAntennas = React.useCallback(async () => {
-//   if (!isAdmin()) return;
-//   try {
-//     const res = await api.get(`${ANT_REQ_API}?status=PENDING`);
-//     setPendingAnts(res?.data ?? []);
-//   } catch (e) {
-//     console.error(e);
-//   }
-// }, []);
+  // const loadPendingAntennas = React.useCallback(async () => {
+  //   if (!isAdmin()) return;
+  //   try {
+  //     const res = await api.get(`${ANT_REQ_API}?status=PENDING`);
+  //     setPendingAnts(res?.data ?? []);
+  //   } catch (e) {
+  //     console.error(e);
+  //   }
+  // }, []);
   React.useEffect(() => {
-  if (!user) return;
+    if (!user) return;
 
-  loadStations();
-  loadPols();
-  loadOperations();
-  loadRequesters();
-  loadSupporters();
-  loadAntennas();
-}, [
-  user,
+    loadStations();
+    loadPols();
+    loadOperations();
+    loadRequesters();
+    loadSupporters();
+    loadAntennas();
+  }, [
+    user,
     loadStations,
     loadPols,
     loadOperations,
@@ -1103,52 +1099,52 @@ console.log("✅ FINAL ANT ROWS:", merged);
   ]);
 
   /* ================= Actions ================= */
- const handleAddStation = async () => {
-  if (!partner || !locationSel || !antennaSels.length) {
-    alert("Please select TTC Service Provider, Location, and at least one Antenna");
-    return;
-  }
+  const handleAddStation = async () => {
+    if (!partner || !locationSel || !antennaSels.length) {
+      alert("Please select TTC Service Provider, Location, and at least one Antenna");
+      return;
+    }
 
-  const payload = {
-    supporting_partner: partner.trim(),
-    ground_station: locationSel.trim(),
-    antenna: antennaSels.join(", "),
-    added_by: user?.username || "system",
+    const payload = {
+      supporting_partner: partner.trim(),
+      ground_station: locationSel.trim(),
+      antenna: antennaSels.join(", "),
+      added_by: user?.username || "system",
+    };
+
+    try {
+      const created: ApiGS = await api.post(GS_API, payload, {
+        headers: {
+          "x-module-name": "gs_operations",
+          "x-page-name": "/operations",
+        },
+      });
+
+      setRows(prev => [...prev, apiGsToUi(created)]);
+      setPartner("");
+      setLocationSel("");
+      setAntennaSels([]);
+      setPreviewAntennas([]);
+
+      alert("Ground Station added successfully ✅");
+      setGsInner("view");
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Failed to add Ground Station ❌");
+    }
   };
 
-  try {
-    const created: ApiGS = await api.post(GS_API, payload, {
-      headers: {
-        "x-module-name": "gs_operations",
-        "x-page-name": "/operations",
-      },
-    });
-
-    setRows(prev => [...prev, apiGsToUi(created)]);
-    setPartner("");
-    setLocationSel("");
-    setAntennaSels([]);
-    setPreviewAntennas([]);
-
-    alert("Ground Station added successfully ✅");
-    setGsInner("view");
-  } catch (e: any) {
-    console.error(e);
-    alert(e?.message || "Failed to add Ground Station ❌");
-  }
-};
 
 
 
-
-    // const latNum = Number(String(lat).replace(",", ".").trim());
-    // const lngNum = Number(String(lng).replace(",", ".").trim());
-    // if (Number.isFinite(latNum)) payload.station_latitude = latNum;
-    // if (Number.isFinite(lngNum)) payload.station_longitude = lngNum;
-//    if (!partner) {
-//   alert("Please enter Supporting Partner.");
-//   return;
-// }
+  // const latNum = Number(String(lat).replace(",", ".").trim());
+  // const lngNum = Number(String(lng).replace(",", ".").trim());
+  // if (Number.isFinite(latNum)) payload.station_latitude = latNum;
+  // if (Number.isFinite(lngNum)) payload.station_longitude = lngNum;
+  //    if (!partner) {
+  //   alert("Please enter Supporting Partner.");
+  //   return;
+  // }
 
   //   try {
   //     const created: ApiGS = await api.post(GS_API, payload);
@@ -1174,7 +1170,7 @@ console.log("✅ FINAL ANT ROWS:", merged);
     setEditRow({
       id: r.id,
       partner: r.partner,
-      station: r.station,
+      station: r.location,
       antennas,
       // latitude: r.lat ?? "",
       // longitude: r.lng ?? "",
@@ -1195,12 +1191,12 @@ console.log("✅ FINAL ANT ROWS:", merged);
       if (typeof updated.longitude !== "undefined")
         payload.station_longitude = updated.longitude || null;
 
-const data: ApiGS = await api.put(`${GS_API}/${updated.id}`, payload, {
-  headers: {
-    "x-module-name": "gs_operations",
-    "x-page-name": "/operations",
-  },
-});
+      const data: ApiGS = await api.put(`${GS_API}/${updated.id}`, payload, {
+        headers: {
+          "x-module-name": "gs_operations",
+          "x-page-name": "/operations",
+        },
+      });
 
       setRows((prev) => prev.map((r) => (r.id === updated.id ? apiGsToUi(data) : r)));
       setEditOpen(false);
@@ -1213,11 +1209,11 @@ const data: ApiGS = await api.put(`${GS_API}/${updated.id}`, payload, {
   const handleDeleteDialog = async (toDelete: GSDialogRow) => {
     try {
       await api.del(`${GS_API}/${toDelete.id}`, {
-  headers: {
-    "x-module-name": "gs_operations",
-    "x-page-name": "/operations",
-  },
-});
+        headers: {
+          "x-module-name": "gs_operations",
+          "x-page-name": "/operations",
+        },
+      });
 
       setRows((prev) => prev.filter((r) => r.id !== toDelete.id));
       setEditOpen(false);
@@ -1232,16 +1228,16 @@ const data: ApiGS = await api.put(`${GS_API}/${updated.id}`, payload, {
     const name = opName.trim();
     if (!name) return;
     try {
-const created = await api.post(
-  OPS_API,
-  { operation_name: name, added_by: "Admin" },
-  {
-    headers: {
-      "x-module-name": "gs_operations",
-      "x-page-name": "/operations",
-    },
-  }
-);
+      const created = await api.post(
+        OPS_API,
+        { operation_name: name, added_by: "Admin" },
+        {
+          headers: {
+            "x-module-name": "gs_operations",
+            "x-page-name": "/operations",
+          },
+        }
+      );
       setOpsList((cur) => [...cur, created.operation_name]);
       setOpName("");
       alert(t("Operation added ✅"));
@@ -1250,45 +1246,45 @@ const created = await api.post(
       alert(e?.message || t("Failed to add operation ❌"));
     }
   };
- const handleAddRequester = async () => {
-  const name = reqName.trim();
-  if (!name) return;
+  const handleAddRequester = async () => {
+    const name = reqName.trim();
+    if (!name) return;
 
-  try {
-    const created = await api.post(
-      REQ_API,
-      { requester_name: name, added_by: "Admin" },
-      {
-        headers: {
-          "x-module-name": "gs_operations",
-          "x-page-name": "/operations",
-        },
-      }
-    );
+    try {
+      const created = await api.post(
+        REQ_API,
+        { requester_name: name, added_by: "Admin" },
+        {
+          headers: {
+            "x-module-name": "gs_operations",
+            "x-page-name": "/operations",
+          },
+        }
+      );
 
-    setRequesters((cur) => [...cur, created.requester_name]);
-    setReqName("");
-    alert(t("Operation requester added ✅"));
-  } catch (e: any) {
-    console.error(e);
-    alert(e?.message || t("Failed to add requester ❌"));
-  }
-};
+      setRequesters((cur) => [...cur, created.requester_name]);
+      setReqName("");
+      alert(t("Operation requester added ✅"));
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || t("Failed to add requester ❌"));
+    }
+  };
 
   const handleAddSupporter = async () => {
     const name = supName.trim();
     if (!name) return;
     try {
-const created = await api.post(
-  SUP_API,
-  { supporter_name: name, added_by: "Admin" },
-  {
-    headers: {
-      "x-module-name": "gs_operations",
-      "x-page-name": "/operations",
-    },
-  }
-);
+      const created = await api.post(
+        SUP_API,
+        { supporter_name: name, added_by: "Admin" },
+        {
+          headers: {
+            "x-module-name": "gs_operations",
+            "x-page-name": "/operations",
+          },
+        }
+      );
       setSupporters((cur) => [...cur, created.supporter_name]);
       setSupName("");
       alert(t("TTC Service Provider added ✅"));
@@ -1299,74 +1295,74 @@ const created = await api.post(
   };
 
 
-const handleApprove = async (requestId: number) => {
-  await api.post(`${ANT_REQ_API}/${requestId}/approve`, null, {
-    headers: {
-      "x-module-name": "gs_operations",
-      "x-page-name": "/operations",
-    },
-  });
-
-  await loadAntennas();
-  setAntPage(0);
-  toast.success("Antenna approved ✅");
-};
-
-const handleReject = async (requestId: number) => {
-  await api.post(`${ANT_REQ_API}/${requestId}/reject`, null, {
-    headers: {
-      "x-module-name": "gs_operations",
-      "x-page-name": "/operations",
-    },
-  });
-
-  await loadAntennas();
-  setAntPage(0);
-  toast.error("Antenna rejected ❌");
-};
-
-
-const toggleAntennaSelect = (id: number) => {
-  setSelectedAntennas(prev =>
-    prev.includes(id)
-      ? prev.filter(x => x !== id)
-      : [...prev, id]
-  );
-};
-
-const handleDeleteSelectedAntennas = async () => {
-  const rows = antRows.filter(a => selectedAntennas.includes(Number(a.id)));
-
-  // ❌ block pending
-  if (rows.some(r => r.status === "PENDING")) {
-    toast.error("Pending antennas cannot be deleted");
-    return;
-  }
-
-  try {
-await Promise.all(
-  selectedAntennas.map((id) =>
-    api.del(`${ANT_API}/${id}`, {
+  const handleApprove = async (requestId: number) => {
+    await api.post(`${ANT_REQ_API}/${requestId}/approve`, null, {
       headers: {
         "x-module-name": "gs_operations",
         "x-page-name": "/operations",
       },
-    })
-  )
-);
+    });
+
+    await loadAntennas();
+    setAntPage(0);
+    toast.success("Antenna approved ✅");
+  };
+
+  const handleReject = async (requestId: number) => {
+    await api.post(`${ANT_REQ_API}/${requestId}/reject`, null, {
+      headers: {
+        "x-module-name": "gs_operations",
+        "x-page-name": "/operations",
+      },
+    });
+
+    await loadAntennas();
+    setAntPage(0);
+    toast.error("Antenna rejected ❌");
+  };
 
 
-    toast.success("Selected antennas deleted ✅");
-
-    setAntRows(prev =>
-      prev.filter(r => !selectedAntennas.includes(Number(r.id)))
+  const toggleAntennaSelect = (id: number) => {
+    setSelectedAntennas(prev =>
+      prev.includes(id)
+        ? prev.filter(x => x !== id)
+        : [...prev, id]
     );
+  };
 
-    setSelectedAntennas([]);
-  } catch (e) {
-    toast.error("Failed to delete antennas ❌");
-  }
-};
+  const handleDeleteSelectedAntennas = async () => {
+    const rows = antRows.filter(a => selectedAntennas.includes(Number(a.id)));
+
+    // ❌ block pending
+    if (rows.some(r => r.status === "PENDING")) {
+      toast.error("Pending antennas cannot be deleted");
+      return;
+    }
+
+    try {
+      await Promise.all(
+        selectedAntennas.map((id) =>
+          api.del(`${ANT_API}/${id}`, {
+            headers: {
+              "x-module-name": "gs_operations",
+              "x-page-name": "/operations",
+            },
+          })
+        )
+      );
+
+
+      toast.success("Selected antennas deleted ✅");
+
+      setAntRows(prev =>
+        prev.filter(r => !selectedAntennas.includes(Number(r.id)))
+      );
+
+      setSelectedAntennas([]);
+    } catch (e) {
+      toast.error("Failed to delete antennas ❌");
+    }
+  };
 
   const handleAddPol = async () => {
     const s = satName.trim();
@@ -1374,15 +1370,15 @@ await Promise.all(
     if (!s || !pz) return;
     try {
       const created = await api.post(
-  POL_API,
-  { satellite_name: s, polarization: pz },
-  {
-    headers: {
-      "x-module-name": "gs_operations",
-      "x-page-name": "/operations",
-    },
-  }
-);
+        POL_API,
+        { satellite_name: s, polarization: pz },
+        {
+          headers: {
+            "x-module-name": "gs_operations",
+            "x-page-name": "/operations",
+          },
+        }
+      );
 
       setPolRows((cur) => [...cur, apiPolToUi(created)]);
       setSatName("");
@@ -1401,12 +1397,12 @@ await Promise.all(
   const handleSavePolDialog = async (updated: SatPolDialogRow) => {
     try {
       const payload = { satellite_name: updated.sat, polarization: updated.pols.join(", ") };
-      const data =await api.put(`${POL_API}/${updated.id}`, payload, {
-  headers: {
-    "x-module-name": "gs_operations",
-    "x-page-name": "/operations",
-  },
-});
+      const data = await api.put(`${POL_API}/${updated.id}`, payload, {
+        headers: {
+          "x-module-name": "gs_operations",
+          "x-page-name": "/operations",
+        },
+      });
 
       setPolRows((prev) => prev.map((r) => (r.id === updated.id ? apiPolToUi(data) : r)));
       setPolEditOpen(false);
@@ -1418,12 +1414,12 @@ await Promise.all(
   };
   const handleDeletePolDialog = async (toDelete: SatPolDialogRow) => {
     try {
-await api.del(`${POL_API}/${toDelete.id}`, {
-  headers: {
-    "x-module-name": "gs_operations",
-    "x-page-name": "/operations",
-  },
-});      setPolRows((prev) => prev.filter((r) => r.id !== toDelete.id));
+      await api.del(`${POL_API}/${toDelete.id}`, {
+        headers: {
+          "x-module-name": "gs_operations",
+          "x-page-name": "/operations",
+        },
+      }); setPolRows((prev) => prev.filter((r) => r.id !== toDelete.id));
       setPolEditOpen(false);
       alert(t("Polarization deleted ✅"));
     } catch (e: any) {
@@ -1431,30 +1427,30 @@ await api.del(`${POL_API}/${toDelete.id}`, {
       alert(e?.message || t("Failed to delete polarization ❌"));
     }
   };
-const addBandRow = () => {
-  if (!curBand || !curGT || (!isUplink && !isDownlink)) return;
+  const addBandRow = () => {
+    if (!curBand || !curGT || (!isUplink && !isDownlink)) return;
 
-  setBandRows((b) => [
-    ...b,
-    {
-      band: curBand,
-      gt: curGT,
-      uplink: isUplink,
-      downlink: isDownlink,
-    },
-  ]);
+    setBandRows((b) => [
+      ...b,
+      {
+        band: curBand,
+        gt: curGT,
+        uplink: isUplink,
+        downlink: isDownlink,
+      },
+    ]);
 
-  setCurGT("");
-  setIsUplink(false);
-  setIsDownlink(false);
-};
-const clearBands = () => {
-  setCurBand("");
-  setCurGT("");
-  setIsUplink(false);
-  setIsDownlink(false);
-  setBandRows([]);
-};
+    setCurGT("");
+    setIsUplink(false);
+    setIsDownlink(false);
+  };
+  const clearBands = () => {
+    setCurBand("");
+    setCurGT("");
+    setIsUplink(false);
+    setIsDownlink(false);
+    setBandRows([]);
+  };
 
   // const addGT = () => {
   //   if (!gtBand || !gtVal) return;
@@ -1469,36 +1465,36 @@ const clearBands = () => {
     setAntEIRP("");
     setAntTxPol([]);
     setAntRxPol([]);
-setAzFrom("");
-setAzTo("");
-setElFrom("");
-setElTo("");
+    setAzFrom("");
+    setAzTo("");
+    setElFrom("");
+    setElTo("");
     setAntTrackVel("");
     setAntTrackAcc("");
     setAntTrackModes("");
-  setCurBand("");
-setCurGT("");
-setIsUplink(false);
-setIsDownlink(false);
-setBandRows([]);
+    setCurBand("");
+    setCurGT("");
+    setIsUplink(false);
+    setIsDownlink(false);
+    setBandRows([]);
 
   };
   const travelRange =
-  azFrom && azTo && elFrom && elTo
-    ? `${azFrom}° to ${azTo}° Az, ${elFrom}° to ${elTo}° El`
-    : "";
-const antennaFormValid =
-  antType.trim() &&
-  antLocation.trim() &&
-  antSize.trim() &&
-  antEIRP.trim() &&
-  antTxPol.length > 0 &&
-  antRxPol.length > 0 &&
-  azFrom && azTo && elFrom && elTo &&
-  antTrackVel.trim() &&
-  antTrackAcc.trim() &&
-  antTrackModes.trim() &&
-  bandRows.length > 0;
+    azFrom && azTo && elFrom && elTo
+      ? `${azFrom}° to ${azTo}° Az, ${elFrom}° to ${elTo}° El`
+      : "";
+  const antennaFormValid =
+    antType.trim() &&
+    antLocation.trim() &&
+    antSize.trim() &&
+    antEIRP.trim() &&
+    antTxPol.length > 0 &&
+    antRxPol.length > 0 &&
+    azFrom && azTo && elFrom && elTo &&
+    antTrackVel.trim() &&
+    antTrackAcc.trim() &&
+    antTrackModes.trim() &&
+    bandRows.length > 0;
 
   const handleAddAntenna = async () => {
     // Validate individual fields and give descriptive errors
@@ -1520,50 +1516,50 @@ const antennaFormValid =
       return;
     }
 
-const antennaName = antType.trim();
+    const antennaName = antType.trim();
 
-if (!antennaName) {
-  alert("⚠️ Antenna Name is required.");
-  return;
-}
+    if (!antennaName) {
+      alert("⚠️ Antenna Name is required.");
+      return;
+    }
 
-   const payload = {
-  antenna_type: antennaName,
-  location: antLocation.trim(),
-  size_m: antSize.trim(),
-  eirp_dbw: antEIRP.trim(),
-  tx_polarization: antTxPol.join(", "),
-  rx_polarization: antRxPol.join(", "),
-  travel_range: travelRange,
-  tracking_velocity: antTrackVel.trim(),
-  tracking_acceleration: antTrackAcc.trim(),
-  tracking_modes: antTrackModes.trim(),
- bands: bandRows,
+    const payload = {
+      antenna_type: antennaName,
+      location: antLocation.trim(),
+      size_m: antSize.trim(),
+      eirp_dbw: antEIRP.trim(),
+      tx_polarization: antTxPol.join(", "),
+      rx_polarization: antRxPol.join(", "),
+      travel_range: travelRange,
+      tracking_velocity: antTrackVel.trim(),
+      tracking_acceleration: antTrackAcc.trim(),
+      tracking_modes: antTrackModes.trim(),
+      bands: bandRows,
 
-  // ✅ THIS IS THE FIX
-  receive_gt: bandRows.map(b => ({
-    band: b.band,
-    gt: b.gt,
-  })),
-};
+      // ✅ THIS IS THE FIX
+      receive_gt: bandRows.map(b => ({
+        band: b.band,
+        gt: b.gt,
+      })),
+    };
     try {
-const created = isAdmin
-  ? await api.post(ANT_API, payload, {
-      headers: {
-        "x-module-name": "gs_operations",
-        "x-page-name": "/operations",
-      },
-    })
-  : await api.post(
-      ANT_REQ_API,
-      { payload: payload },
-      {
-        headers: {
-          "x-module-name": "gs_operations",
-          "x-page-name": "/operations",
-        },
-      }
-    );
+      const created = isAdmin
+        ? await api.post(ANT_API, payload, {
+          headers: {
+            "x-module-name": "gs_operations",
+            "x-page-name": "/operations",
+          },
+        })
+        : await api.post(
+          ANT_REQ_API,
+          { payload: payload },
+          {
+            headers: {
+              "x-module-name": "gs_operations",
+              "x-page-name": "/operations",
+            },
+          }
+        );
 
 
 
@@ -1589,7 +1585,7 @@ const created = isAdmin
 
       // Always update the local list so the row is visible immediately
       setAntRows((prev) => [...prev, row]);
-      
+
       // Update location and antenna dropdowns
       if (row.location && !locationOpts.includes(row.location)) {
         setLocationOpts(prev => [...prev, row.location].sort());
@@ -1618,12 +1614,12 @@ const created = isAdmin
       size_m: row.size_m,
       eirp_dbw: row.eirp_dbw,
       tx_polarization: row.tx_polarization
-    ? row.tx_polarization.split(",").map(s => s.trim()).filter(Boolean)
-    : [],
+        ? row.tx_polarization.split(",").map(s => s.trim()).filter(Boolean)
+        : [],
 
-  rx_polarization: row.rx_polarization
-    ? row.rx_polarization.split(",").map(s => s.trim()).filter(Boolean)
-    : [],
+      rx_polarization: row.rx_polarization
+        ? row.rx_polarization.split(",").map(s => s.trim()).filter(Boolean)
+        : [],
       travel_range: row.travel_range,
       tracking_velocity: row.tracking_velocity,
       tracking_acceleration: row.tracking_acceleration,
@@ -1636,35 +1632,35 @@ const created = isAdmin
   const handleSaveAntennaDialog = async (updated: AntennaDialogRow) => {
     try {
       const payload = {
-  antenna_type: updated.type,
-  location: updated.location,
-  size_m: updated.size_m,
-  eirp_dbw: updated.eirp_dbw,
- tx_polarization: Array.isArray(updated.tx_polarization)
-  ? updated.tx_polarization.join(", ")
-  : updated.tx_polarization,
+        antenna_type: updated.type,
+        location: updated.location,
+        size_m: updated.size_m,
+        eirp_dbw: updated.eirp_dbw,
+        tx_polarization: Array.isArray(updated.tx_polarization)
+          ? updated.tx_polarization.join(", ")
+          : updated.tx_polarization,
 
-rx_polarization: Array.isArray(updated.rx_polarization)
-  ? updated.rx_polarization.join(", ")
-  : updated.rx_polarization,
-  travel_range: updated.travel_range,
-  tracking_velocity: updated.tracking_velocity,
-  tracking_acceleration: updated.tracking_acceleration,
-  tracking_modes: updated.tracking_modes,
-  bands: updated.bands ?? [],
-  receive_gt: (updated.bands ?? []).map(b => ({
-    band: b.band,
-    gt: b.gt,
+        rx_polarization: Array.isArray(updated.rx_polarization)
+          ? updated.rx_polarization.join(", ")
+          : updated.rx_polarization,
+        travel_range: updated.travel_range,
+        tracking_velocity: updated.tracking_velocity,
+        tracking_acceleration: updated.tracking_acceleration,
+        tracking_modes: updated.tracking_modes,
+        bands: updated.bands ?? [],
+        receive_gt: (updated.bands ?? []).map(b => ({
+          band: b.band,
+          gt: b.gt,
 
-  })),
-};
+        })),
+      };
 
       const res = await api.put(`${ANT_API}/${updated.id}`, payload, {
-  headers: {
-    "x-module-name": "gs_operations",
-    "x-page-name": "/operations",
-  },
-});
+        headers: {
+          "x-module-name": "gs_operations",
+          "x-page-name": "/operations",
+        },
+      });
 
       const newRow: AntennaRow = {
         id: res.id ?? updated.id,
@@ -1676,34 +1672,34 @@ rx_polarization: Array.isArray(updated.rx_polarization)
         tx_polarization: String(res.tx_polarization ?? payload.tx_polarization ?? ""),
         rx_polarization: String(res.rx_polarization ?? payload.rx_polarization ?? ""),
         travel_range: String(res.travel_range ?? payload.travel_range ?? ""),
-       tracking_velocity: String(res.tracking_velocity ?? payload.tracking_velocity ?? ""),
-tracking_acceleration: String(res.tracking_acceleration ?? payload.tracking_acceleration ?? ""),
-tracking_modes: String(res.tracking_modes ?? payload.tracking_modes ?? ""),
+        tracking_velocity: String(res.tracking_velocity ?? payload.tracking_velocity ?? ""),
+        tracking_acceleration: String(res.tracking_acceleration ?? payload.tracking_acceleration ?? ""),
+        tracking_modes: String(res.tracking_modes ?? payload.tracking_modes ?? ""),
 
-bands: (() => {
-  const gtMap = new Map(
-    (res.receive_gt || []).map((g: any) => [g.band, String(g.gt ?? "")])
-  );
+        bands: (() => {
+          const gtMap = new Map(
+            (res.receive_gt || []).map((g: any) => [g.band, String(g.gt ?? "")])
+          );
 
-  return Array.isArray(res.bands)
-    ? res.bands.map((b: any) => ({
-        band: b.band,
-        gt: gtMap.get(b.band) || "",
-        uplink: Boolean(b.uplink),
-        downlink: Boolean(b.downlink),
-      }))
-    : updated.bands;
-})(),
+          return Array.isArray(res.bands)
+            ? res.bands.map((b: any) => ({
+              band: b.band,
+              gt: gtMap.get(b.band) || "",
+              uplink: Boolean(b.uplink),
+              downlink: Boolean(b.downlink),
+            }))
+            : updated.bands;
+        })(),
 
 
-  //      gts: Array.isArray(res.receive_gt)
-  // ? res.receive_gt
-  // : payload.receive_gt,
+        //      gts: Array.isArray(res.receive_gt)
+        // ? res.receive_gt
+        // : payload.receive_gt,
 
       };
       setAntRows((prev) => prev.map((r) => (r.id === updated.id ? newRow : r)));
       setAntEditOpen(false);
-      
+
       // Update locations
       if (newRow.location && !locationOpts.includes(newRow.location)) {
         setLocationOpts(prev => [...prev, newRow.location].sort());
@@ -1715,33 +1711,33 @@ bands: (() => {
       alert(e?.message || t("Failed to update antenna ❌"));
     }
   };
-const handleDeleteAntennaDialog = async (toDelete: AntennaDialogRow) => {
-  const row = antRows.find(r => r.id === toDelete.id);
+  const handleDeleteAntennaDialog = async (toDelete: AntennaDialogRow) => {
+    const row = antRows.find(r => r.id === toDelete.id);
 
-  if (row?.status === "PENDING") {
-    toast.error("Pending antenna cannot be deleted. Approve or reject first.");
-    return;
-  }
-  if (!canEditAntenna) {
-    toast.error("Permission denied");
-    return;
-  }
+    if (row?.status === "PENDING") {
+      toast.error("Pending antenna cannot be deleted. Approve or reject first.");
+      return;
+    }
+    if (!canEditAntenna) {
+      toast.error("Permission denied");
+      return;
+    }
 
-  try {
-await api.del(`${ANT_API}/${toDelete.id}`, {
-  headers: {
-    "x-module-name": "gs_operations",
-    "x-page-name": "/operations",
-  },
-});
-    setAntRows((prev) => prev.filter((r) => r.id !== toDelete.id));
-    setAntEditOpen(false);
-    toast.success("Antenna deleted ✅");
-  } catch (e: any) {
-    console.error(e);
-    toast.error(e?.message || "Failed to delete antenna ❌");
-  }
-};
+    try {
+      await api.del(`${ANT_API}/${toDelete.id}`, {
+        headers: {
+          "x-module-name": "gs_operations",
+          "x-page-name": "/operations",
+        },
+      });
+      setAntRows((prev) => prev.filter((r) => r.id !== toDelete.id));
+      setAntEditOpen(false);
+      toast.success("Antenna deleted ✅");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to delete antenna ❌");
+    }
+  };
 
 
   /* -------- CAPTCHA wiring for Add buttons -------- */
@@ -1761,14 +1757,14 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
   const runAfterCaptcha = React.useCallback(async () => {
     if (!captchaAction) return;
     switch (captchaAction.kind) {
-      case "addStation":   await handleAddStation();   break;
+      case "addStation": await handleAddStation(); break;
       case "addRequester": await handleAddRequester(); break;
       case "addSupporter": await handleAddSupporter(); break;
       case "addOperation": await handleAddOperation(); break;
-      case "addPol":       await handleAddPol();       break;
+      case "addPol": await handleAddPol(); break;
       // case "addBand":      addBandRow();               break;
       // case "addGT":        addGT();                    break;
-      case "addAntenna":   await handleAddAntenna();   break;
+      case "addAntenna": await handleAddAntenna(); break;
     }
     setCaptchaAction(null);
   }, [captchaAction]);
@@ -1811,17 +1807,17 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
           }}
         >
           {[
-  { key: "stations", label: t("Ground Stations") },
-  { key: "operations", label: t("Operations") },
-...(canEditAntenna
-  ? [{ key: "antennas", label: t("Antennas") }]
-  : []),
-]
-.map(({ key, label }) => (
-            <ToggleButton key={key} value={key} disableRipple sx={pillSx}>
-              {label}
-            </ToggleButton>
-          ))}
+            { key: "stations", label: t("Ground Stations") },
+            { key: "operations", label: t("Operations") },
+            ...(canEditAntenna
+              ? [{ key: "antennas", label: t("Antennas") }]
+              : []),
+          ]
+            .map(({ key, label }) => (
+              <ToggleButton key={key} value={key} disableRipple sx={pillSx}>
+                {label}
+              </ToggleButton>
+            ))}
         </ToggleButtonGroup>
 
         {/* Main card */}
@@ -1875,17 +1871,17 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
                     "& .MuiToggleButtonGroup-grouped": { border: "none", mx: 0.25 },
                   }}
                 >
-{canEditAntenna && (
-  <ToggleButton value="add" disableRipple sx={innerToggleSx}>
-    {t("Add Antenna")}
-  </ToggleButton>
-)}
+                  {canEditAntenna && (
+                    <ToggleButton value="add" disableRipple sx={innerToggleSx}>
+                      {t("Add Antenna")}
+                    </ToggleButton>
+                  )}
 
-{canEditAntenna && (
-  <ToggleButton value="view" disableRipple sx={innerToggleSx}>
-    {t("View Antennas")}
-  </ToggleButton>
-)}
+                  {canEditAntenna && (
+                    <ToggleButton value="view" disableRipple sx={innerToggleSx}>
+                      {t("View Antennas")}
+                    </ToggleButton>
+                  )}
 
 
 
@@ -1902,20 +1898,20 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
             <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
 
               {(isAdmin || isEditor) && antInner === "view" && (
-  <Button
-    variant="outlined"
-    color="error"
-    disabled={!selectedAntennas.length}
-    onClick={handleDeleteSelectedAntennas}
-    sx={{
-      textTransform: "none",
-      fontWeight: 700,
-      height: 32,
-    }}
-  >
-    Delete
-  </Button>
-)}
+                <Button
+                  variant="outlined"
+                  color="error"
+                  disabled={!selectedAntennas.length}
+                  onClick={handleDeleteSelectedAntennas}
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 700,
+                    height: 32,
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
 
               {/* <Button
                 size="small"
@@ -1956,28 +1952,28 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
 
 
 
-                      
+
                       <Box className="form-item">
                         <Typography sx={LABEL_SX}>{t("TTC Service Provider")}</Typography>
                         <FormControl fullWidth size="small">
-  <Select<string>
-    value={partner}
-    onChange={(e) => setPartner(e.target.value)}
-    displayEmpty
-    renderValue={(v) => v || t("Select TTC Service Provider")}
-    sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-    MenuProps={darkMenu}
-  >
-    <MenuItem disabled value="">
-      {t("Select TTC Service Provider")}
-    </MenuItem>
-    {supporters.map((s) => (
-      <MenuItem key={s} value={s}>
-        <ListItemText primary={s} />
-      </MenuItem>
-    ))}
-  </Select>
-</FormControl>
+                          <Select<string>
+                            value={partner}
+                            onChange={(e) => setPartner(e.target.value)}
+                            displayEmpty
+                            renderValue={(v) => v || t("Select TTC Service Provider")}
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                            MenuProps={darkMenu}
+                          >
+                            <MenuItem disabled value="">
+                              {t("Select TTC Service Provider")}
+                            </MenuItem>
+                            {supporters.map((s) => (
+                              <MenuItem key={s} value={s}>
+                                <ListItemText primary={s} />
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
 
                       </Box>
                       {/* <Box className="form-item">
@@ -2000,7 +1996,7 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
                               setLocationSel(loc);
                               setAntennaSels([]);
                               setPreviewAntennas([]);
-                              
+
                               // Filter antennas for this location
                               const filtered = antRows
                                 .filter(a => a.location?.trim().toLowerCase() === loc.trim().toLowerCase() && a.status === "APPROVED")
@@ -2033,13 +2029,13 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
                             onChange={(e) => {
                               const val = e.target.value as string[];
                               setAntennaSels(val);
-                              
+
                               // Track technical details for all selected antennas
                               const matched = val.map(at => {
                                 return antRows.find(
-                                  a => a.type?.trim().toLowerCase() === at.trim().toLowerCase() && 
-                                       a.location?.trim().toLowerCase() === locationSel.trim().toLowerCase() &&
-                                       a.status === "APPROVED"
+                                  a => a.type?.trim().toLowerCase() === at.trim().toLowerCase() &&
+                                    a.location?.trim().toLowerCase() === locationSel.trim().toLowerCase() &&
+                                    a.status === "APPROVED"
                                 );
                               }).filter(Boolean) as AntennaRow[];
                               setPreviewAntennas(matched);
@@ -2070,9 +2066,9 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
       borderRadius: 1,
       overflow: "hidden",
     }} */}
-  {/* > */}
-    {/* Header */}
-    {/* <Box
+                      {/* > */}
+                      {/* Header */}
+                      {/* <Box
       sx={{
         display: "grid",
         gridTemplateColumns: "1.2fr 1fr 0.8fr 0.8fr 1fr 1fr",
@@ -2096,8 +2092,8 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
       ))}
     </Box> */}
 
-    {/* Row */}
-    {/* <Box
+                      {/* Row */}
+                      {/* <Box
       sx={{
         display: "grid",
         gridTemplateColumns: "1.2fr 1fr 0.8fr 0.8fr 1fr 1fr",
@@ -2112,16 +2108,16 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
       <Box sx={cellSx}>{selectedAntenna.tx_polarization || "-"}</Box>
       <Box sx={cellSx}>{selectedAntenna.track_modes || "-"}</Box>
     </Box> */}
-  </Box>
+                    </Box>
 
 
 
 
 
 
-{/* ) */}
+                    {/* ) */}
 
-                      {/* <Box className="form-item">
+                    {/* <Box className="form-item">
                         <Typography sx={LABEL_SX}>{t("Station Latitude")}</Typography>
                         <TextField
                           value={lat}
@@ -2143,95 +2139,95 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
                       </Box> */}
                     {/* </Box> */}
 
-{previewAntennas.map((ant, idx) => (
-  <Box
-    key={ant.id || idx}
-    sx={{
-      mt: 2,
-      border: `1px solid ${vars.border}`,
-      borderRadius: 1,
-      overflowX: "auto",
-      width: "100%",
-    }}
-  >
-    {/* HEADER */}
-    <Box
-      sx={{
-        display: "grid",
-      gridTemplateColumns:
-"60px 1.2fr 1fr 0.9fr 0.9fr 1fr 1fr 1.3fr 0.9fr 0.9fr 1fr 0.9fr 1.4fr 100px",
+                    {previewAntennas.map((ant, idx) => (
+                      <Box
+                        key={ant.id || idx}
+                        sx={{
+                          mt: 2,
+                          border: `1px solid ${vars.border}`,
+                          borderRadius: 1,
+                          overflowX: "auto",
+                          width: "100%",
+                        }}
+                      >
+                        {/* HEADER */}
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "60px 1.2fr 1fr 0.9fr 0.9fr 1fr 1fr 1.3fr 0.9fr 0.9fr 1fr 0.9fr 1.4fr 100px",
 
 
-        bgcolor: "#000",
-        color: "#fff",
-        fontWeight: 700,
-        fontSize: 13,
-        minWidth: 1100,
-      }}
-    >
-      {[
-  t("No"),
-  t("Name"),
-  t("Location"),
-  t("Size (m)"),
-  t("EIRP (dBW)"),
-  t("Tx Pol"),
-  t("Rx Pol"),
-  t("Travel Range"),
-  t("Track Vel"),
-  t("Track Acc"),
-  t("Track Modes"),
-  ...(isAdmin ? [t("Status")] : []),
-  t("Bands"),
-  t("Action"),
-].map((h) => (
+                            bgcolor: "#000",
+                            color: "#fff",
+                            fontWeight: 700,
+                            fontSize: 13,
+                            minWidth: 1100,
+                          }}
+                        >
+                          {[
+                            t("No"),
+                            t("Name"),
+                            t("Location"),
+                            t("Size (m)"),
+                            t("EIRP (dBW)"),
+                            t("Tx Pol"),
+                            t("Rx Pol"),
+                            t("Travel Range"),
+                            t("Track Vel"),
+                            t("Track Acc"),
+                            t("Track Modes"),
+                            ...(isAdmin ? [t("Status")] : []),
+                            t("Bands"),
+                            t("Action"),
+                          ].map((h) => (
 
-        <Box key={h} sx={{ px: 1, py: 1, textAlign: "center" }}>
-          {h}
-        </Box>
-      ))}
-    </Box>
+                            <Box key={h} sx={{ px: 1, py: 1, textAlign: "center" }}>
+                              {h}
+                            </Box>
+                          ))}
+                        </Box>
 
-    {/* Row */}
-    <Box
-  sx={{
-    display: "grid",
-   gridTemplateColumns:
-"60px 1.2fr 1fr 0.9fr 0.9fr 1fr 1fr 1.3fr 0.9fr 0.9fr 1fr 0.9fr 1.4fr 100px",
+                        {/* Row */}
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "60px 1.2fr 1fr 0.9fr 0.9fr 1fr 1fr 1.3fr 0.9fr 0.9fr 1fr 0.9fr 1.4fr 100px",
 
-    fontSize: 13,
-    bgcolor: vars.bgApp,
-    opacity: ant.status === "PENDING" ? 0.85 : 1,
-    minWidth: 1100,
-  }}
->
+                            fontSize: 13,
+                            bgcolor: vars.bgApp,
+                            opacity: ant.status === "PENDING" ? 0.85 : 1,
+                            minWidth: 1100,
+                          }}
+                        >
 
-<Box sx={cellSx}>{idx + 1}</Box>
-<Box sx={cellSx}>{ant.type}</Box>
-<Box sx={cellSx}>{ant.location || "-"}</Box>
-<Box sx={cellSx}>{ant.size_m || "-"}</Box>
-<Box sx={cellSx}>{ant.eirp_dbw || "-"}</Box>
-<Box sx={cellSx}>{ant.tx_polarization || "-"}</Box>
-<Box sx={cellSx}>{ant.rx_polarization || "-"}</Box>
-<Box sx={cellSx}>{ant.travel_range || "-"}</Box>
-<Box sx={cellSx}>{ant.tracking_velocity || "-"}</Box>
-<Box sx={cellSx}>{ant.tracking_acceleration || "-"}</Box>
-<Box sx={cellSx}>{ant.tracking_modes || "-"}</Box>
+                          <Box sx={{ ...cellSx, color: "#FFFFFF" }}>{idx + 1}</Box>
+                          <Box sx={cellSx}>{ant.type}</Box>
+                          <Box sx={cellSx}>{ant.location || "-"}</Box>
+                          <Box sx={cellSx}>{ant.size_m || "-"}</Box>
+                          <Box sx={cellSx}>{ant.eirp_dbw || "-"}</Box>
+                          <Box sx={cellSx}>{ant.tx_polarization || "-"}</Box>
+                          <Box sx={cellSx}>{ant.rx_polarization || "-"}</Box>
+                          <Box sx={cellSx}>{ant.travel_range || "-"}</Box>
+                          <Box sx={cellSx}>{ant.tracking_velocity || "-"}</Box>
+                          <Box sx={cellSx}>{ant.tracking_acceleration || "-"}</Box>
+                          <Box sx={cellSx}>{ant.tracking_modes || "-"}</Box>
 
-{isAdmin && (
-  <Box sx={cellSx}>
-    <StatusBadge status={ant.status ?? "APPROVED"} />
-  </Box>
-)}
+                          {isAdmin && (
+                            <Box sx={cellSx}>
+                              <StatusBadge status={ant.status ?? "APPROVED"} />
+                            </Box>
+                          )}
 
-<Box sx={cellSx}>
-  {ant.bands.length
-    ? ant.bands.map(b => b.band).join(", ")
-    : "-"}
-</Box>
-    </Box>
-  </Box>
-))}
+                          <Box sx={cellSx}>
+                            {ant.bands.length
+                              ? ant.bands.map(b => b.band).join(", ")
+                              : "-"}
+                          </Box>
+                        </Box>
+                      </Box>
+                    ))}
                     <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
 
 
@@ -2497,7 +2493,7 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
   />
 </Box> */}
 
-                      <Box sx={{ px: 1.25, py: 1, textAlign: "center", fontSize: 13, color: (tMUI) => bodyText(tMUI as Theme) }}>
+                      <Box sx={{ px: 1.25, py: 1, textAlign: "center", fontSize: 13, color: "#FFFFFF" }}>
                         {polPage * polRowsPerPage + idx + 1}
                       </Box>
                       <Box sx={cellSx}>{r.sat}</Box>
@@ -2541,7 +2537,7 @@ await api.del(`${ANT_API}/${toDelete.id}`, {
                 </Box>
               </>
             )}
-{/* {tab === "antenna-approval" && (
+            {/* {tab === "antenna-approval" && (
   <Box
     sx={{
       flex: 1,
@@ -2613,11 +2609,11 @@ bgcolor: "#000",
 
 
         {/* STATUS */}
-        {/* <Box sx={{ textAlign: "center" }}>
+            {/* <Box sx={{ textAlign: "center" }}>
           <StatusBadge status="PENDING" />
         </Box> */}
 
-{/* BANDS */}
+            {/* BANDS */}
 
 
             {/* ---------------- Antennas ---------------- */}
@@ -2644,20 +2640,20 @@ bgcolor: "#000",
                           sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
                         />
                       </Box>
-                      
-                      <Box className="form-item">
-<Typography sx={LABEL_SX}>{t("Location *")}</Typography>
-  <TextField
-    value={antLocation}
-    onChange={(e) => setAntLocation(e.target.value)}
-    placeholder={t("e.g. Sriharikota")}
-    size="small"
-    sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-  />
-</Box>
 
                       <Box className="form-item">
-<Typography sx={LABEL_SX}>{t("Antenna Size (m) *")}</Typography>
+                        <Typography sx={LABEL_SX}>{t("Location *")}</Typography>
+                        <TextField
+                          value={antLocation}
+                          onChange={(e) => setAntLocation(e.target.value)}
+                          placeholder={t("e.g. Sriharikota")}
+                          size="small"
+                          sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                        />
+                      </Box>
+
+                      <Box className="form-item">
+                        <Typography sx={LABEL_SX}>{t("Antenna Size (m) *")}</Typography>
                         <TextField
                           value={antSize}
                           onChange={(e) => setAntSize(e.target.value)}
@@ -2667,7 +2663,7 @@ bgcolor: "#000",
                         />
                       </Box>
                       <Box className="form-item">
-<Typography sx={LABEL_SX}>{t("EIRP (dBW) *")}</Typography>
+                        <Typography sx={LABEL_SX}>{t("EIRP (dBW) *")}</Typography>
                         <TextField
                           value={antEIRP}
                           onChange={(e) => setAntEIRP(e.target.value)}
@@ -2678,172 +2674,172 @@ bgcolor: "#000",
                       </Box>
 
                       <Box className="form-item">
-<Typography sx={LABEL_SX}>{t("Transmit Polarization *")}</Typography>
-  <FormControl fullWidth size="small">
-   <Select
-  multiple
-  value={antTxPol}
-  onChange={(e) => setAntTxPol(e.target.value as string[])}
-  displayEmpty
-  renderValue={(selected) => {
-    const v = selected as string[];
-    return v.length ? v.join(", ") : "Select Transmit Polarization";
-  }}
-  sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-  MenuProps={darkMenu}
->
-      {POL_OPTIONS.map((pol) => (
-        <MenuItem key={pol} value={pol}>
-          <Checkbox checked={antTxPol.includes(pol)} />
-          <ListItemText primary={pol} />
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-</Box>
+                        <Typography sx={LABEL_SX}>{t("Transmit Polarization *")}</Typography>
+                        <FormControl fullWidth size="small">
+                          <Select
+                            multiple
+                            value={antTxPol}
+                            onChange={(e) => setAntTxPol(e.target.value as string[])}
+                            displayEmpty
+                            renderValue={(selected) => {
+                              const v = selected as string[];
+                              return v.length ? v.join(", ") : "Select Transmit Polarization";
+                            }}
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                            MenuProps={darkMenu}
+                          >
+                            {POL_OPTIONS.map((pol) => (
+                              <MenuItem key={pol} value={pol}>
+                                <Checkbox checked={antTxPol.includes(pol)} />
+                                <ListItemText primary={pol} />
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
 
-                      
-                     <Box className="form-item">
-<Typography sx={LABEL_SX}>{t("Receive Polarization *")}</Typography>
-  <FormControl fullWidth size="small">
-    <Select
-  multiple
-  value={antRxPol}
-  onChange={(e) => setAntRxPol(e.target.value as string[])}
-  displayEmpty
-  renderValue={(selected) => {
-    const v = selected as string[];
-    return v.length ? v.join(", ") : "Select Receive Polarization";
-  }}
-  sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-  MenuProps={darkMenu}
->
-      {POL_OPTIONS.map((pol) => (
-        <MenuItem key={pol} value={pol}>
-          <Checkbox checked={antRxPol.includes(pol)} />
-          <ListItemText primary={pol} />
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-</Box>
 
                       <Box className="form-item">
-  <Typography sx={LABEL_SX}>
-  {t("Antenna Travel Range (°) *")}
-</Typography>
-
-
-  <Box
-    sx={{
-      display: "grid",
-      gridTemplateColumns: "auto 60px auto 60px auto 50px auto 55px",
-      gap: 0.5,
-      alignItems: "center",
-    }}
-  >
-    {/* AZ FROM */}
-    <Typography sx={{ fontSize: 12, color: vars.textDim }}>Az From</Typography>
-    <TextField
-      type="number"
-      value={azFrom}
-      onChange={(e) => setAzFrom(e.target.value)}
-      placeholder="0"
-      size="small"
-sx={(tMUI) => ({
-  ...controlSx,
-  ...filledField(tMUI),
-  width: 60,
-})}
-    />
-
-    {/* AZ TO */}
-    <Typography sx={{ fontSize: 12, color: vars.textDim }}>To</Typography>
-    <TextField
-      type="number"
-      value={azTo}
-      onChange={(e) => setAzTo(e.target.value)}
-      placeholder="359"
-      size="small"
-      sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-    />
-
-    {/* EL FROM */}
-    <Typography sx={{ fontSize: 12, color: vars.textDim }}>El From</Typography>
-    <TextField
-      type="number"
-      value={elFrom}
-      onChange={(e) => setElFrom(e.target.value)}
-      placeholder="5"
-      size="small"
-      sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-    />
-
-    {/* EL TO */}
-    <Typography sx={{ fontSize: 12, color: vars.textDim }}>To</Typography>
-    <TextField
-      type="number"
-      value={elTo}
-      onChange={(e) => setElTo(e.target.value)}
-      placeholder="90"
-      size="small"
-      sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-    />
-  </Box>
-</Box>
+                        <Typography sx={LABEL_SX}>{t("Receive Polarization *")}</Typography>
+                        <FormControl fullWidth size="small">
+                          <Select
+                            multiple
+                            value={antRxPol}
+                            onChange={(e) => setAntRxPol(e.target.value as string[])}
+                            displayEmpty
+                            renderValue={(selected) => {
+                              const v = selected as string[];
+                              return v.length ? v.join(", ") : "Select Receive Polarization";
+                            }}
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                            MenuProps={darkMenu}
+                          >
+                            {POL_OPTIONS.map((pol) => (
+                              <MenuItem key={pol} value={pol}>
+                                <Checkbox checked={antRxPol.includes(pol)} />
+                                <ListItemText primary={pol} />
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
 
                       <Box className="form-item">
-<Typography sx={LABEL_SX}>
-  {t("Tracking Velocity (°/s) *")}
-</Typography>
-         
-  <TextField
-  type="number"
-  value={antTrackVel}
-  onChange={(e) => setAntTrackVel(e.target.value)}
-  placeholder="e.g. 20"
-  size="small"
-  sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-/>
+                        <Typography sx={LABEL_SX}>
+                          {t("Antenna Travel Range (°) *")}
+                        </Typography>
+
+
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "auto 60px auto 60px auto 50px auto 55px",
+                            gap: 0.5,
+                            alignItems: "center",
+                          }}
+                        >
+                          {/* AZ FROM */}
+                          <Typography sx={{ fontSize: 12, color: vars.textDim }}>Az From</Typography>
+                          <TextField
+                            type="number"
+                            value={azFrom}
+                            onChange={(e) => setAzFrom(e.target.value)}
+                            placeholder="0"
+                            size="small"
+                            sx={(tMUI) => ({
+                              ...controlSx,
+                              ...filledField(tMUI),
+                              width: 60,
+                            })}
+                          />
+
+                          {/* AZ TO */}
+                          <Typography sx={{ fontSize: 12, color: vars.textDim }}>To</Typography>
+                          <TextField
+                            type="number"
+                            value={azTo}
+                            onChange={(e) => setAzTo(e.target.value)}
+                            placeholder="359"
+                            size="small"
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                          />
+
+                          {/* EL FROM */}
+                          <Typography sx={{ fontSize: 12, color: vars.textDim }}>El From</Typography>
+                          <TextField
+                            type="number"
+                            value={elFrom}
+                            onChange={(e) => setElFrom(e.target.value)}
+                            placeholder="5"
+                            size="small"
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                          />
+
+                          {/* EL TO */}
+                          <Typography sx={{ fontSize: 12, color: vars.textDim }}>To</Typography>
+                          <TextField
+                            type="number"
+                            value={elTo}
+                            onChange={(e) => setElTo(e.target.value)}
+                            placeholder="90"
+                            size="small"
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                          />
+                        </Box>
+                      </Box>
+
+                      <Box className="form-item">
+                        <Typography sx={LABEL_SX}>
+                          {t("Tracking Velocity (°/s) *")}
+                        </Typography>
+
+                        <TextField
+                          type="number"
+                          value={antTrackVel}
+                          onChange={(e) => setAntTrackVel(e.target.value)}
+                          placeholder="e.g. 20"
+                          size="small"
+                          sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                        />
 
                       </Box>
 
                       <Box className="form-item">
-<Typography sx={LABEL_SX}>
-  {t("Tracking Acceleration (°/s²) *")}
-</Typography>
-                       <TextField
-  type="number"
-  value={antTrackAcc}
-  onChange={(e) => setAntTrackAcc(e.target.value)}
-  placeholder="e.g. 100"
-  size="small"
-  sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-/>
+                        <Typography sx={LABEL_SX}>
+                          {t("Tracking Acceleration (°/s²) *")}
+                        </Typography>
+                        <TextField
+                          type="number"
+                          value={antTrackAcc}
+                          onChange={(e) => setAntTrackAcc(e.target.value)}
+                          placeholder="e.g. 100"
+                          size="small"
+                          sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                        />
 
                       </Box>
                       <Box className="form-item">
-<Typography sx={LABEL_SX}>{t("Tracking Modes *")}</Typography>
-               <FormControl fullWidth size="small">
-  <Select
-    value={antTrackModes}
-    onChange={(e) => setAntTrackModes(e.target.value)}
-    displayEmpty
-    renderValue={(v) => v || "Select Tracking Mode"}
-    sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-    MenuProps={darkMenu}
-  >
-    <MenuItem disabled value="">
-      Select Tracking Mode
-    </MenuItem>
+                        <Typography sx={LABEL_SX}>{t("Tracking Modes *")}</Typography>
+                        <FormControl fullWidth size="small">
+                          <Select
+                            value={antTrackModes}
+                            onChange={(e) => setAntTrackModes(e.target.value)}
+                            displayEmpty
+                            renderValue={(v) => v || "Select Tracking Mode"}
+                            sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                            MenuProps={darkMenu}
+                          >
+                            <MenuItem disabled value="">
+                              Select Tracking Mode
+                            </MenuItem>
 
-    {TRACK_MODE_OPTIONS.map((mode) => (
-      <MenuItem key={mode} value={mode}>
-        <ListItemText primary={mode} />
-      </MenuItem>
-    ))}
-  </Select>
-</FormControl>
+                            {TRACK_MODE_OPTIONS.map((mode) => (
+                              <MenuItem key={mode} value={mode}>
+                                <ListItemText primary={mode} />
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
 
 
                       </Box>
@@ -2852,8 +2848,8 @@ sx={(tMUI) => ({
                     {/* Bands */}
                     <Box sx={{ mt: 2, p: 1.25, border: `1px solid ${vars.border}`, borderRadius: 1 }}>
                       <Typography sx={{ fontWeight: 700, mb: 1, color: vars.text }}>
-  {t("Bands/Carriers *")}
-</Typography>
+                        {t("Bands/Carriers *")}
+                      </Typography>
                       <Box
                         sx={{
                           display: "grid",
@@ -2885,32 +2881,32 @@ sx={(tMUI) => ({
                           </Select>
                         </FormControl>
                         <TextField
-  value={curGT}
-  onChange={(e) => setCurGT(e.target.value)}
-  placeholder={t("Enter G/T")}
-  size="small"
-  sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
-/>
+                          value={curGT}
+                          onChange={(e) => setCurGT(e.target.value)}
+                          placeholder={t("Enter G/T")}
+                          size="small"
+                          sx={(tMUI) => ({ ...controlSx, ...filledField(tMUI) })}
+                        />
 
-<FormControlLabel
-  control={
-    <Checkbox
-      checked={isUplink}
-      onChange={(e) => setIsUplink(e.target.checked)}
-    />
-  }
-  label={t("Uplink")}
-/>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isUplink}
+                              onChange={(e) => setIsUplink(e.target.checked)}
+                            />
+                          }
+                          label={t("Uplink")}
+                        />
 
-<FormControlLabel
-  control={
-    <Checkbox
-      checked={isDownlink}
-      onChange={(e) => setIsDownlink(e.target.checked)}
-    />
-  }
-  label={t("Downlink")}
-/>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isDownlink}
+                              onChange={(e) => setIsDownlink(e.target.checked)}
+                            />
+                          }
+                          label={t("Downlink")}
+                        />
 
                         {/* <TextField
                           value={curUplink}
@@ -2938,19 +2934,19 @@ sx={(tMUI) => ({
                         >
                           {t("Clear")}
                         </Button>
-                       <Button
-  variant="contained"
-  onClick={addBandRow}
-  sx={{
-    textTransform: "none",
-    height: 32,
-    bgcolor: "#e03f3f",
-    color: "#fff",
-    "&:hover": { bgcolor: "#cc3535" },
-  }}
->
-  {t("Add")}
-</Button>
+                        <Button
+                          variant="contained"
+                          onClick={addBandRow}
+                          sx={{
+                            textTransform: "none",
+                            height: 32,
+                            bgcolor: "#e03f3f",
+                            color: "#fff",
+                            "&:hover": { bgcolor: "#cc3535" },
+                          }}
+                        >
+                          {t("Add")}
+                        </Button>
 
                       </Box>
 
@@ -2962,10 +2958,10 @@ sx={(tMUI) => ({
                               display: "grid",
                               gridTemplateColumns: { xs: "repeat(3,1fr)", md: "200px 1fr 1fr" },
                               gap: 1,
-bgcolor:
-  i % 2
-    ? vars.bgHover
-    : "transparent",                             border: `1px solid ${vars.borderWeak}`,
+                              bgcolor:
+                                i % 2
+                                  ? vars.bgHover
+                                  : "transparent", border: `1px solid ${vars.borderWeak}`,
                               borderRadius: 1,
                               p: 1,
                               mb: 1,
@@ -2973,20 +2969,20 @@ bgcolor:
                             }}
                           >
                             <Box sx={{ fontSize: 13 }}>
-  <b>{t("Band")}:</b> {b.band}
-</Box>
+                              <b>{t("Band")}:</b> {b.band}
+                            </Box>
 
-<Box sx={{ fontSize: 13 }}>
-  <b>{t("G/T")}:</b> {b.gt}
-</Box>
+                            <Box sx={{ fontSize: 13 }}>
+                              <b>{t("G/T")}:</b> {b.gt}
+                            </Box>
 
-<Box sx={{ fontSize: 13 }}>
-  <b>{t("Link")}:</b>{" "}
-  {[
-    b.uplink && "Uplink",
-    b.downlink && "Downlink",
-  ].filter(Boolean).join(", ")}
-</Box>
+                            <Box sx={{ fontSize: 13 }}>
+                              <b>{t("Link")}:</b>{" "}
+                              {[
+                                b.uplink && "Uplink",
+                                b.downlink && "Downlink",
+                              ].filter(Boolean).join(", ")}
+                            </Box>
 
                           </Box>
                         ))}
@@ -3128,256 +3124,256 @@ bgcolor:
                   </Box>
                 ) : (
                   <>
-<Box
-  sx={{
-    flex: 1,
-    minHeight: 0,
+                    <Box
+                      sx={{
+                        flex: 1,
+                        minHeight: 0,
 
-    // ✅ EXACT SAME AS USERS PAGE
-    overflow: "hidden",
+                        // ✅ EXACT SAME AS USERS PAGE
+                        overflow: "hidden",
 
-    bgcolor: vars.bgApp,
-    display: "flex",
-    flexDirection: "column",
-
-    
-  }}
->
+                        bgcolor: vars.bgApp,
+                        display: "flex",
+                        flexDirection: "column",
 
 
-
-
-
-   <Box
-  sx={{
-    flex: 1,
-    overflow: "auto",
-    ...SCROLLER_SX,
-   
-  }}
->
-
-
- {/* 🔥 WIDTH CONTROLLER */}
-  <Box
-    sx={{
-      minWidth: "max-content",
-      bgcolor: vars.bgCard,
-    }}
-  >
-    {/* HEADER */}
+                      }}
+                    >
 
 
 
 
 
+                      <Box
+                        sx={{
+                          flex: 1,
+                          overflow: "auto",
+                          ...SCROLLER_SX,
 
- <Box
-  sx={{
-    position: "sticky",
-    top: 0,
-    zIndex: 2,
-    display: "grid",
-    gridTemplateColumns: ANT_GRID,
-    minWidth: "max-content",
-    bgcolor: "#000",
-    borderBottom: `1px solid ${vars.border}`,
-  }}
->
-  {[
-    "", // checkbox
-    t("No"),
-    t("Name"),
-    t("Location"),
-    t("Size (m)"),
-    t("EIRP (dBW)"),
-    t("Tx Pol"),
-    t("Rx Pol"),
-    t("Travel Range"),
-    t("Track Vel"),
-    t("Track Acc"),
-    t("Track Modes"),
-    ...(isAdmin ? [t("Status")] : []),
-    t("Bands"),
-    t("Action"),
-  ].map((h, i) => (
-    <Box
-      key={i}
-      sx={{
-        px: 1.25,
-        py: 1,
-        fontWeight: 700,
-        fontSize: 13,
-        color: "#fff",
-        textAlign: "center",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {i === 0 ? (
-        <Checkbox
-          size="small"
-          checked={
-            pagedAnts.length > 0 &&
-            pagedAnts.every(a => selectedAntennas.includes(Number(a.id)))
-          }
-          indeterminate={
-            selectedAntennas.length > 0 &&
-            !pagedAnts.every(a => selectedAntennas.includes(Number(a.id)))
-          }
-          onChange={() => {
-            const ids = pagedAnts
-              .filter(a => a.status !== "PENDING")
-              .map(a => Number(a.id));
-
-            setSelectedAntennas(
-              ids.every(id => selectedAntennas.includes(id)) ? [] : ids
-            );
-          }}
-        />
-      ) : (
-        h
-      )}
-    </Box>
-  ))}
-</Box>
+                        }}
+                      >
 
 
-                   
-  
-
-
-                      {pagedAnts.map((a, idx) => (
-
-                        
-<Box
-  key={String(a.id)}
-  sx={{
-    display: "grid",
-    gridTemplateColumns: ANT_GRID,
-    alignItems: "center",
-    borderBottom: `1px solid ${vars.borderWeak}`,
-    bgcolor: vars.bgCard,
-    "&:hover": {
-      backgroundColor: (t: Theme) =>
-        t.palette.mode === "dark" ? "#232325" : "#f7f7f7",
-    },
-  }}
->
-  {/* checkbox */}
-  <Box sx={{ textAlign: "center" }}>
-    <Checkbox
-      size="small"
-      disabled={a.status === "PENDING"}
-      checked={selectedAntennas.includes(Number(a.id))}
-      onChange={() => toggleAntennaSelect(Number(a.id))}
-    />
-  </Box>
-
-  {/* Sr No */}
-  <Box sx={cellSx}>
-    {antPage * antRpp + idx + 1}
-  </Box>
-
-  <Box sx={cellSx}>{a.type}</Box>
-  <Box sx={cellSx}>{a.location || "-"}</Box>
-  <Box sx={cellSx}>{a.size_m || "-"}</Box>
-  <Box sx={cellSx}>{a.eirp_dbw || "-"}</Box>
-  <Box sx={cellSx}>{a.tx_polarization || "-"}</Box>
-  <Box sx={cellSx}>{a.rx_polarization || "-"}</Box>
-  <Box sx={cellSx}>{a.travel_range || "-"}</Box>
-  <Box sx={cellSx}>
-  {a.tracking_velocity
-    ? `${a.tracking_velocity} °/s`
-    : "-"}
-</Box>
-
-<Box sx={cellSx}>
-  {a.tracking_acceleration
-    ? `${a.tracking_acceleration} °/s²`
-    : "-"}
-</Box>
-
-  <Box sx={cellSx}>{a.tracking_modes || "-"}</Box>
-
-  {isAdmin && (
-    <Box sx={cellSx}>
-      <StatusBadge status={a.status || "APPROVED"} />
-    </Box>
-  )}
-
- <Box
-  sx={{
-    px: 0.75,
-    py: 0.5,
-    textAlign: "left",
-    fontSize: 12,
-    lineHeight: 1.25,
-  }}
->
-  {a.bands?.length ? (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.4 }}>
-      {a.bands.map((b, i) => (
-        <Box key={i} sx={{ whiteSpace: "nowrap" }}>
-          <b>{b.band}</b>
-          {"  |  "}
-          G/T: {b.gt || "-"}
-          {"  |  "}
-          {[b.uplink && "Uplink", b.downlink && "Downlink"]
-            .filter(Boolean)
-            .join(", ") || "-"}
-        </Box>
-      ))}
-    </Box>
-  ) : (
-    "-"
-  )}
-</Box>
+                        {/* 🔥 WIDTH CONTROLLER */}
+                        <Box
+                          sx={{
+                            minWidth: "max-content",
+                            bgcolor: vars.bgCard,
+                          }}
+                        >
+                          {/* HEADER */}
 
 
 
-  <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
-    {(isAdmin || (isEditor && a.status === "APPROVED")) && (
-      <Button
-        size="small"
-        variant="contained"
-        onClick={() => handleUpdateAntenna(a)}
-        sx={{
-          minWidth: 70,
-          height: 28,
-          fontSize: 12,
-          textTransform: "none",
-          fontWeight: 700,
-        }}
-      >
-        Edit
-      </Button>
-    )}
 
-    {isAdmin && a.status === "PENDING" && (
-      <>
-        <Button
-          size="small"
-          color="success"
-          variant="contained"
-          onClick={() => handleApprove(a.__requestId!)}
-        >
-          Approve
-        </Button>
-        <Button
-          size="small"
-          color="error"
-          variant="contained"
-          onClick={() => handleReject(a.__requestId!)}
-        >
-          Reject
-        </Button>
-      </>
-    )}
-  </Box>
-</Box>
 
-                      ))}
-</Box>
+
+                          <Box
+                            sx={{
+                              position: "sticky",
+                              top: 0,
+                              zIndex: 2,
+                              display: "grid",
+                              gridTemplateColumns: ANT_GRID,
+                              minWidth: "max-content",
+                              bgcolor: "#000",
+                              borderBottom: `1px solid ${vars.border}`,
+                            }}
+                          >
+                            {[
+                              "", // checkbox
+                              t("No"),
+                              t("Name"),
+                              t("Location"),
+                              t("Size (m)"),
+                              t("EIRP (dBW)"),
+                              t("Tx Pol"),
+                              t("Rx Pol"),
+                              t("Travel Range"),
+                              t("Track Vel"),
+                              t("Track Acc"),
+                              t("Track Modes"),
+                              ...(isAdmin ? [t("Status")] : []),
+                              t("Bands"),
+                              t("Action"),
+                            ].map((h, i) => (
+                              <Box
+                                key={i}
+                                sx={{
+                                  px: 1.25,
+                                  py: 1,
+                                  fontWeight: 700,
+                                  fontSize: 13,
+                                  color: "#fff",
+                                  textAlign: "center",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {i === 0 ? (
+                                  <Checkbox
+                                    size="small"
+                                    checked={
+                                      pagedAnts.length > 0 &&
+                                      pagedAnts.every(a => selectedAntennas.includes(Number(a.id)))
+                                    }
+                                    indeterminate={
+                                      selectedAntennas.length > 0 &&
+                                      !pagedAnts.every(a => selectedAntennas.includes(Number(a.id)))
+                                    }
+                                    onChange={() => {
+                                      const ids = pagedAnts
+                                        .filter(a => a.status !== "PENDING")
+                                        .map(a => Number(a.id));
+
+                                      setSelectedAntennas(
+                                        ids.every(id => selectedAntennas.includes(id)) ? [] : ids
+                                      );
+                                    }}
+                                  />
+                                ) : (
+                                  h
+                                )}
+                              </Box>
+                            ))}
+                          </Box>
+
+
+
+
+
+
+                          {pagedAnts.map((a, idx) => (
+
+
+                            <Box
+                              key={String(a.id)}
+                              sx={{
+                                display: "grid",
+                                gridTemplateColumns: ANT_GRID,
+                                alignItems: "center",
+                                borderBottom: `1px solid ${vars.borderWeak}`,
+                                bgcolor: vars.bgCard,
+                                "&:hover": {
+                                  backgroundColor: (t: Theme) =>
+                                    t.palette.mode === "dark" ? "#232325" : "#f7f7f7",
+                                },
+                              }}
+                            >
+                              {/* checkbox */}
+                              <Box sx={{ textAlign: "center" }}>
+                                <Checkbox
+                                  size="small"
+                                  disabled={a.status === "PENDING"}
+                                  checked={selectedAntennas.includes(Number(a.id))}
+                                  onChange={() => toggleAntennaSelect(Number(a.id))}
+                                />
+                              </Box>
+
+                              {/* Sr No */}
+                              <Box sx={cellSx}>
+                                {antPage * antRpp + idx + 1}
+                              </Box>
+
+                              <Box sx={cellSx}>{a.type}</Box>
+                              <Box sx={cellSx}>{a.location || "-"}</Box>
+                              <Box sx={cellSx}>{a.size_m || "-"}</Box>
+                              <Box sx={cellSx}>{a.eirp_dbw || "-"}</Box>
+                              <Box sx={cellSx}>{a.tx_polarization || "-"}</Box>
+                              <Box sx={cellSx}>{a.rx_polarization || "-"}</Box>
+                              <Box sx={cellSx}>{a.travel_range || "-"}</Box>
+                              <Box sx={cellSx}>
+                                {a.tracking_velocity
+                                  ? `${a.tracking_velocity} °/s`
+                                  : "-"}
+                              </Box>
+
+                              <Box sx={cellSx}>
+                                {a.tracking_acceleration
+                                  ? `${a.tracking_acceleration} °/s²`
+                                  : "-"}
+                              </Box>
+
+                              <Box sx={cellSx}>{a.tracking_modes || "-"}</Box>
+
+                              {isAdmin && (
+                                <Box sx={cellSx}>
+                                  <StatusBadge status={a.status || "APPROVED"} />
+                                </Box>
+                              )}
+
+                              <Box
+                                sx={{
+                                  px: 0.75,
+                                  py: 0.5,
+                                  textAlign: "left",
+                                  fontSize: 12,
+                                  lineHeight: 1.25,
+                                }}
+                              >
+                                {a.bands?.length ? (
+                                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.4 }}>
+                                    {a.bands.map((b, i) => (
+                                      <Box key={i} sx={{ whiteSpace: "nowrap" }}>
+                                        <b>{b.band}</b>
+                                        {"  |  "}
+                                        G/T: {b.gt || "-"}
+                                        {"  |  "}
+                                        {[b.uplink && "Uplink", b.downlink && "Downlink"]
+                                          .filter(Boolean)
+                                          .join(", ") || "-"}
+                                      </Box>
+                                    ))}
+                                  </Box>
+                                ) : (
+                                  "-"
+                                )}
+                              </Box>
+
+
+
+                              <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
+                                {(isAdmin || (isEditor && a.status === "APPROVED")) && (
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    onClick={() => handleUpdateAntenna(a)}
+                                    sx={{
+                                      minWidth: 70,
+                                      height: 28,
+                                      fontSize: 12,
+                                      textTransform: "none",
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                )}
+
+                                {isAdmin && a.status === "PENDING" && (
+                                  <>
+                                    <Button
+                                      size="small"
+                                      color="success"
+                                      variant="contained"
+                                      onClick={() => handleApprove(a.__requestId!)}
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      color="error"
+                                      variant="contained"
+                                      onClick={() => handleReject(a.__requestId!)}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+                              </Box>
+                            </Box>
+
+                          ))}
+                        </Box>
                       </Box>
                     </Box>
 
@@ -3429,12 +3425,12 @@ bgcolor:
         onDelete={handleDeletePolDialog}
       />
       <UpdateAntennaDialog
-  open={antEditOpen}
-  row={antEditRow}
-  onClose={() => setAntEditOpen(false)}
-  onSave={handleSaveAntennaDialog}
-  onDelete={handleDeleteAntennaDialog}
-/>
+        open={antEditOpen}
+        row={antEditRow}
+        onClose={() => setAntEditOpen(false)}
+        onSave={handleSaveAntennaDialog}
+        onDelete={handleDeleteAntennaDialog}
+      />
     </MainLayout>
   );
 }

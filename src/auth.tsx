@@ -82,6 +82,7 @@ export type AuthUser = {
   username: string;
   roleId: number | null;
   role: Role;
+  roleName: string;
 };
 
 type AuthState = {
@@ -109,6 +110,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({
         username: String(me?.username || ""),
         roleId: me?.roleId ?? null,
         role: resolveRoleFromMe(me),
+        roleName: String(me?.roleName || me?.role || "User"),
       };
     } catch {
       return null;
@@ -145,6 +147,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({
           username: String(me?.username || ""),
           roleId: me?.roleId ?? null,
           role: resolvedRole,
+          roleName: String(me?.roleName || me?.role || "User"),
         });
 
         sessionStorage.setItem("pmgt_uid", String(me?.id));

@@ -43,10 +43,10 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
   const { hasPageAccess, loadingAccess } = usePageAccess();
 
   React.useEffect(() => {
-  console.log("ROLE:", sessionStorage.getItem("pmgt_role"));
-  console.log("ROLETYPE:", sessionStorage.getItem("pmgt_role_type"));
-  console.log("ACCESS:", sessionStorage.getItem("pmgt_page_access"));
-}, []);
+    console.log("ROLE:", sessionStorage.getItem("pmgt_role"));
+    console.log("ROLETYPE:", sessionStorage.getItem("pmgt_role_type"));
+    console.log("ACCESS:", sessionStorage.getItem("pmgt_page_access"));
+  }, []);
 
   const width = expanded ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
 
@@ -114,98 +114,98 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
       {/* Nav groups */}
       <Box sx={{ overflowY: expanded ? "auto" : "hidden", flex: 1 }}>
         <List disablePadding dense={!expanded}>
-       {hasPageAccess("dashboard") && (
+          {hasPageAccess("dashboard") && (
 
-  <NavItem
-    to="/dashboard"
-    icon={<DashboardIcon />}
-    label={t("Dashboard")}
-    expanded={expanded}
-    end
-  />
-)}
+            <NavItem
+              to="/dashboard"
+              icon={<DashboardIcon />}
+              label={t("Dashboard")}
+              expanded={expanded}
+              end
+            />
+          )}
 
 
-             {hasPageAccess("pass_list") && (
-  <NavItem
-    to="/pass-list"
-    icon={<FormatListBulletedIcon />}
-    label={t("Pass List")}
-    expanded={expanded}
-  />
-)}
+          {hasPageAccess("pass_list") && (
+            <NavItem
+              to="/pass-list"
+              icon={<FormatListBulletedIcon />}
+              label={t("Pass List")}
+              expanded={expanded}
+            />
+          )}
 
-          
-              {hasPageAccess("satellites") && (
 
-  <NavItem
-    to="/satellites"
-    icon={<SatelliteAltIcon />}
-    label={t("Satellites List")}
-    expanded={expanded}
-  />
-)}
+          {hasPageAccess("satellites") && (
 
-             {hasPageAccess("licenses") && (
-  <NavItem
-    to="/licenses"
-    icon={<AssignmentIcon />}
-    label={t("License List")}
-    expanded={expanded}
-  />
-)}
+            <NavItem
+              to="/satellites"
+              icon={<SatelliteAltIcon />}
+              label={t("Satellites List")}
+              expanded={expanded}
+            />
+          )}
 
-             {hasPageAccess("passes") && (
-  <NavItem
-    to="/passes"
-    icon={<RocketLaunchIcon />}
-    label={t("Passes List")}
-    expanded={expanded}
-  />
-)}
+          {hasPageAccess("licenses") && (
+            <NavItem
+              to="/licenses"
+              icon={<AssignmentIcon />}
+              label={t("License List")}
+              expanded={expanded}
+            />
+          )}
 
-              {/* <NavItem
+          {hasPageAccess("passes") && (
+            <NavItem
+              to="/passes"
+              icon={<RocketLaunchIcon />}
+              label={t("Passes List")}
+              expanded={expanded}
+            />
+          )}
+
+          {/* <NavItem
                 to="/pass-schedule"
                 icon={<CalendarMonthIcon />}
                 label={t("AWS Operations")}
                 expanded={expanded}
               /> */}
-             {hasPageAccess("documents") && (
-  <NavItem
-    to="/documents"
-    icon={<DescriptionIcon />}
-    label={t("Documents")}
-    expanded={expanded}
-  />
-)}
+          {hasPageAccess("documents") && (
+            <NavItem
+              to="/documents"
+              icon={<DescriptionIcon />}
+              label={t("Documents")}
+              expanded={expanded}
+            />
+          )}
 
-             {isAdmin && hasPageAccess("logs") && (
+          {isAdmin && hasPageAccess("logs") && (
 
-  <NavItem
-    to="/logs"
-    icon={<ReceiptLongIcon />}
-    label={t("Logs")}
-    expanded={expanded}
-  />
-)}
+            <NavItem
+              to="/logs"
+              icon={<ReceiptLongIcon />}
+              label={t("Logs")}
+              expanded={expanded}
+            />
+          )}
 
-              {hasPageAccess("requests") && (
-  <NavItem
-    to="/requests"
-    icon={<AssignmentTurnedInIcon />}
-    label={t("Requests")}
-    expanded={expanded}
-  />
-)}
+          {hasPageAccess("requests") && (
+            <NavItem
+              to="/requests"
+              icon={<AssignmentTurnedInIcon />}
+              label={t("Requests")}
+              expanded={expanded}
+            />
+          )}
 
-             {hasPageAccess("issues") && (
-  <NavItem
-    to="/issues"
-    icon={<HelpOutlineIcon />}
-    label={t("Report Issue")}
-    expanded={expanded}
-  />
-)}
+          {hasPageAccess("issues") && (
+            <NavItem
+              to="/issues"
+              icon={<HelpOutlineIcon />}
+              label={t("Report Issue")}
+              expanded={expanded}
+            />
+          )}
 
         </List>
       </Box>
@@ -219,37 +219,37 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
             expanded={expanded}
             textColor="#FF8A00"
             iconColor="#FF8A00"
-           onClick={async () => {
-  if (!window.confirm(t("Log out of I-Portal?"))) return;
+            onClick={async () => {
+              if (!window.confirm(t("Log out of I-Portal?"))) return;
 
-  try {
-    const token = getAuthToken();
+              try {
+                const token = getAuthToken();
 
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  } catch (e) {
-    console.log("Logout log failed:", e);
-  }
+                await fetch("/api/auth/logout", {
+                  method: "POST",
+                  headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                });
+              } catch (e) {
+                console.log("Logout log failed:", e);
+              }
 
-  sessionStorage.removeItem("token");
-  sessionStorage.removeItem("user");
-  sessionStorage.removeItem("profile");
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
+              sessionStorage.removeItem("token");
+              sessionStorage.removeItem("user");
+              sessionStorage.removeItem("profile");
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
 
-  try {
-    const toDelete: string[] = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const k = sessionStorage.key(i) || "";
-      if (k.startsWith("pmgt_")) toDelete.push(k);
-    }
-    toDelete.forEach((k) => sessionStorage.removeItem(k));
-  } catch {}
+              try {
+                const toDelete: string[] = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                  const k = sessionStorage.key(i) || "";
+                  if (k.startsWith("pmgt_")) toDelete.push(k);
+                }
+                toDelete.forEach((k) => sessionStorage.removeItem(k));
+              } catch { }
 
-  window.location.href = "/";
-}}
+              window.location.href = "/";
+            }}
 
           />
         </List>

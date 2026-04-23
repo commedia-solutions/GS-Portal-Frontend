@@ -161,11 +161,15 @@ function ThemedScrollTable({
                 "& .resizer": {
                   position: "absolute",
                   right: 0,
-                  top: 0,
-                  height: "100%",
-                  width: "4px",
+                  top: "20%",
+                  height: "60%",
+                  width: "2px",
+                  bgcolor: "rgba(255,255,255,0.15)",
                   cursor: "col-resize",
-                  "&:hover": { bgcolor: TOK.ACCENT },
+                  "&:hover": { bgcolor: TOK.ACCENT, width: "4px" },
+                  ".theme-light &": {
+                    bgcolor: "rgba(0,0,0,0.12)",
+                  },
                 },
               }}
             >

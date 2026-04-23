@@ -207,13 +207,14 @@ const theadCellSx = {
     "& .resizer": {
         position: "absolute",
         right: 0,
-        top: 0,
-        height: "100%",
-        width: "4px",
+        top: "20%",
+        height: "60%",
+        width: "2px",
+        bgcolor: "rgba(255,255,255,0.15)",
         cursor: "col-resize",
         userSelect: "none",
         touchAction: "none",
-        "&:hover": { bgcolor: "secondary.main" },
+        "&:hover": { bgcolor: "#7C57F2", width: "4px" },
     },
 } as const;
 
@@ -533,10 +534,6 @@ export default function VisibilitySchedule() {
     /* ---- Availability status button renderer (used for both main table and draft table) ---- */
     const renderAvailabilityStatus = (r: VSRow | DraftRow, isDraft = false) => {
         const { pass_status, operations } = r;
-
-        const updateFn = isDraft
-            ? (status: string, extra?: any) => updateDraftStatus(r.id, status, extra)
-            : (status: string, extra?: any) => updateVsStatus(r.id, status, extra);
 
         if (pass_status === "pass_cancelled") {
             return (

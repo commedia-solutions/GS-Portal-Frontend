@@ -27,9 +27,12 @@ import DownloadIcon from "@mui/icons-material/Download";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import MainLayout from "../layouts/MainLayout";
 import { api, BASE_URL, getAuthToken } from "../api/http";
-import { useAuth } from "../auth";
 import { useI18n } from "../i18n"; // <-- i18n
 import { useActionAccess } from "../auth/useActionAccess";
+
+/* --- API endpoints --- */
+const DOCUMENTS_API = `/api/documents`;
+const PASS_API = `/api/pass-schedule`;
 
 /* --- Modals --- */
 import UpdateDocumentModal from "../components/Models/UpdateDocumentModal";
@@ -263,7 +266,7 @@ const DOC_TYPES = [
   "Other",
 ] as const;
 
-type DocumentRow = { id: number; sr: number; name: string; type: string; remarks: string; url: string };
+type DocumentRow = { id: number; sr: number; name: string; type: string; remarks: string; url: string; addedBy: string; dateTime: string };
 
 type Column = {
   key: keyof DocumentRow | "download" | "action";
@@ -287,7 +290,7 @@ function DarkDocsTable({
   rows: DocumentRow[];
   columns: Column[];
   onDownload: (r: DocumentRow) => void;
-  onUpdate: (r: DocumentRow) => void;
+  onUpdate?: (r: DocumentRow) => void;
   mode: "dark" | "light";
   C: ReturnType<typeof makeSx>["C"];
   onResize?: (key: string, width: number) => void;
@@ -300,8 +303,8 @@ function DarkDocsTable({
     })
     .join(" ");
 
-  const headerCellSx = { px: "14px", py: "10px", fontWeight: 700, fontSize: 13, color: C.HEADER_TEXT, whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "80px" };
-  const bodyCellSx = { px: "14px", py: "10px", fontSize: 13, color: mode === "light" ? C.TEXT : "#EAEAEA", whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "80px" };
+  const headerCellSx = { px: "10px", py: "8px", fontWeight: 700, fontSize: 13, color: C.HEADER_TEXT, whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "50px" };
+  const bodyCellSx = { px: "10px", py: "6px", fontSize: 13, color: mode === "light" ? C.TEXT : "#EAEAEA", whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "50px" };
 
   return (
     <Box>
@@ -328,11 +331,12 @@ function DarkDocsTable({
                 "& .resizer": {
                   position: "absolute",
                   right: 0,
-                  top: 0,
-                  height: "100%",
-                  width: "4px",
+                  top: "20%",
+                  height: "60%",
+                  width: "2px",
+                  bgcolor: mode === "light" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.2)",
                   cursor: "col-resize",
-                  "&:hover": { bgcolor: "#7C57F2" },
+                  "&:hover": { bgcolor: "#7C57F2", width: "4px" },
                 },
               }}
             >
@@ -586,8 +590,7 @@ export default function DocumentsPage() {
   const { C, CARD_SX, SCROLLER_SX, compactCtrlSx, PRIMARY_BTN_SX, OUTLINED_BTN_SX, toggleBtnSx, darkMenu, paginationSx } =
     React.useMemo(() => makeSx(mode), [mode]);
 
-  const { hasRole } = useAuth();
-  const { isEditor, hasWriteAccess } = useActionAccess();
+  const { hasWriteAccess } = useActionAccess();
   // We determine if they can upload via the granular `pass_upload` write access:
   const canUploadPassLevel = hasWriteAccess("pass_upload");
 
@@ -629,6 +632,8 @@ export default function DocumentsPage() {
       const data = await api.get<any[]>(DOCUMENTS_API);
       const mapped: DocumentRow[] = (data || []).map((row: any, i: number) => ({
         id: row.id, sr: i + 1, name: row.document_name, type: row.doc_type, remarks: row.remarks || "", url: `${DOCUMENTS_API}/${row.id}/download`,
+        addedBy: row.added_by || "—",
+        dateTime: formatDateTime(row.updated_at || row.created_at),
       }));
       setDocRows(mapped);
     } catch (e) { console.error("Fetch documents failed:", e); }
@@ -639,15 +644,38 @@ export default function DocumentsPage() {
       const data = await api.get<any[]>(PASS_API);
       const mapped: DocumentRow[] = (data || []).map((row: any, i: number) => ({
         id: row.id, sr: i + 1, name: row.document_name, type: "", remarks: row.remarks || "", url: `${PASS_API}/${row.id}/download`,
+        addedBy: row.added_by || "—",
+        dateTime: formatDateTime(row.updated_at || row.created_at),
       }));
       setPassRows(mapped);
     } catch (e) { console.error("Fetch passes failed:", e); }
   }, []);
 
+  function formatDateTime(raw: any) {
+    if (!raw) return "—";
+    try {
+      const s = String(raw);
+      // Ensure it's treated as UTC if no TZ specified
+      const iso = s.includes("Z") || s.includes("+") ? s : s.replace(" ", "T") + "Z";
+      return new Date(iso).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return String(raw);
+    }
+  }
+
   React.useEffect(() => { refreshDocs(); refreshPass(); }, [refreshDocs, refreshPass]);
 
-  const canUploadDoc = !!file && !!uploadType;
-  const canUploadPass = canUploadPassLevel && !!passFile;
+  const canUploadDoc = hasWriteAccess("documents") && !!file && !!uploadType;
+  const canUploadPass = hasWriteAccess("pass_upload") && !!passFile;
 
   // --- Upload actions (gated) ---
   const doUploadDoc = async () => {
@@ -718,12 +746,16 @@ export default function DocumentsPage() {
     { key: "sr", label: t("Sr No"), width: 60, align: "center" },
     { key: "name", label: t("Document"), min: 220, flex: 1.4, align: "left" },
     { key: "type", label: t("Doc Type"), min: 140, flex: 1.0, align: "center" },
+    { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" },
+    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" },
     { key: "remarks", label: t("Remarks"), min: 200, flex: 1.2, align: "left" },
   ]);
 
   const [passCols, setPassCols] = React.useState<Column[]>([
     { key: "sr", label: t("Sr No"), width: 60, align: "center" },
     { key: "name", label: t("Document"), min: 260, flex: 1.5, align: "left" },
+    { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" },
+    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" },
     { key: "remarks", label: t("Remarks"), min: 220, flex: 1.2, align: "left" },
   ]);
 
@@ -739,17 +771,17 @@ export default function DocumentsPage() {
 
   const DOC_COLUMNS_FINAL = React.useMemo(() => {
     const cols = [...docCols];
-    cols.push({ key: "download", label: t("Download"), width: 80, align: "center" });
-    if (isEditor) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
+    cols.push({ key: "download", label: t("Download"), width: 100, align: "center" });
+    if (hasWriteAccess("documents")) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
     return cols;
-  }, [docCols, t, isEditor]);
+  }, [docCols, t, hasWriteAccess]);
 
   const PASS_COLUMNS_FINAL = React.useMemo(() => {
     const cols = [...passCols];
-    cols.push({ key: "download", label: t("Download"), width: 80, align: "center" });
-    if (isEditor) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
+    cols.push({ key: "download", label: t("Download"), width: 100, align: "center" });
+    if (hasWriteAccess("pass_upload")) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
     return cols;
-  }, [passCols, t, isEditor]);
+  }, [passCols, t, hasWriteAccess]);
 
 
   return (
@@ -827,16 +859,16 @@ export default function DocumentsPage() {
           </Box>
 
           {/* Upload rows */}
-          {tab === "docs" && isEditor ? (
+          {tab === "docs" && hasWriteAccess("documents") ? (
             <>
               <Box
                 sx={{
                   px: 1.25,
-                  py: 1,
+                  py: 0.75,
                   display: "grid",
                   gridTemplateColumns: "auto 160px 240px auto auto auto",
                   alignItems: "center",
-                  gap: 1,
+                  gap: 1.5,
                 }}
               >
 
@@ -907,11 +939,11 @@ export default function DocumentsPage() {
                   <Box
                     sx={{
                       px: 1.25,
-                      py: 1,
+                      py: 0.75,
                       display: "grid",
                       gridTemplateColumns: "auto auto auto 1fr auto",
                       alignItems: "center",
-                      gap: 1,
+                      gap: 1.5,
                       bgcolor: "transparent",
                     }}
                   >
@@ -973,9 +1005,9 @@ export default function DocumentsPage() {
                     columns={DOC_COLUMNS_FINAL}
                     onDownload={onDownload}
                     onUpdate={
-                      isEditor
+                      hasWriteAccess("documents")
                         ? (r) => setEditDoc({ id: r.id, name: r.name, type: r.type, remarks: r.remarks })
-                        : () => { }
+                        : undefined
                     }
                     mode={mode}
                     C={C}
@@ -988,9 +1020,9 @@ export default function DocumentsPage() {
                     columns={PASS_COLUMNS_FINAL}
                     onDownload={onDownload}
                     onUpdate={
-                      isEditor
+                      hasWriteAccess("pass_upload")
                         ? (r) => setEditPass({ id: r.id, name: r.name, remarks: r.remarks })
-                        : () => { }
+                        : undefined
                     }
                     mode={mode}
                     C={C}
@@ -1059,10 +1091,6 @@ export default function DocumentsPage() {
     </MainLayout>
   );
 }
-
-/* ---------- API endpoints ---------- */
-const DOCUMENTS_API = `/api/documents`;
-const PASS_API = `/api/pass-schedule`;
 
 /* ---------- Download helper ---------- */
 async function downloadFrom(pathOrUrl: string, filename: string) {

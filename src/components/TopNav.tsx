@@ -19,7 +19,7 @@ import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import TranslateIcon from "@mui/icons-material/Translate";
 import CheckIcon from "@mui/icons-material/Check";
-import { useAuth, PERMISSION } from "../auth";
+import { useAuth } from "../auth";
 import { usePageAccess } from "../auth/usePageAccess";
 import { useActionAccess } from "../auth/useActionAccess";
 
@@ -143,7 +143,7 @@ function DualClockRow() {
 export default function TopNav({ leftOffset, title }: TopNavProps) {
   const navigate = useNavigate();
 
-  const { can, hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const { hasPageAccess, loadingAccess } = usePageAccess();
   const { isEditor } = useActionAccess();
 
@@ -362,26 +362,55 @@ export default function TopNav({ leftOffset, title }: TopNavProps) {
         )}
 
 
-        <Avatar
-          src={!imgError ? avatarSrc : undefined}
-          imgProps={{ loading: "eager", referrerPolicy: "no-referrer" }}
-          onClick={() => navigate("/userprofile")}
-          onError={() => setImgError(true)}
-          onLoad={() => setImgError(false)}
-          sx={{
-            width: 34,
-            height: 34,
-            bgcolor: avatarSrc && !imgError ? "transparent" : vars.accent,
-            color: avatarSrc && !imgError ? undefined : "#fff",
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: "pointer",
-            userSelect: "none",
+        <Tooltip
+          title={
+            <Box sx={{ p: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#fff", mb: 0.5 }}>
+                {t("I-Portal Account")}
+              </Typography>
+              <Typography variant="caption" sx={{ display: "block", color: "rgba(255,255,255,0.85)", fontSize: 11 }}>
+                {t("Name")}: {fullName || username}
+              </Typography>
+              <Typography variant="caption" sx={{ display: "block", color: "rgba(255,255,255,0.85)", fontSize: 11 }}>
+                {t("Role")}: {user?.roleName || t("User")}
+              </Typography>
+            </Box>
+          }
+          arrow
+          placement="bottom-end"
+          componentsProps={{
+            tooltip: {
+              sx: {
+                bgcolor: "rgba(32, 33, 36, 0.98)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                borderRadius: "8px",
+                p: 1.25,
+                border: "1px solid rgba(255,255,255,0.1)",
+                "& .MuiTooltip-arrow": { color: "rgba(32, 33, 36, 0.98)" },
+              },
+            },
           }}
-          title={t("User & Role Management")}
         >
-          {!avatarSrc || imgError ? initials : null}
-        </Avatar>
+          <Avatar
+            src={!imgError ? avatarSrc : undefined}
+            imgProps={{ loading: "eager", referrerPolicy: "no-referrer" }}
+            onClick={() => navigate("/userprofile")}
+            onError={() => setImgError(true)}
+            onLoad={() => setImgError(false)}
+            sx={{
+              width: 34,
+              height: 34,
+              bgcolor: avatarSrc && !imgError ? "transparent" : vars.accent,
+              color: avatarSrc && !imgError ? undefined : "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            {!avatarSrc || imgError ? initials : null}
+          </Avatar>
+        </Tooltip>
 
         <Tooltip title={t("Settings")}>
           <IconButton size="small" onClick={openSettings} sx={sxPresets.btnGhost}>

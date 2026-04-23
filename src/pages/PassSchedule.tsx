@@ -155,14 +155,14 @@ function makeCaptcha(width = 220, height = 80, length = 5): Captcha {
       const x1 = rand(0, width), y1 = rand(0, height);
       const x2 = rand(0, width), y2 = rand(0, height);
       const op = rand(0.25, 0.45).toFixed(2);
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(1,2)}"/>`;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(1, 2)}"/>`;
     })
     .join("");
   const dots = Array.from({ length: 35 })
     .map(() => {
       const x = rand(0, width), y = rand(0, height);
       const op = rand(0.15, 0.35).toFixed(2);
-      return `<circle cx="${x}" cy="${y}" r="${rand(0.8,2.2)}" fill="white" fill-opacity="${op}"/>`;
+      return `<circle cx="${x}" cy="${y}" r="${rand(0.8, 2.2)}" fill="white" fill-opacity="${op}"/>`;
     })
     .join("");
   const svg = `
@@ -338,7 +338,7 @@ function AwsContactsPanel() {
       try {
         localStorage.setItem("awsUpcomingFilters", JSON.stringify(data));
         window.dispatchEvent(new Event("awsUpcomingFiltersChanged"));
-      } catch {}
+      } catch { }
     },
     [region, satelliteArn, missionProfileArn, groundStation]
   );
@@ -495,7 +495,7 @@ function AwsContactsPanel() {
       const res = await api.post<any>(`/api/aws-contacts/list`, body);
 
       const items: ContactRow[] = (res?.items || []).map((c: any, i: number) => {
-        const fallback = `${i}-${(c.startTime || "").replace(/[:.]/g, "")}-${Math.random().toString(36).slice(2,5)}`;
+        const fallback = `${i}-${(c.startTime || "").replace(/[:.]/g, "")}-${Math.random().toString(36).slice(2, 5)}`;
         const stableId = String(c.contactId ?? fallback);
         return {
           contactId: c.contactId ?? null,
@@ -591,7 +591,7 @@ function AwsContactsPanel() {
       </Box>
 
       {/* Filters */}
-       <Box
+      <Box
         sx={{
           px: 1.25,
           py: 1,
@@ -889,7 +889,7 @@ function PassSchedulePanel() {
     });
     try {
       await api.post("/api/pass-schedule/regions", row);
-    } catch {}
+    } catch { }
     setBucketNew("");
   };
   const removeRow = async (idx: number) => {
@@ -897,7 +897,7 @@ function PassSchedulePanel() {
     setRows((prev) => prev.filter((_, i) => i !== idx));
     try {
       await api.post("/api/pass-schedule/regions/delete", r);
-    } catch {}
+    } catch { }
   };
 
   const prettyFileName = React.useMemo(() => (file ? file.name.replace(/(\.txt){2}$/i, ".txt").replace(/(\.csv){2}$/i, ".csv") : ""), [file]);
@@ -1105,7 +1105,7 @@ function TleUpdatePanel() {
     });
     try {
       await api.post("/api/tle-update/regions", row);
-    } catch {}
+    } catch { }
     setBucketNew("");
   };
   const removeRow = async (idx: number) => {
@@ -1113,7 +1113,7 @@ function TleUpdatePanel() {
     setRows((prev) => prev.filter((_, i) => i !== idx));
     try {
       await api.post("/api/tle-update/regions/delete", r);
-    } catch {}
+    } catch { }
   };
 
   const prettyFileName = React.useMemo(() => (file ? file.name.replace(/(\.txt){2}$/i, ".txt").replace(/(\.tle){2}$/i, ".tle").replace(/(\.json){2}$/i, ".json") : ""), [file]);
@@ -1308,7 +1308,7 @@ function AwsManualPanel() {
       };
       const res = await api.post<any>(`/api/aws-contacts/list`, body);
       const items: ContactRow[] = (res?.items || []).map((c: any, i: number) => {
-        const fallback = `${i}-${(c.startTime || "").replace(/[:.]/g, "")}-${Math.random().toString(36).slice(2,5)}`;
+        const fallback = `${i}-${(c.startTime || "").replace(/[:.]/g, "")}-${Math.random().toString(36).slice(2, 5)}`;
         const stableId = String(c.contactId ?? fallback);
         return {
           contactId: c.contactId ?? null,

@@ -360,7 +360,7 @@ export default function AddLicense() {
       const j: any = await api.get("/api/licenses?limit=1");
       const lastRow = j?.data?.[0];
       let nextNum = Number(j?.total ?? 0) + 1;
-      
+
       if (lastRow?.license_req_no?.startsWith(LICENSE_PREFIX)) {
         const lastNum = parseInt(lastRow.license_req_no.replace(LICENSE_PREFIX, ""), 10);
         if (!isNaN(lastNum) && lastNum >= nextNum) {
