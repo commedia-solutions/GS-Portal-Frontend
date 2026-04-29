@@ -11,7 +11,7 @@ import {
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 // import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 const resolveLandingRoute = () => {
   const role = sessionStorage.getItem("pmgt_role");
 
@@ -83,7 +83,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +159,7 @@ setUser({
   username: String(me?.username || ""),
   roleId: me?.roleId ?? null,
   role: resolvedRole,
+  roleName: String(me?.roleName || me?.role || "User"),
 });
 
 // notify + redirect
@@ -166,7 +167,7 @@ toast.success("Login successful! Redirecting…", TOAST_OPTS);
 
 requestAnimationFrame(() => {
   window.dispatchEvent(new Event("pmgt:page-access-updated"));
-  navigate(resolveLandingRoute(), { replace: true });
+  window.location.href = resolveLandingRoute();
 });
 
 

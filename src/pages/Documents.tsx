@@ -653,23 +653,9 @@ export default function DocumentsPage() {
 
   function formatDateTime(raw: any) {
     if (!raw) return "—";
-    try {
-      const s = String(raw);
-      // Ensure it's treated as UTC if no TZ specified
-      const iso = s.includes("Z") || s.includes("+") ? s : s.replace(" ", "T") + "Z";
-      return new Date(iso).toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      });
-    } catch {
-      return String(raw);
-    }
+    // With dateStrings: true, MySQL returns 'YYYY-MM-DD HH:mm:ss'
+    // We just return it exactly as is, or strip milliseconds if present.
+    return String(raw).replace("T", " ").split(".")[0];
   }
 
   React.useEffect(() => { refreshDocs(); refreshPass(); }, [refreshDocs, refreshPass]);

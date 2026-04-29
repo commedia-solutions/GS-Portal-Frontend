@@ -201,7 +201,13 @@ type Column = {
 type BasicUser = { id: string; username?: string; full_name?: string; email?: string };
 type Category = { id: number; name: string };
 
-/* ---------- Status chip ---------- */
+function formatDateTime(raw: any) {
+  if (!raw) return "—";
+  // With dateStrings: true, MySQL returns 'YYYY-MM-DD HH:mm:ss'
+  return String(raw).replace("T", " ").split(".")[0];
+}
+
+/* ---------- Basic / API state ---------- */
 function StatusChip({ value, t }: { value: Status; t: (k: string) => string }) {
   const map: Record<Status, { bg: string; fg: string }> = {
     Draft: { bg: "rgba(0,0,0,0.08)", fg: "#6b7280" },
@@ -323,23 +329,29 @@ function DarkScrollTable({
                 }}
                 title={t(c.label)}
               >
-                <div style={{ display: "flex", alignItems: "center", position: "relative", justifyContent: c.align === "center" ? "center" : "flex-start" }}>
+                <div style={{ display: "flex", alignItems: "center", position: "relative", width: "100%", height: "100%", justifyContent: c.align === "center" ? "center" : "flex-start" }}>
                   {t(c.label)}
-                  {["description", "remarks"].includes(c.key) && (
+                  {["createdAt", "description", "remarks"].includes(c.key) && (
                     <div
                       onMouseDown={(e) => handleMouseDown(c.key, e)}
                       style={{
                         position: "absolute",
-                        right: -14,
-                        top: -10,
-                        height: 40,
-                        width: 4,
+                        right: 0,
+                        top: "20%",
+                        height: "60%",
+                        width: "2px",
                         cursor: "col-resize",
-                        backgroundColor: "transparent",
+                        backgroundColor: "rgba(255,255,255,0.15)",
                         zIndex: 3,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--accent)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--accent)";
+                        e.currentTarget.style.width = "4px";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.15)";
+                        e.currentTarget.style.width = "2px";
+                      }}
                     />
                   )}
                 </div>
@@ -747,7 +759,7 @@ export default function RequestsPage() {
             status,
             description: String(x.description ?? ""),
             remarks: x.last_note ? String(x.last_note) : "",
-            createdAt: new Date(x.created_at ?? Date.now()).toLocaleString(),
+            createdAt: formatDateTime(x.created_at ?? Date.now()),
           };
         });
 

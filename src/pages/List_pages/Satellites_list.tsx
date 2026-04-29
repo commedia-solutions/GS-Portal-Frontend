@@ -86,7 +86,7 @@ type Row = {
   itu: string;
   station: string;
   pol: string;
-   addedBy: string;
+  addedBy: string;
   dateTime: string;
 };
 
@@ -215,23 +215,23 @@ function ThemedScrollTable({
                     sx={{ ...cellSx, display: "flex", justifyContent: "center", alignItems: "center", overflow: "visible" }}
                   >
                     {isEditor && (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      sx={{
-                        textTransform: "none",
-                        fontWeight: 700,
-                        fontSize: 12,
-                        px: 1.25,
-                        bgcolor: TOK.ACCENT,
-                        color: "#fff",
-                        "& .MuiSvgIcon-root": { color: "#fff" },
-                        "&:hover": { filter: "brightness(0.95)" },
-                      }}
-                      onClick={() => onEdit(r)}
-                    >
-                      Edit
-                    </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          px: 1.25,
+                          bgcolor: TOK.ACCENT,
+                          color: "#fff",
+                          "& .MuiSvgIcon-root": { color: "#fff" },
+                          "&:hover": { filter: "brightness(0.95)" },
+                        }}
+                        onClick={() => onEdit(r)}
+                      >
+                        Edit
+                      </Button>
                     )}
                   </Box>
                 );
@@ -279,8 +279,8 @@ export default function SatellitesList() {
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
-const { hasWriteAccess } = useActionAccess();
-const canEdit = hasWriteAccess("satellites");
+  const { hasWriteAccess } = useActionAccess();
+  const canEdit = hasWriteAccess("satellites");
 
 
   const fetchRows = React.useCallback(async () => {
@@ -293,36 +293,28 @@ const canEdit = hasWriteAccess("satellites");
       const arr: any[] = Array.isArray(j)
         ? j
         : Array.isArray(j?.data)
-        ? j.data
-        : Array.isArray(j?.rows)
-        ? j.rows
-        : [];
+          ? j.data
+          : Array.isArray(j?.rows)
+            ? j.rows
+            : [];
 
       const mapped: Row[] = arr.map((x: any, i: number) => ({
-  id: Number(x.id),
+        id: Number(x.id),
 
-  sr: i + 1,
-  satId: String(x.satellite_id ?? ""),
-  satName: String(x.satellite_name ?? ""),
-  norad: String(x.norad_id ?? ""),
-  itu: String(x.itu_name ?? ""),
-  station: String(x.station_name ?? ""),
-  pol: String(x.polarization ?? ""),
-  addedBy: String(x.added_by ?? ""),
-dateTime: (() => {
-  const dt = x.date_time || x.created_at || x.updated_at;
-  if (!dt) return "—";
-  return new Date(dt).toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-})(),
-}));
+        sr: i + 1,
+        satId: String(x.satellite_id ?? ""),
+        satName: String(x.satellite_name ?? ""),
+        norad: String(x.norad_id ?? ""),
+        itu: String(x.itu_name ?? ""),
+        station: String(x.station_name ?? ""),
+        pol: String(x.polarization ?? ""),
+        addedBy: String(x.added_by ?? ""),
+        dateTime: (() => {
+          const dt = x.date_time || x.created_at || x.updated_at;
+          if (!dt) return "—";
+          return String(dt).replace("T", " ").split(".")[0];
+        })(),
+      }));
 
 
       setRows(mapped);
@@ -386,11 +378,11 @@ dateTime: (() => {
 
   const doPrint = React.useCallback(() => window.print(), []);
 
-const handleEdit = (r: Row) => {
-  if (!canEdit) return;
-  setEditing(r);
-  setModalOpen(true);
-};
+  const handleEdit = (r: Row) => {
+    if (!canEdit) return;
+    setEditing(r);
+    setModalOpen(true);
+  };
 
   const handleSave = async () => {
     await fetchRows();
@@ -586,15 +578,15 @@ const handleEdit = (r: Row) => {
             row={
               editing
                 ? {
-                            id: editing.id, // ✅ ADD THIS
+                  id: editing.id, // ✅ ADD THIS
 
-                    satId: editing.satId,
-                    satName: editing.satName,
-                    norad: editing.norad,
-                    itu: editing.itu,
-                    station: editing.station,
-                    pol: editing.pol,
-                  }
+                  satId: editing.satId,
+                  satName: editing.satName,
+                  norad: editing.norad,
+                  itu: editing.itu,
+                  station: editing.station,
+                  pol: editing.pol,
+                }
                 : null
             }
             onClose={() => setModalOpen(false)}

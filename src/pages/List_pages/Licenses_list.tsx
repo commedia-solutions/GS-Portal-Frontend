@@ -102,7 +102,7 @@ type ExportWideRow = {
   station_name: string;
   applied_date: string;
   receipt_date: string;
-   validity_expiry: string;
+  validity_expiry: string;
   status: string;
   remarks: string | null;
   bands: string;
@@ -160,6 +160,7 @@ const getLicenseStatusStyle = (status: string) => {
 };
 
 /* ---------- Table ---------- */
+const CELL_PX = "clamp(6px, 0.8vw, 12px)";
 
 function ThemedScrollTable({
   rows,
@@ -167,43 +168,28 @@ function ThemedScrollTable({
   onUpdate,
   emptyText,
   isEditor,
-  onResize,
 }: {
   rows: Row[];
   columns: Column[];
   onUpdate: (r: Row) => void;
   emptyText: string;
   isEditor: boolean;
-  onResize?: (key: string, width: number) => void;
 }) {
 
-  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
+  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 120), 0) + 16;
   const colTemplate = columns
-    .map((c) => {
-      if (c.key === "action") return "120px";
-      return c.width != null ? `${c.width}px` : `minmax(${Math.max(c.min ?? 80, 80)}px, ${c.flex ?? 1}fr)`;
-    })
+    .map((c) => (c.width != null ? `${c.width}px` : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`))
     .join(" ");
 
-  const cellSx = {
-    px: "14px",
-    py: "10px",
-    fontSize: 13,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    minWidth: "80px",
-  } as const;
-
   return (
-    <Box sx={{ overflowX: "auto" }}>
-      <Box sx={{ width: "100%", minWidth: minTotal, tableLayout: "fixed" }}>
+    <Box>
+      <Box sx={{ width: "100%", minWidth: minTotal }}>
         {/* header uses CSS vars defined on Card */}
         <Box
           sx={{
             position: "sticky",
             top: 0,
-            zIndex: 2,
+            zIndex: 1,
             display: "grid",
             gridTemplateColumns: colTemplate,
             bgcolor: "var(--lic-thead-bg)",
@@ -214,45 +200,16 @@ function ThemedScrollTable({
             <Box
               key={String(c.key)}
               sx={{
-                ...cellSx,
+                px: CELL_PX,
+                py: 1,
                 fontWeight: 700,
+                fontSize: 13,
                 color: "var(--lic-thead-text)",
                 textAlign: c.align ?? "center",
-                position: "relative",
-                "& .resizer": {
-                  position: "absolute",
-                  right: 0,
-                  top: "20%",
-                  height: "60%",
-                  width: "2px",
-                  bgcolor: "rgba(255,255,255,0.15)",
-                  cursor: "col-resize",
-                  "&:hover": { bgcolor: TOK.ACCENT, width: "4px" },
-                  ".theme-light &": {
-                    bgcolor: "rgba(0,0,0,0.12)",
-                  },
-                },
+                whiteSpace: "nowrap",
               }}
             >
               {c.label}
-              {onResize && ["station", "status", "remarks"].includes(String(c.key)) && (
-                <Box
-                  className="resizer"
-                  onMouseDown={(e) => {
-                    const startX = e.pageX;
-                    const startWidth = c.width ?? c.min ?? 80;
-                    const onMove = (me: MouseEvent) => {
-                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
-                    };
-                    const onUp = () => {
-                      document.removeEventListener("mousemove", onMove);
-                      document.removeEventListener("mouseup", onUp);
-                    };
-                    document.addEventListener("mousemove", onMove);
-                    document.addEventListener("mouseup", onUp);
-                  }}
-                />
-              )}
             </Box>
           ))}
         </Box>
@@ -265,89 +222,90 @@ function ThemedScrollTable({
               display: "grid",
               gridTemplateColumns: colTemplate,
               borderBottom: TOK.BORDER_STR,
-              bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
+              bgcolor: "transparent",
+              "&:nth-of-type(odd)": { bgcolor: "var(--row-stripe)" },
             }}
           >
             {columns.map((c) => {
-           if (c.key === "action") {
-  return (
-    <Box
-      key={`action-${idx}`}
-      sx={{
-        ...cellSx,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        overflow: "visible",
-      }}
-    >
-      {isEditor && (
-        <Button
-          size="small"
-          variant="contained"
-          sx={{
-            textTransform: "none",
-            fontWeight: 700,
-            fontSize: 12,
-            px: 1.25,
-            bgcolor: TOK.ACCENT,
-            color: "#fff",
-            "& .MuiSvgIcon-root": { color: "#fff" },
-            "&:hover": { filter: "brightness(0.95)" },
-          }}
-          onClick={() => onUpdate(r)}
-        >
-          Edit
-        </Button>
-      )}
-    </Box>
-  );
-}
-// 🎯 Status pill rendering
-if (c.key === "status") {
-  return (
-    <Box
-key={`status-${idx}`}
-      sx={{
-        ...cellSx,
-        textAlign: "center",
-        overflow: "visible",
-      }}
-    >
-      <Box
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          px: 1.2,
-          py: 0.4,
-          borderRadius: 999,
-          fontSize: 12.5,
-          fontWeight: 600,
-          lineHeight: 1,
-          whiteSpace: "nowrap",
-          ...getLicenseStatusStyle(String(r.status)),
-        }}
-      >
-        {r.status}
-      </Box>
-    </Box>
-  );
-}
+              if (c.key === "action") {
+                return (
+                  <Box
+                    key={`action-${idx}`}
+                    sx={{
+                      px: CELL_PX,
+                      py: 0.75,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    {isEditor && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          px: 1.25,
+                          bgcolor: TOK.ACCENT,
+                          color: "#fff",
+                          "& .MuiSvgIcon-root": { color: "#fff" },
+                          "&:hover": { filter: "brightness(0.95)" },
+                        }}
+                        onClick={() => onUpdate(r)}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </Box>
+                );
+              }
+              // 🎯 Status pill rendering
+              if (c.key === "status") {
+                return (
+                  <Box
+                    key={`status-${idx}`}
+                    sx={{
+                      px: CELL_PX,
+                      py: 1,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        px: 1.2,
+                        py: 0.4,
+                        borderRadius: 999,
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        lineHeight: 1,
+                        whiteSpace: "nowrap",
+                        ...getLicenseStatusStyle(String(r.status)),
+                      }}
+                    >
+                      {r.status}
+                    </Box>
+                  </Box>
+                );
+              }
 
-              const cellValue = String(r[c.key as keyof Row] ?? "");
               return (
                 <Box
                   key={String(c.key)}
-                  title={cellValue}
                   sx={{
-                    ...cellSx,
+                    px: CELL_PX,
+                    py: 1,
+                    fontSize: 13,
                     color: TOK.TEXT_DIM,
                     textAlign: c.align ?? "center",
-                    width: c.width ? `${c.width}px` : "auto",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {cellValue}
+                  {r[c.key as keyof Row] as any}
                 </Box>
               );
             })}
@@ -355,7 +313,7 @@ key={`status-${idx}`}
         ))}
 
         {!rows.length && (
-          <Box sx={{ px: "14px", py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
+          <Box sx={{ px: CELL_PX, py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
             {emptyText}
           </Box>
         )}
@@ -368,8 +326,8 @@ key={`status-${idx}`}
 export default function LicensesList() {
   const { t } = useI18n();
 
-const { hasWriteAccess } = useActionAccess();
-const canEdit = hasWriteAccess("licenses");
+  const { hasWriteAccess } = useActionAccess();
+  const canEdit = hasWriteAccess("licenses");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
@@ -381,31 +339,32 @@ const canEdit = hasWriteAccess("licenses");
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
-  const [dynamicCols, setDynamicCols] = React.useState<Column[]>([
-    { key: "sr",       label: t("Sr No"),          width: 70, align: "center" },
-    { key: "satName",  label: t("Satellite Name"), min: 120, flex: 1.1, align: "center" },
-    { key: "station",  label: t("Station"),        min: 100, flex: 1,   align: "center" },
-    { key: "applied",  label: t("Applied Date"),   min: 120, flex: 0.9, align: "center" },
-    { key: "receipt",  label: t("Receipt Date"),   min: 120, flex: 0.9, align: "center" },
-    { key: "validity", label: t("Validity"),       min: 120, flex: 0.9, align: "center" },
-    { key: "band",     label: t("Band"),           min: 120, flex: 0.9, align: "center" },
-    { key: "downlink", label: t("Downlink"),       min: 110, flex: 0.8, align: "center" },
-    { key: "uplink",   label: t("Uplink"),         min: 110, flex: 0.8, align: "center" },
-    { key: "status",   label: t("Status"),         min: 100, flex: 0.7, align: "center" },
-    { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" },
-    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" },
-    { key: "remarks",  label: t("Remarks"),        min: 120, flex: 1,   align: "center" },
-  ]);
+  const COLUMNS: Column[] = React.useMemo(
+    () => {
+      const cols: Column[] = [
+        { key: "sr", label: t("Sr No"), width: 70, align: "center" },
+        { key: "satName", label: t("Satellite Name"), min: 120, flex: 1.1, align: "center" },
+        { key: "station", label: t("Station"), min: 100, flex: 1, align: "center" },
+        { key: "applied", label: t("Applied Date"), min: 120, flex: 0.9, align: "center" },
+        { key: "receipt", label: t("Receipt Date"), min: 120, flex: 0.9, align: "center" },
+        { key: "validity", label: t("Validity"), min: 120, flex: 0.9, align: "center" },
+        { key: "band", label: t("Band"), min: 120, flex: 0.9, align: "center" },
+        { key: "downlink", label: t("Downlink"), min: 110, flex: 0.8, align: "center" },
+        { key: "uplink", label: t("Uplink"), min: 110, flex: 0.8, align: "center" },
+        { key: "status", label: t("Status"), min: 100, flex: 0.7, align: "center" },
+        { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" }, // ✅ new
+        { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" }, // ✅ new
+        { key: "remarks", label: t("Remarks"), min: 120, flex: 1, align: "center" },
+      ];
 
-  const handleResize = (key: string, width: number) => {
-    setDynamicCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
-  };
+      if (canEdit) {
+        cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
+      }
 
-  const FINAL_COLUMNS = React.useMemo(() => {
-    const cols = [...dynamicCols];
-    if (canEdit) cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
-    return cols;
-  }, [dynamicCols, t, canEdit]);
+      return cols;
+    },
+    [t, canEdit]
+  );
 
 
   const fetchRows = React.useCallback(async () => {
@@ -416,32 +375,32 @@ const canEdit = hasWriteAccess("licenses");
       const j = await api.get<any>(`/api/licenses/export?format=json&shape=wide&_=${Date.now()}`);
       const data: ExportWideRow[] = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
 
-    const mapped: Row[] = data.map((x, i) => {
-  const bands = parseBands(x.bands);
+      const mapped: Row[] = data.map((x, i) => {
+        const bands = parseBands(x.bands);
 
-  return {
-    id: Number(x.id),
-    sr: i + 1,
-    reqNo: x.license_req_no,
-    satName: x.satellite_name,
-    station: x.station_name,
-    applied: x.applied_date || "",
-    receipt: x.receipt_date || "",
-    validity: x.validity_expiry || "",
-    band: bands.map((b) => b.band).join(", "),
-    downlink: bands.map((b) => b.downlink).join(", "),
-    uplink: bands.map((b) => b.uplink).join(", "),
-    status: x.status || "",
+        return {
+          id: Number(x.id),
+          sr: i + 1,
+          reqNo: x.license_req_no,
+          satName: x.satellite_name,
+          station: x.station_name,
+          applied: x.applied_date || "",
+          receipt: x.receipt_date || "",
+          validity: x.validity_expiry || "",
+          band: bands.map((b) => b.band).join(", "),
+          downlink: bands.map((b) => b.downlink).join(", "),
+          uplink: bands.map((b) => b.uplink).join(", "),
+          status: x.status || "",
 
-    addedBy: x.added_by || "—",   // ✅ ADD THIS
+          addedBy: x.added_by || "—",   // ✅ ADD THIS
 
-    dateTime: x.updated_at
-      ? new Date(x.updated_at).toLocaleString("en-IN")
-      : "—",
+          dateTime: x.updated_at
+            ? new Date(x.updated_at).toLocaleString("en-IN")
+            : "—",
 
-    remarks: x.remarks || "—",
-  } as Row;
-});
+          remarks: x.remarks || "—",
+        } as Row;
+      });
 
 
       setRows(mapped);
@@ -474,7 +433,7 @@ const canEdit = hasWriteAccess("licenses");
         r.uplink,
         r.status,
         r.addedBy,
-r.dateTime,
+        r.dateTime,
         r.remarks,
       ]
         .join(" ")
@@ -489,10 +448,10 @@ r.dateTime,
   );
 
   const openModal = (r: Row) => {
-  if (!canEdit) return;
-  setEditing(r);
-  setModalOpen(true);
-};
+    if (!canEdit) return;
+    setEditing(r);
+    setModalOpen(true);
+  };
 
   return (
     <MainLayout title="">
@@ -626,11 +585,10 @@ r.dateTime,
               <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX, bgcolor: "transparent" }}>
                 <ThemedScrollTable
                   rows={paged}
-                  columns={FINAL_COLUMNS}
+                  columns={COLUMNS}
                   onUpdate={openModal}
                   emptyText={t("No licenses found.")}
                   isEditor={canEdit}
-                  onResize={handleResize}
                 />
 
               </Box>
