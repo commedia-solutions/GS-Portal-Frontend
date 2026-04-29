@@ -25,7 +25,7 @@ import MainLayout from "../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../components/TopNav";
 import { useI18n } from "../i18n";
 
-// ✅ use the same helpers as the rest of the app
+// âœ… use the same helpers as the rest of the app
 import { getAuthToken } from "../api/http";
 
 /* ---------- API base (safe fallback) ---------- */
@@ -125,6 +125,7 @@ type UIRow = {
   user: string;
   module: string;
   action: string;
+  crudType?: string;
   remarks?: any;
 };
 
@@ -134,17 +135,45 @@ const fmtIST = (tsUtcSec: number) =>
 
 const formatActionLabel = (action: string) => {
   const a = String(action || "").toUpperCase();
-
   if (a.includes("LOGIN")) return "User Login";
   if (a.includes("LOGOUT")) return "User Logout";
+  if (a.includes("UPLOAD")) return "Uploaded";
   if (a.includes("CREATE")) return "Created";
-  if (a.includes("UPDATE")) return "Updated";
+  if (a.includes("UPDATE") || a.includes("EDIT") || a.includes("PATCH")) return "Updated";
   if (a.includes("DELETE")) return "Deleted";
+  if (a.includes("APPROVE")) return "Approved";
+  if (a.includes("REJECT")) return "Rejected";
+  if (a.includes("ASSIGN")) return "Assigned";
+  if (a.includes("REVOKE")) return "Revoked";
+  if (a.includes("IMPORT")) return "Imported";
+  if (a.includes("CANCEL")) return "Cancelled";
+  if (a.includes("ENABLE")) return "Enabled";
+  if (a.includes("DISABLE")) return "Disabled";
+
+  // Visibility Schedule specific
+  if (a === "VISIBILITY_SCHEDULE_PASS_REQUESTED") return "Pass Requested";
+  if (a === "VISIBILITY_SCHEDULE_PASS_CANCELLED") return "Pass Cancelled";
+  if (a === "VISIBILITY_SCHEDULE_SUPPORTED") return "Pass Supported";
+  if (a === "VISIBILITY_SCHEDULE_POST_PASS_COMPLETED") return "Post Pass Completed";
+  if (a === "VISIBILITY_SCHEDULE_POST_PASS_PENDING") return "Post Pass Reset to Pending";
+  if (a === "VISIBILITY_DRAFT_PASS_REQUESTED") return "Draft Pass Requested";
+  if (a === "VISIBILITY_DRAFT_PASS_CANCELLED") return "Draft Pass Cancelled";
+  if (a === "VISIBILITY_DRAFT_UPLOAD") return "Draft Bulk Upload";
+  if (a === "VISIBILITY_DRAFT_PUBLISHED") return "Draft Published";
 
   return action || "Unknown";
 };
 
-// ✅ convert module/page into Camel Case label
+const actionChip = (action: string) => {
+  const a = String(action || "").toUpperCase();
+  if (a.includes("CREATE") || a.includes("UPLOAD") || a.includes("IMPORT") || a.includes("SUPPORTED")) return { label: formatActionLabel(action), bg: "#166534", color: "#dcfce7" };
+  if (a.includes("UPDATE") || a.includes("EDIT") || a.includes("PATCH") || a.includes("ENABLE") || a.includes("DISABLE")) return { label: formatActionLabel(action), bg: "#92400e", color: "#fef3c7" };
+  if (a.includes("DELETE") || a.includes("REJECT") || a.includes("REVOKE") || a.includes("CANCEL")) return { label: formatActionLabel(action), bg: "#991b1b", color: "#fee2e2" };
+  if (a.includes("APPROVE") || a.includes("ASSIGN") || a.includes("REQUESTED")) return { label: formatActionLabel(action), bg: "#1e40af", color: "#dbeafe" };
+  return { label: formatActionLabel(action), bg: "#374151", color: "#f9fafb" };
+};
+
+// âœ… convert module/page into Camel Case label
 const toCamelCaseLabel = (val: string) => {
   if (!val) return "";
   if (val === "operation_supporter") return "TTC Service Provider";
@@ -224,27 +253,15 @@ function ThemedScrollTable({
             "&:hover": { bgcolor: TOK.HOVER },
           }}
         >
-          {(["sr", "dateTime", "user", "module", "action"] as const).map((k) => (
-            <Box
-              key={k}
-              sx={{
-                px: "14px",
-                py: "10px",
-                fontSize: 13,
-                color: TOK.TEXT_DIM,
-                textAlign: "center",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                minWidth: "80px",
-              }}
-              title={(r as any)[k] ?? ""}
-            >
-              {(r as any)[k] ?? "—"}
-            </Box>
+          {(["sr", "dateTime", "user", "module"] as const).map((k) => (
+            <Box key={k} sx={{ px: "14px", py: "10px", fontSize: 13, color: TOK.TEXT_DIM, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: "80px" }} title={(r as any)[k] ?? ""}>{(r as any)[k] ?? "\u2014"}</Box>
           ))}
+          {/* Action column with colored chip */}
+          <Box sx={{ px: "14px", py: "8px", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {(() => { const chip = actionChip(r.action); return (<Box sx={{ px: 1.25, py: 0.3, borderRadius: 1, fontSize: 11, fontWeight: 700, bgcolor: chip.bg, color: chip.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "260px" }} title={chip.label}>{chip.label}</Box>); })()}
+          </Box>
 
-          {/* ✅ View Button */}
+          {/* âœ… View Button */}
           <Box sx={{ px: "14px", py: "10px", textAlign: "center" }}>
             <Button
               size="small"
@@ -289,7 +306,7 @@ export default function PortalLogsPage() {
   const [rows, setRows] = React.useState<UIRow[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
-  const [errMsg, setErrMsg] = React.useState<string>(""); // ✅ show 401/403 reasons
+  const [errMsg, setErrMsg] = React.useState<string>(""); // âœ… show 401/403 reasons
   const [openView, setOpenView] = React.useState(false);
   const [selectedRow, setSelectedRow] = React.useState<UIRow | null>(null);
 
@@ -300,7 +317,7 @@ export default function PortalLogsPage() {
     setPage(0);
     setSearch("");
 
-    // ✅ clear current rows so UI doesn't show old tab data
+    // âœ… clear current rows so UI doesn't show old tab data
     setRows([]);
     setTotal(0);
   };
@@ -331,7 +348,7 @@ export default function PortalLogsPage() {
         if (search.trim()) qs.set("q", search.trim());
 
         const token = getAuthToken();
-        qs.set("type", tab); // ✅ send tab filter to backend
+        qs.set("type", tab); // âœ… send tab filter to backend
 
         const res = await fetch(`${API}/audit-logs/simple?${qs.toString()}&_=${Date.now()}`, {
 
@@ -358,7 +375,7 @@ export default function PortalLogsPage() {
         const mapped: UIRow[] = (j.data || []).map((r, i) => ({
           sr: start + i + 1,
           tsUtc: r.tsUtc,
-          dateTime: r.tsUtc ? fmtIST(r.tsUtc) : "—",
+          dateTime: r.tsUtc ? fmtIST(r.tsUtc) : "â€”",
           user:
             r.user ||
             (typeof r.remarks === "object" ? r.remarks?.username : null) ||
@@ -371,7 +388,7 @@ export default function PortalLogsPage() {
                 }
               })()
               : null) ||
-            "—",
+            "â€”",
 
           module: (() => {
             let m =
@@ -402,7 +419,14 @@ export default function PortalLogsPage() {
 
 
 
-          action: r.action || "—",
+          action: r.action || "â€”",
+          crudType: (() => {
+            const a = String(r.action || "").toUpperCase();
+            if (a.includes("UPDATE") || a.includes("EDIT") || a.includes("PATCH")) return "update";
+            if (a.includes("DELETE") || a.includes("REVOKE")) return "delete";
+            if (a.includes("CREATE") || a.includes("UPLOAD") || a.includes("IMPORT")) return "create";
+            return "other";
+          })(),
           remarks: (() => {
             if (!r.remarks) return null;
 
@@ -441,7 +465,7 @@ export default function PortalLogsPage() {
       const qs = new URLSearchParams();
       if (search.trim()) qs.set("q", search.trim());
 
-      // ✅ send tab filter to backend
+      // âœ… send tab filter to backend
       qs.set("type", tab);
       const token = getAuthToken();
       const resp = await fetch(`${API}/audit-logs/simple/export?${qs.toString()}&_=${Date.now()}`, {
@@ -507,7 +531,7 @@ export default function PortalLogsPage() {
               bgcolor: "transparent",
             }}
           >
-            {/* ✅ Tabs (LEFT SIDE like Requests page) */}
+            {/* âœ… Tabs (LEFT SIDE like Requests page) */}
             <ToggleButtonGroup
               value={tab}
               exclusive
@@ -539,7 +563,7 @@ export default function PortalLogsPage() {
               <ToggleButton value="event">{t("Event Logs")}</ToggleButton>
             </ToggleButtonGroup>
 
-            {/* ✅ Right side controls */}
+            {/* âœ… Right side controls */}
             <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: UI.gap }}>
               <TextField
                 value={search}
@@ -547,7 +571,7 @@ export default function PortalLogsPage() {
                   setSearch(e.target.value);
                   setPage(0);
                 }}
-                placeholder={loading ? t("Loading…") : t("Search…")}
+                placeholder={loading ? t("Loadingâ€¦") : t("Searchâ€¦")}
                 size="small"
                 sx={{ width: UI.searchW, ...compactCtrlSx }}
                 InputProps={{
@@ -589,7 +613,7 @@ export default function PortalLogsPage() {
             <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden" }}>
               <Box sx={SCROLLER_SX}>
                 {loading ? (
-                  <Box sx={{ p: 2, color: TOK.TEXT_DIM }}>{t("Loading…")}</Box>
+                  <Box sx={{ p: 2, color: TOK.TEXT_DIM }}>{t("Loadingâ€¦")}</Box>
                 ) : errMsg ? (
                   <Box sx={{ p: 2, color: "#ef4444" }}>{errMsg}</Box>
                 ) : (
@@ -622,7 +646,7 @@ export default function PortalLogsPage() {
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
-              rowsPerPageOptions={[10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 50000, 100000]} // ✅ more options
+              rowsPerPageOptions={[10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 50000, 100000]} // âœ… more options
               labelRowsPerPage={t("Rows per page:")}
               sx={{
                 px: 1,
@@ -645,250 +669,217 @@ export default function PortalLogsPage() {
         </Card>
       </Box>
 
-      {/* ✅ View Dialog */}
+      {/* âœ… View Dialog */}
       <Dialog open={openView} onClose={() => {
         setOpenView(false);
         setSelectedRow(null);
       }} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          Log Details
+        <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1.5 }}>
+          {selectedRow && (() => {
+            const chip = actionChip(selectedRow.action);
+            return (
+              <Box component="span" sx={{ px: 1.5, py: 0.4, borderRadius: 1, fontSize: 12, fontWeight: 700, bgcolor: chip.bg, color: chip.color }}>
+                {chip.label}
+              </Box>
+            );
+          })()}
+          Event Log Details
         </DialogTitle>
 
         <DialogContent dividers>
           {selectedRow ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
 
-              <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
-                <Typography sx={{ fontWeight: 700 }}>Date & Time</Typography>
-                <Typography sx={{ color: TOK.TEXT_DIM }}>
-                  {selectedRow.dateTime}
-                </Typography>
-              </Box>
+              {/* Meta info grid */}
+              {([
+                ["Date & Time", selectedRow.dateTime],
+                ["User", selectedRow.user],
+                ["Module / Page", selectedRow.module],
+                ["Action", formatActionLabel(selectedRow.action)],
+              ] as [string, string][]).map(([label, val]) => (
+                <Box key={label} sx={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 1 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: 13 }}>{label}</Typography>
+                  <Typography sx={{ color: TOK.TEXT_DIM, fontSize: 13 }}>{val}</Typography>
+                </Box>
+              ))}
 
-              <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
-                <Typography sx={{ fontWeight: 700 }}>User</Typography>
-                <Typography sx={{ color: TOK.TEXT_DIM }}>
-                  {selectedRow.user}
-                </Typography>
-              </Box>
-
-              <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
-                <Typography sx={{ fontWeight: 700 }}>Module / Page</Typography>
-                <Typography sx={{ color: TOK.TEXT_DIM }}>
-                  {selectedRow.module}
-                </Typography>
-              </Box>
-
-              <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
-                <Typography sx={{ fontWeight: 700 }}>Action</Typography>
-                <Typography sx={{ color: TOK.TEXT_DIM }}>
-                  {formatActionLabel(selectedRow.action)}
-                </Typography>
-              </Box>
-
-
-              <Box sx={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 1 }}>
-                <Typography sx={{ fontWeight: 700 }}>ID</Typography>
-
-                <Typography sx={{ color: TOK.TEXT_DIM }}>
-                  {(() => {
-                    const details = selectedRow.remarks;
-                    if (!details) return "—";
-
-                    const oldVal = details?.oldValue || null;
-                    const newVal = details?.newValue || null;
-                    const payload = details?.payload || null;
-
-                    return (
-                      details?.targetLabel ||
-                      newVal?.pass_req_no ||
-                      oldVal?.pass_req_no ||
-                      newVal?.satellite_id ||
-                      oldVal?.satellite_id ||
-                      newVal?.satellite_name ||
-                      oldVal?.satellite_name ||
-                      payload?.pass_req_no ||
-                      payload?.satellite_id ||
-                      payload?.satellite_name ||
-                      "—"
-                    );
-                  })()}
-                </Typography>
-              </Box>
-
-              {tab === "event" && (
-                <Box sx={{ mt: 1 }}>
-                  <Box
-                    sx={{
-                      maxHeight: "60vh",
-                      overflowY: "auto",
-                      p: 0.5,
-                      "&::-webkit-scrollbar": { width: 8 },
-                      "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.2)", borderRadius: 8 },
-                    }}
-                  >
-                    {(() => {
-                      const details = selectedRow.remarks;
-                      if (!details) return <Typography sx={{ color: TOK.TEXT_DIM }}>No details available.</Typography>;
-
-                      const oldVal = details?.oldValue || null;
-                      const newVal = details?.newValue || null;
-                      const payload = details?.payload || null;
-
-                      const ignoreKeys = new Set([
-                        "created_at", "updated_at", "createdAt", "updatedAt", 
-                        "created_by", "updated_by", "deleted_by", "createdBy", 
-                        "updatedBy", "deletedBy"
-                      ]);
-
-                      const formatValue = (val: any) => {
-                        if (val == null || val === "") return "—";
-                        if (typeof val === "string") {
-                          const d = new Date(val);
-                          if (!isNaN(d.getTime()) && val.includes("T")) {
-                            return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-                          }
-                          return val;
-                        }
-                        if (typeof val === "number") return String(val);
-                        if (typeof val === "boolean") return val ? "Yes" : "No";
-                        if (typeof val === "object") return JSON.stringify(val, null, 2);
-                        return String(val);
-                      };
-
-                      const changes: any[] = [];
-                      let snapshot: any = {};
-                      const changedKeys = new Set<string>();
-
-                      if (oldVal && newVal && typeof oldVal === "object" && typeof newVal === "object") {
-                        const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
-                        keys.forEach((k) => {
-                          if (ignoreKeys.has(k)) return;
-                          const ov = oldVal[k];
-                          const nv = newVal[k];
-                          if (JSON.stringify(ov) !== JSON.stringify(nv)) {
-                            changes.push({ field: k, old: ov, new: nv });
-                            changedKeys.add(k);
-                          }
-                        });
-                        snapshot = newVal;
-                      } else if (!oldVal && newVal && typeof newVal === "object") {
-                        snapshot = newVal;
-                      } else if (oldVal && !newVal && typeof oldVal === "object") {
-                        snapshot = oldVal;
-                      } else if (payload && typeof payload === "object") {
-                        snapshot = payload;
-                      } else if (typeof details === "object") {
-                        snapshot = { ...details };
-                        delete snapshot.oldValue;
-                        delete snapshot.newValue;
-                        delete snapshot.payload;
-                      }
-
-                      const snapKeys = Object.keys(snapshot).filter(k => !ignoreKeys.has(k) && snapshot[k] !== undefined);
-
-                      return (
-                        <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                          {changes.length > 0 && (
-                            <Box>
-                              <Typography sx={{ fontWeight: 800, fontSize: 13, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "0.5px" }}>
-                                WHAT CHANGED
-                              </Typography>
-                              <Box sx={{ border: "1px solid var(--border-weak)", borderRadius: 1, overflow: "hidden" }}>
-                                <Box sx={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) 1.5fr 1.5fr", bgcolor: "rgba(0,0,0,0.2)", borderBottom: "1px solid var(--border-weak)" }}>
-                                  {["Field", "Old value", "New value"].map((h, i) => (
-                                    <Box key={h} sx={{ p: 1.25, fontSize: 13, fontWeight: 700, color: TOK.TEXT, borderRight: i !== 2 ? "1px solid var(--border-weak)" : "none" }}>{h}</Box>
-                                  ))}
-                                </Box>
-                                {changes.map((c, i) => (
-                                  <Box key={c.field} sx={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) 1.5fr 1.5fr", borderBottom: i < changes.length - 1 ? "1px solid var(--border-weak)" : "none" }}>
-                                    <Box sx={{ p: 1.25, fontSize: 13, color: TOK.TEXT, fontWeight: 700, display: "flex", alignItems: "center", borderRight: "1px solid var(--border-weak)", wordBreak: "break-all" }}>
-                                      {c.field}
-                                    </Box>
-                                    <Box sx={{ p: 1.25, display: "flex", alignItems: "center", borderRight: "1px solid var(--border-weak)" }}>
-                                      <Box sx={{ px: 1, py: 0.25, borderRadius: 1, fontSize: 13, fontWeight: 700, 
-                                                 bgcolor: (c.old == null || c.old === "") ? "#fee2e2" : "rgba(120,120,120,0.2)", 
-                                                 color: (c.old == null || c.old === "") ? "#b91c1c" : TOK.TEXT, wordBreak: "break-all" }}>
-                                        {formatValue(c.old)}
-                                      </Box>
-                                    </Box>
-                                    <Box sx={{ p: 1.25, display: "flex", alignItems: "center" }}>
-                                      <Box sx={{ px: 1, py: 0.25, borderRadius: 1, fontSize: 13, fontWeight: 700, 
-                                                 bgcolor: (c.new == null || c.new === "") ? "#fee2e2" : "#dcfce7", 
-                                                 color: (c.new == null || c.new === "") ? "#b91c1c" : "#166534", wordBreak: "break-all" }}>
-                                        {formatValue(c.new)}
-                                      </Box>
-                                    </Box>
-                                  </Box>
-                                ))}
-                              </Box>
-                            </Box>
-                          )}
-
-                          {snapKeys.length > 0 && (
-                            <Box>
-                              <Typography sx={{ fontWeight: 800, fontSize: 13, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "0.5px" }}>
-                                FULL SNAPSHOT
-                              </Typography>
-                              <Box sx={{ border: "1px solid var(--border-weak)", borderRadius: 1, overflow: "hidden" }}>
-                                {snapKeys.map((k, i) => {
-                                  const isChanged = changedKeys.has(k);
-                                  return (
-                                    <Box key={k} sx={{ 
-                                      display: "grid", 
-                                      gridTemplateColumns: "30% 70%", 
-                                      borderBottom: i < snapKeys.length - 1 ? "1px solid var(--border-weak)" : "none",
-                                      bgcolor: isChanged ? "#fdf8e6" : (i % 2 === 0 ? "rgba(0,0,0,0.15)" : "transparent"),
-                                    }}>
-                                      <Box sx={{ 
-                                          p: 1.25, fontSize: 13, fontWeight: isChanged ? 700 : 600, 
-                                          borderRight: "1px solid var(--border-weak)", display: "flex", alignItems: "center",
-                                          color: isChanged ? "#8c5b16" : TOK.TEXT_DIM, wordBreak: "break-all"
-                                      }}>
-                                        {k}
-                                      </Box>
-                                      <Box sx={{ 
-                                          p: 1.25, fontSize: 13, fontWeight: isChanged ? 500 : 700, 
-                                          color: isChanged ? "#8c5b16" : TOK.TEXT, display: "flex", alignItems: "center", wordBreak: "break-all" 
-                                      }}>
-                                        {formatValue(snapshot[k])}
-                                      </Box>
-                                    </Box>
-                                  );
-                                })}
-                              </Box>
-                            </Box>
-                          )}
-
-                          {changes.length === 0 && snapKeys.length === 0 && (
-                             <Typography sx={{ color: TOK.TEXT_DIM }}>No meaningful details found for this operation.</Typography>
-                          )}
-                        </Box>
-                      );
-                    })()}
-                  </Box>
+              {/* Record / Document name */}
+              {selectedRow.remarks?.targetLabel && (
+                <Box sx={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 1 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: 13 }}>Record / File</Typography>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#60a5fa" }}>
+                    {selectedRow.remarks.targetLabel}
+                  </Typography>
                 </Box>
               )}
 
+              {tab === "event" && (() => {
+                const details = selectedRow.remarks;
+                if (!details) return <Typography sx={{ color: TOK.TEXT_DIM, mt: 1, fontSize: 13 }}>No details available.</Typography>;
+
+                const oldVal = details?.oldValue || null;
+                const newVal = details?.newValue || null;
+                const payload = details?.payload || null;
+                const targetLabel = details?.targetLabel || null;
+
+                const ignoreKeys = new Set(["created_at", "updated_at", "createdAt", "updatedAt", "created_by", "updated_by", "deleted_by", "createdBy", "updatedBy", "deletedBy"]);
+
+                const formatValue = (val: any): string => {
+                  if (val == null || val === "") return "—";
+                  if (typeof val === "string") {
+                    const d = new Date(val);
+                    if (!isNaN(d.getTime()) && val.includes("T")) return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+                    return val;
+                  }
+                  if (typeof val === "boolean") return val ? "Yes" : "No";
+                  if (typeof val === "object") return JSON.stringify(val, null, 2);
+                  return String(val);
+                };
+
+                const changes: { field: string; old: any; new: any }[] = [];
+                let snapshot: Record<string, any> = {};
+                const changedKeys = new Set<string>();
+
+                if (oldVal && newVal && typeof oldVal === "object" && typeof newVal === "object") {
+                  const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+                  keys.forEach(k => {
+                    if (ignoreKeys.has(k)) return;
+                    if (JSON.stringify(oldVal[k]) !== JSON.stringify(newVal[k])) {
+                      changes.push({ field: k, old: oldVal[k], new: newVal[k] });
+                      changedKeys.add(k);
+                    }
+                  });
+                  snapshot = newVal;
+                } else if (!oldVal && newVal && typeof newVal === "object") {
+                  Object.keys(newVal).forEach(k => {
+                    if (ignoreKeys.has(k)) return;
+                    snapshot[k] = newVal[k];
+                  });
+                } else if (oldVal && !newVal && typeof oldVal === "object") {
+                  Object.keys(oldVal).forEach(k => {
+                    if (ignoreKeys.has(k)) return;
+                    snapshot[k] = oldVal[k];
+                  });
+                } else if (payload && typeof payload === "object") {
+                  snapshot = payload;
+                }
+
+                if (snapshot) {
+                  delete snapshot.payload;
+                  delete snapshot.targetLabel;
+                  delete snapshot.oldValue;
+                  delete snapshot.newValue;
+                }
+
+                const snapKeys = Object.keys(snapshot).filter(k => !ignoreKeys.has(k) && snapshot[k] !== undefined);
+
+                return (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 1 }}>
+
+                    {/* TARGET LABEL */}
+                    {targetLabel && (
+                      <Box sx={{ p: 1.5, bgcolor: "rgba(124,87,242,0.1)", border: "1px solid rgba(124,87,242,0.3)", borderRadius: 1 }}>
+                        <Typography sx={{ fontWeight: 800, fontSize: 11, color: TOK.ACCENT, textTransform: "uppercase", mb: 0.5, letterSpacing: "1px" }}>
+                          Target Entity
+                        </Typography>
+                        <Typography sx={{ fontSize: 15, fontWeight: 700, color: TOK.TEXT }}>
+                          {targetLabel}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {/* WHAT CHANGED — only for updates */}
+                    {changes.length > 0 && (
+                      <Box>
+                        <Typography sx={{ fontWeight: 800, fontSize: 11, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "1.5px" }}>
+                          What Changed
+                        </Typography>
+                        <Box sx={{ border: "1px solid var(--border-weak)", borderRadius: 1, overflow: "hidden" }}>
+                          <Box sx={{ display: "grid", gridTemplateColumns: "minmax(100px,1fr) 1.5fr 1.5fr", bgcolor: "rgba(0,0,0,0.25)", borderBottom: "1px solid var(--border-weak)" }}>
+                            {["Field", "Old Value", "New Value"].map((h, i) => (
+                              <Box key={h} sx={{ p: 1.25, fontSize: 12, fontWeight: 700, color: TOK.TEXT, borderRight: i !== 2 ? "1px solid var(--border-weak)" : "none" }}>{h}</Box>
+                            ))}
+                          </Box>
+                          {changes.map((c, i) => (
+                            <Box key={c.field} sx={{ display: "grid", gridTemplateColumns: "minmax(100px,1fr) 1.5fr 1.5fr", borderBottom: i < changes.length - 1 ? "1px solid var(--border-weak)" : "none" }}>
+                              <Box sx={{ p: 1.25, fontSize: 13, fontWeight: 700, color: TOK.TEXT, borderRight: "1px solid var(--border-weak)", wordBreak: "break-all", display: "flex", alignItems: "center" }}>
+                                {c.field}
+                              </Box>
+                              <Box sx={{ p: 1.25, borderRight: "1px solid var(--border-weak)", display: "flex", alignItems: "center" }}>
+                                <Box sx={{
+                                  px: 1, py: 0.4, borderRadius: 1, fontSize: 12, fontWeight: 600,
+                                  bgcolor: "rgba(194,65,12,0.2)", color: "#fb923c",
+                                  border: "1px solid rgba(194,65,12,0.45)", wordBreak: "break-all"
+                                }}>
+                                  {formatValue(c.old)}
+                                </Box>
+                              </Box>
+                              <Box sx={{ p: 1.25, display: "flex", alignItems: "center" }}>
+                                <Box sx={{
+                                  px: 1, py: 0.4, borderRadius: 1, fontSize: 12, fontWeight: 600,
+                                  bgcolor: "rgba(21,128,61,0.2)", color: "#4ade80",
+                                  border: "1px solid rgba(21,128,61,0.45)", wordBreak: "break-all"
+                                }}>
+                                  {formatValue(c.new)}
+                                </Box>
+                              </Box>
+                            </Box>
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* FULL SNAPSHOT */}
+                    {snapKeys.length > 0 && (
+                      <Box>
+                        <Typography sx={{ fontWeight: 800, fontSize: 11, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "1.5px" }}>
+                          Full Snapshot
+                        </Typography>
+                        <Box sx={{ border: "1px solid var(--border-weak)", borderRadius: 1, overflow: "hidden" }}>
+                          {snapKeys.map((k, i) => {
+                            const isChanged = changedKeys.has(k);
+                            return (
+                              <Box key={k} sx={{
+                                display: "grid",
+                                gridTemplateColumns: "35% 65%",
+                                borderBottom: i < snapKeys.length - 1 ? "1px solid var(--border-weak)" : "none",
+                                bgcolor: isChanged ? "rgba(124,45,18,0.12)" : (i % 2 === 0 ? "rgba(0,0,0,0.12)" : "transparent"),
+                              }}>
+                                <Box sx={{
+                                  p: 1.25, fontSize: 12, fontWeight: 600,
+                                  borderRight: "1px solid var(--border-weak)", display: "flex", alignItems: "center",
+                                  color: isChanged ? "#fb923c" : TOK.TEXT_DIM, wordBreak: "break-all"
+                                }}>
+                                  {k}
+                                </Box>
+                                <Box sx={{
+                                  p: 1.25, fontSize: 12, fontWeight: isChanged ? 600 : 400,
+                                  color: isChanged ? "#4ade80" : TOK.TEXT, display: "flex", alignItems: "center", wordBreak: "break-all"
+                                }}>
+                                  {formatValue(snapshot[k])}
+                                </Box>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {changes.length === 0 && snapKeys.length === 0 && (
+                      <Typography sx={{ color: TOK.TEXT_DIM, fontSize: 13 }}>No meaningful details found for this operation.</Typography>
+                    )}
+                  </Box>
+                );
+              })()}
 
             </Box>
           ) : (
-            <Typography sx={{ color: TOK.TEXT_DIM }}>
-              No log selected.
-            </Typography>
+            <Typography sx={{ color: TOK.TEXT_DIM }}>No log selected.</Typography>
           )}
         </DialogContent>
 
-
-
         <DialogActions>
-          <Button
-            onClick={() => {
-              setOpenView(false);
-              setSelectedRow(null);
-            }}
-            variant="contained"
-          >
+          <Button onClick={() => { setOpenView(false); setSelectedRow(null); }} variant="contained">
             Close
           </Button>
         </DialogActions>
