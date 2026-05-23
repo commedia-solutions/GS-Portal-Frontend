@@ -19,30 +19,69 @@ import {
 } from "@mui/material";
 import Select from "@mui/material/Select";
 import type { SelectChangeEvent } from "@mui/material/Select";
+import { vars } from "../ui/toast/themeBridge";
+import { AmbientLighting } from "../ui/styles";
+
+/* ✅ theme tokens */
+const TEXT = vars.text;
+const DIM = vars.textDim;
+const ACCENT = vars.accent;
+const RED = "#FF2E63";
 
 export type GroundStation = {
   id: number;
   partner: string;
   station: string;
   addedBy?: string;
-
-  // New fields:
-  antennas?: string[];   // multi-select
-  latitude?: string;
-  longitude?: string;
+  antennas?: string[];
 };
 
 export type UpdateGroundStationDialogProps = {
   open: boolean;
   row: GroundStation | null;
-  antennaOptions: string[];             // options for multi-select
+  antennaOptions: string[];
   onClose: () => void;
-  onSave: (updated: GroundStation) => void;   // parent does the API call
-  onDelete: (row: GroundStation) => void;     // parent does the API call
+  onSave: (updated: GroundStation) => void;
+  onDelete: (row: GroundStation) => void;
 };
 
-const BORDER = "1px solid rgba(255,255,255,0.14)";
-const PRIMARY = "#7C57F2";
+const glassCtrlSx = {
+  "& .MuiOutlinedInput-root": {
+    height: "36px", fontSize: 13, color: TEXT,
+    backgroundColor: vars.bgCtrl, borderRadius: "12px",
+    backdropFilter: "blur(10px)",
+    "& fieldset": { borderColor: vars.borderWeak },
+    "&:hover fieldset": { borderColor: vars.accent },
+    "&.Mui-focused fieldset": { border: `1px solid ${vars.accent}` },
+  },
+  "& .MuiInputBase-input": { padding: "0 14px", fontSize: 13, color: TEXT },
+  "& .MuiInputBase-input::placeholder": { color: DIM, opacity: 0.7 },
+  "& .MuiSelect-select": { padding: "0 14px !important", display: "flex", alignItems: "center", fontSize: 13, color: TEXT, height: "36px !important" },
+  "& .MuiSvgIcon-root": { fontSize: 18, color: DIM }
+} as const;
+
+const LABEL_SX = {
+  fontSize: 10.5,
+  fontWeight: 900,
+  color: ACCENT,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  mb: 0.8,
+} as const;
+
+const premiumBtnSx = {
+  textTransform: "none", fontWeight: 800, fontSize: 12.5, px: 3, height: 40,
+  borderRadius: "12px", background: `linear-gradient(135deg, ${ACCENT}, #0369a1)`,
+  boxShadow: `0 8px 20px rgba(14, 165, 233, 0.25)`,
+  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+  color: "#fff",
+  "&:hover": {
+    background: `linear-gradient(135deg, #0ea5e9, #075985)`,
+    transform: "translateY(-1px)",
+    boxShadow: `0 10px 25px rgba(14, 165, 233, 0.35)`,
+  },
+  "&.Mui-disabled": { opacity: 0.5, color: "rgba(255,255,255,0.3)" }
+} as const;
 
 export default function UpdateGroundStationDialog({
   open,
@@ -53,23 +92,17 @@ export default function UpdateGroundStationDialog({
   onDelete,
 }: UpdateGroundStationDialogProps) {
   const [partner, setPartner] = React.useState("");
-  // const [station, setStation] = React.useState("");
   const [antennas, setAntennas] = React.useState<string[]>([]);
-  // const [latitude, setLatitude] = React.useState("");
-  // const [longitude, setLongitude] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
+    if (!open) return;
     setPartner(row?.partner ?? "");
-    // setStation(row?.station ?? "");
     setAntennas(row?.antennas ?? []);
-    // setLatitude(row?.latitude ?? "");
-    // setLongitude(row?.longitude ?? "");
     setBusy(false);
   }, [row, open]);
 
-const canSave = partner.trim().length > 0;
-
+  const canSave = partner.trim().length > 0;
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -79,10 +112,8 @@ const canSave = partner.trim().length > 0;
       onSave({
         ...row,
         partner: partner.trim(),
-        // station: station.trim(),
         antennas: antennas,
-        // latitude: latitude.trim(),
-        // longitude: longitude.trim(),
+        station: row.station, // preserve
       });
     } finally {
       setBusy(false);
@@ -113,61 +144,40 @@ const canSave = partner.trim().length > 0;
       fullWidth
       PaperProps={{
         sx: {
-          bgcolor: "#17171A",
-          border: BORDER,
-          color: "#fff",
+          bgcolor: vars.bgCard,
+          border: `1px solid ${vars.border}`,
+          borderRadius: "20px",
+          color: TEXT,
+          backgroundImage: "none",
+          boxShadow: '0 20px 50px rgba(0,0,0,0.12)',
+          overflow: "hidden"
         },
       }}
     >
-      <DialogTitle sx={{ fontWeight: 600, fontSize: 22 }}>
+      <AmbientLighting />
+      <DialogTitle sx={{ fontWeight: 900, fontSize: 18, color: TEXT, textTransform: "uppercase", letterSpacing: "0.05em", px: 3, pt: 3, pb: 1 }}>
         Update Ground Station
       </DialogTitle>
 
-      <DialogContent>
-        <Box component="form" onSubmit={handleSave}>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-              gap: 2,
-              mt: 0.5,
-            }}
-          >
-            <Stack spacing={0.75}>
-              <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-                TTC Service Provider
-              </Typography>
+      <DialogContent sx={{ px: 3, py: 2 }}>
+        <Box component="form" onSubmit={handleSave} sx={{ display: "grid", gap: 3 }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>TTC Service Provider *</Typography>
               <TextField
                 autoFocus
                 value={partner}
                 onChange={(e) => setPartner(e.target.value)}
                 size="small"
                 fullWidth
-                sx={darkFieldSx}
+                sx={glassCtrlSx}
                 placeholder="e.g., ISRO"
                 disabled={busy}
               />
             </Stack>
 
-            {/* <Stack spacing={0.75}>
-              <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-                Ground Station Name
-              </Typography>
-              <TextField
-                value={station}
-                onChange={(e) => setStation(e.target.value)}
-                size="small"
-                fullWidth
-                sx={darkFieldSx}
-                placeholder="e.g., BLR"
-                disabled={busy}
-              />
-            </Stack> */}
-
-            <Stack spacing={0.75}>
-              <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-                Antenna(s)
-              </Typography>
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>Antenna(s)</Typography>
               <FormControl fullWidth size="small">
                 <Select<string[]>
                   multiple
@@ -177,14 +187,12 @@ const canSave = partner.trim().length > 0;
                   renderValue={(selected) =>
                     (selected as string[]).length ? (selected as string[]).join(", ") : "Select Antenna"
                   }
-                  sx={darkSelectSx}
+                  sx={glassCtrlSx}
+                  MenuProps={{ PaperProps: { sx: { bgcolor: vars.bgCtrl, color: TEXT, border: `1px solid ${vars.borderWeak}` } } }}
                 >
-                  <MenuItem disabled value="">
-                    Select Antenna
-                  </MenuItem>
                   {antennaOptions.map((a) => (
                     <MenuItem key={a} value={a}>
-                      <Checkbox checked={antennas.indexOf(a) > -1} sx={{ p: 0.5, mr: 1, color: "#bbb" }} />
+                      <Checkbox checked={antennas.indexOf(a) > -1} size="small" />
                       <ListItemText primary={a} />
                     </MenuItem>
                   ))}
@@ -192,105 +200,39 @@ const canSave = partner.trim().length > 0;
               </FormControl>
             </Stack>
 
-            {/* <Stack spacing={0.75}>
-              <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-                Latitude
-              </Typography>
-              <TextField
-                value={latitude}
-                onChange={(e) => setLatitude(e.target.value)}
-                size="small"
-                fullWidth
-                sx={darkFieldSx}
-                placeholder="e.g., 12.9716"
-                disabled={busy}
-              />
-            </Stack>
-
-            <Stack spacing={0.75}>
-              <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-                Longitude
-              </Typography>
-              <TextField
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-                size="small"
-                fullWidth
-                sx={darkFieldSx}
-                placeholder="e.g., 77.5946"
-                disabled={busy}
-              />
-            </Stack> */}
           </Box>
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2.25 }}>
-        <Box sx={{ mr: "auto" }}>
+      <DialogActions sx={{ px: 3, pb: 3, pt: 1, display: "flex", justifyContent: "space-between" }}>
+        <Button
+          onClick={handleDelete}
+          variant="contained"
+          sx={{ ...premiumBtnSx, background: RED, "&:hover": { background: "#d62654" } }}
+          disabled={!row || busy}
+        >
+          Delete
+        </Button>
+
+        <Box sx={{ display: "flex", gap: 2 }}>
           <Button
-            onClick={handleDelete}
-            variant="contained"
-            sx={{
-              bgcolor: "#E24B4B",
-              textTransform: "none",
-              fontWeight: 500,
-              px: 2.5,
-              borderRadius: 1.5,
-              "&:hover": { bgcolor: "#c63c3c" },
-            }}
-            disabled={!row || busy}
+            onClick={onClose}
+            sx={{ color: DIM, textTransform: "none", fontWeight: 700 }}
+            disabled={busy}
           >
-            Delete
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            type="submit"
+            variant="contained"
+            disabled={!canSave || busy}
+            sx={premiumBtnSx}
+          >
+            Edit
           </Button>
         </Box>
-
-        <Button
-          onClick={onClose}
-          variant="text"
-          sx={{ color: "rgba(255,255,255,0.9)", textTransform: "none", fontWeight: 700, mr: 0.5 }}
-          disabled={busy}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSave}
-          type="submit"
-          variant="contained"
-          disabled={!canSave || busy}
-          sx={{
-            bgcolor: PRIMARY,
-            textTransform: "none",
-            fontWeight: 500,
-            px: 3,
-            borderRadius: 1.5,
-            "&:hover": { bgcolor: "#6b46f1" },
-            "&.Mui-disabled": { bgcolor: "#2f2f33", color: "#b5b7bd" },
-          }}
-        >
-          Edit
-        </Button>
       </DialogActions>
     </Dialog>
   );
 }
-
-const darkFieldSx = {
-  "& .MuiInputBase-root": {
-    backgroundColor: "#1C1C1E",
-    borderRadius: 1,
-    color: "#fff",
-    height: 36,
-  },
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.24)" },
-  "& .MuiInputBase-input": { fontSize: 14, px: 1.25 },
-} as const;
-
-const darkSelectSx = {
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.24)" },
-  "& .MuiInputBase-input": { fontSize: 14 },
-  backgroundColor: "#1C1C1E",
-  borderRadius: 1,
-  color: "#fff",
-} as const;

@@ -14,6 +14,17 @@ import type { Theme } from "@mui/material/styles";
 
 import { updateEntity, deleteEntity } from "../../api/iam";
 import { useToast } from "../../ui/toast/ToastProvider";
+import {
+  AmbientLighting,
+  PREMIUM_ACTION_BUTTON_SX,
+  PREMIUM_DANGER_BUTTON_SX,
+  PREMIUM_DIALOG_ACTIONS_SX,
+  PREMIUM_DIALOG_CONTENT_SX,
+  PREMIUM_DIALOG_PAPER_SX,
+  PREMIUM_DIALOG_TITLE_SX,
+  PREMIUM_FORM_CONTROL_SX,
+  PREMIUM_FORM_LABEL_SX,
+} from "../../ui/styles";
 
 /* ---------- theme constants ---------- */
 const BG_DARK = "#151517";
@@ -28,6 +39,7 @@ const UI = { ctrlH: 30, font: 13 } as const;
 
 /* inputs theme-aware */
 const compactCtrlSx = (t: Theme) => ({
+  ...PREMIUM_FORM_CONTROL_SX,
   bgcolor: t.palette.mode === "dark" ? CTRL_BG_DARK : CTRL_BG_LIGHT,
   borderRadius: 1,
   color: t.palette.mode === "dark" ? "#fff" : "#000",
@@ -142,17 +154,19 @@ export default function UpdateEntityModal({
           color: t.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
           border: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
           borderRadius: 2,
+          ...PREMIUM_DIALOG_PAPER_SX,
         }),
       }}
     >
-      <DialogTitle sx={{ fontWeight: 800 }}>
+      <AmbientLighting />
+      <DialogTitle sx={{ ...PREMIUM_DIALOG_TITLE_SX }}>
         Update Entity
       </DialogTitle>
 
-      <DialogContent dividers>
+      <DialogContent dividers sx={{ ...PREMIUM_DIALOG_CONTENT_SX }}>
         <Box sx={{ display: "grid", gap: 1.25 }}>
           <Box>
-            <Typography sx={{ fontSize: 12, mb: 0.5 }}>
+            <Typography sx={PREMIUM_FORM_LABEL_SX}>
               Entity Name
             </Typography>
             <TextField
@@ -166,7 +180,7 @@ export default function UpdateEntityModal({
           </Box>
 
           <Box>
-            <Typography sx={{ fontSize: 12, mb: 0.5 }}>
+            <Typography sx={PREMIUM_FORM_LABEL_SX}>
               Description
             </Typography>
             <TextField
@@ -187,12 +201,13 @@ export default function UpdateEntityModal({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2 }}>
+      <DialogActions sx={{ ...PREMIUM_DIALOG_ACTIONS_SX }}>
         <Button
           onClick={handleDelete}
           color="error"
           variant="contained"
           disabled={busy}
+          sx={PREMIUM_DANGER_BUTTON_SX}
         >
           Delete
         </Button>
@@ -204,6 +219,7 @@ export default function UpdateEntityModal({
           onClick={handleUpdate}
           variant="contained"
           disabled={!canUpdate || busy}
+          sx={PREMIUM_ACTION_BUTTON_SX}
         >
           {busy ? "Saving…" : "Update"}
         </Button>

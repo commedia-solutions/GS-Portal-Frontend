@@ -14,9 +14,16 @@ import {
   ListItemText,
 } from "@mui/material";
 import Select from "@mui/material/Select";
-import type { SelectChangeEvent } from "@mui/material/Select";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import { vars } from "../ui/toast/themeBridge";
+import { AmbientLighting } from "../ui/styles";
+
+/* ✅ theme tokens */
+const TEXT = vars.text;
+const DIM = vars.textDim;
+const ACCENT = vars.accent;
+const RED = "#FF2E63";
 
 export type AntBand = {
   band: string;
@@ -25,22 +32,19 @@ export type AntBand = {
   downlink: boolean;
 };
 
-// export type AntGT = { band: string; gt: string };
-
 export type AntennaDialogRow = {
   id: number;
   type: string;
   location: string;
   size_m: string;
   eirp_dbw: string;
-   tx_polarization: string[];   // ✅ FIX
-  rx_polarization: string[];  
+  tx_polarization: string[];
+  rx_polarization: string[];
   travel_range: string;
   tracking_velocity: string;
   tracking_acceleration: string;
   tracking_modes: string;
   bands: AntBand[];
-  // gts: AntGT[];
 };
 
 type Props = {
@@ -48,45 +52,54 @@ type Props = {
   row: AntennaDialogRow | null;
   onClose: () => void;
   onSave: (updated: AntennaDialogRow) => void;
-onDelete?: (row: AntennaDialogRow) => void;
+  onDelete?: (row: AntennaDialogRow) => void;
 };
 
-const PRIMARY = "#7C57F2";
-const BORDER = "1px solid rgba(255,255,255,0.14)";
-const LABEL_SX = { fontSize: 13, color: "rgba(255,255,255,0.85)" };
-const controlSx = {
-  "& .MuiInputBase-root": {
-    backgroundColor: "#1C1C1E",
-    borderRadius: 1,
-    color: "#fff",
-    height: 36,
+const glassCtrlSx = {
+  "& .MuiOutlinedInput-root": {
+    height: "36px", fontSize: 13, color: TEXT,
+    backgroundColor: vars.bgCtrl, borderRadius: "12px",
+    backdropFilter: "blur(10px)",
+    "& fieldset": { borderColor: vars.borderWeak },
+    "&:hover fieldset": { borderColor: vars.accent },
+    "&.Mui-focused fieldset": { border: `1px solid ${vars.accent}` },
   },
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.24)" },
-  "& .MuiInputBase-input": { fontSize: 14, px: 1.25 },
+  "& .MuiInputBase-input": { padding: "0 14px", fontSize: 13, color: TEXT },
+  "& .MuiInputBase-input::placeholder": { color: DIM, opacity: 0.7 },
+  "& .MuiSelect-select": { padding: "0 14px !important", display: "flex", alignItems: "center", fontSize: 13, color: TEXT, height: "36px !important" },
+  "& .MuiSvgIcon-root": { fontSize: 18, color: DIM }
 } as const;
-const darkSelectSx = {
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.24)" },
-  "& .MuiInputBase-input": { fontSize: 14 },
-  backgroundColor: "#1C1C1E",
-  borderRadius: 1,
+
+const LABEL_SX = {
+  fontSize: 10.5,
+  fontWeight: 900,
+  color: ACCENT,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  mb: 0.8,
+} as const;
+
+const premiumBtnSx = {
+  textTransform: "none", fontWeight: 800, fontSize: 12.5, px: 3, height: 40,
+  borderRadius: "12px", background: `linear-gradient(135deg, ${ACCENT}, #0369a1)`,
+  boxShadow: `0 8px 20px rgba(14, 165, 233, 0.25)`,
+  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
   color: "#fff",
+  "&:hover": {
+    background: `linear-gradient(135deg, #0ea5e9, #075985)`,
+    transform: "translateY(-1px)",
+    boxShadow: `0 10px 25px rgba(14, 165, 233, 0.35)`,
+  },
+  "&.Mui-disabled": { opacity: 0.5, color: "rgba(255,255,255,0.3)" }
 } as const;
 
-const darkMenu = {
-  PaperProps: {
-    sx: {
-      bgcolor: "#1C1C1E",
-      color: "#E8E8EA",
-      border: "1px solid rgba(255,255,255,0.14)",
-      "& .MuiMenuItem-root.Mui-selected": { bgcolor: "rgba(255,255,255,0.10)" },
-      "& .MuiMenuItem-root:hover": { bgcolor: "rgba(255,255,255,0.06)" },
-    },
-  },
-};
+const BAND_OPTIONS = [
+  "UHF (300 MHz – 3 GHz)", "VHF (30 MHz – 300 MHz)", "L (1-2 GHz)",
+  "S (2.0 – 2.3 GHz)", "C (4 – 8 GHz)", "X (8 – 12 GHz)",
+  "Ku (12-18 GHz)", "Ka (26.5 to 40 GHz)"
+];
 
-const BAND_OPTIONS = ["UHF (300 MHz – 3 GHz)", "VHF (30 MHz – 300 MHz)", "L (1-2 GHz)", "S (2.0 – 2.3 GHz)", "C (4 – 8 GHz)", "X (8 – 12 GHz)", "Ku (12-18 GHz)", "Ka (26.5 to 40 GHz)"];
+const POL_OPTIONS = ["RHCP", "LHCP", "Linear"];
 
 export default function UpdateAntennaDialog({
   open,
@@ -97,93 +110,64 @@ export default function UpdateAntennaDialog({
 }: Props) {
   const [busy, setBusy] = React.useState(false);
 
-  // core fields
   const [type, setType] = React.useState("");
   const [size_m, setSize] = React.useState("");
-  const [location, setLocation] = React.useState(""); // ✅ ADD
-
+  const [location, setLocation] = React.useState("");
   const [eirp_dbw, setEirp] = React.useState("");
-const [tx_polarization, setTxPol] = React.useState<string[]>([]);
-const [rx_polarization, setRxPol] = React.useState<string[]>([]);
-
+  const [tx_polarization, setTxPol] = React.useState<string[]>([]);
+  const [rx_polarization, setRxPol] = React.useState<string[]>([]);
   const [travel_range, setTravel] = React.useState("");
   const [tracking_velocity, setVel] = React.useState("");
   const [tracking_acceleration, setAcc] = React.useState("");
   const [tracking_modes, setModes] = React.useState("");
-
-  // bands
   const [bands, setBands] = React.useState<AntBand[]>([]);
- const [curBand, setCurBand] = React.useState("");
-const [curGT, setCurGT] = React.useState("");
-const [isUplink, setIsUplink] = React.useState(false);
-const [isDownlink, setIsDownlink] = React.useState(false);
 
-
-  // gts
-  // const [gts, setGts] = React.useState<AntGT[]>([]);
-  // const [gtBand, setGtBand] = React.useState("");
-  // const [gtVal, setGtVal] = React.useState("");
+  const [curBand, setCurBand] = React.useState("");
+  const [curGT, setCurGT] = React.useState("");
+  const [isUplink, setIsUplink] = React.useState(false);
+  const [isDownlink, setIsDownlink] = React.useState(false);
 
   React.useEffect(() => {
+    if (!open) return;
     setBusy(false);
     setType(row?.type ?? "");
-    setLocation(row?.location ?? ""); // ✅ ADD
-
+    setLocation(row?.location ?? "");
     setSize(row?.size_m ?? "");
     setEirp(row?.eirp_dbw ?? "");
-
     setTxPol(row?.tx_polarization ?? []);
     setRxPol(row?.rx_polarization ?? []);
-
     setTravel(row?.travel_range ?? "");
     setVel(row?.tracking_velocity ?? "");
     setAcc(row?.tracking_acceleration ?? "");
     setModes(row?.tracking_modes ?? "");
     setBands(
-  (row?.bands ?? []).map((b: any) => ({
-    band: b.band,
-    gt: String(b.gt ?? b.g_t ?? b.gt_value ?? ""),
-    uplink: Boolean(b.uplink),
-    downlink: Boolean(b.downlink),
-  }))
-);
-
-   setCurBand("");
-setCurGT("");
-setIsUplink(false);
-setIsDownlink(false);
-
-   
+      (row?.bands ?? []).map((b: any) => ({
+        band: b.band,
+        gt: String(b.gt ?? b.g_t ?? b.gt_value ?? ""),
+        uplink: Boolean(b.uplink),
+        downlink: Boolean(b.downlink),
+      }))
+    );
+    setCurBand("");
+    setCurGT("");
+    setIsUplink(false);
+    setIsDownlink(false);
   }, [row, open]);
 
   const canSave = type.trim().length > 0;
 
-const addBand = () => {
-  if (!curBand || !curGT || (!isUplink && !isDownlink)) return;
-
-  setBands((b) => [
-    ...b,
-    {
-      band: curBand,
-      gt: curGT,
-      uplink: isUplink,
-      downlink: isDownlink,
-    },
-  ]);
-
-  setCurGT("");
-  setIsUplink(false);
-  setIsDownlink(false);
-};
+  const addBand = () => {
+    if (!curBand || !curGT || (!isUplink && !isDownlink)) return;
+    setBands((b) => [
+      ...b,
+      { band: curBand, gt: curGT, uplink: isUplink, downlink: isDownlink },
+    ]);
+    setCurGT("");
+    setIsUplink(false);
+    setIsDownlink(false);
+  };
 
   const removeBand = (idx: number) => setBands((b) => b.filter((_, i) => i !== idx));
-
-  // const addGT = () => {
-  //   if (!gtBand || !gtVal) return;
-  //   setGts((g) => [...g, { band: gtBand, gt: gtVal }]);
-  //   setGtVal("");
-  // };
-  // const removeGT = (idx: number) => setGts((g) => g.filter((_, i) => i !== idx));
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -193,17 +177,16 @@ const addBand = () => {
       onSave({
         id: row.id,
         type: type.trim(),
-         location: location.trim(),
+        location: location.trim(),
         size_m: size_m.trim(),
         eirp_dbw: eirp_dbw.trim(),
         tx_polarization,
-rx_polarization,
+        rx_polarization,
         travel_range: travel_range.trim(),
         tracking_velocity: tracking_velocity.trim(),
         tracking_acceleration: tracking_acceleration.trim(),
         tracking_modes: tracking_modes.trim(),
         bands,
-        // gts,
       });
     } finally {
       setBusy(false);
@@ -216,7 +199,6 @@ rx_polarization,
     try {
       setBusy(true);
       onDelete?.(row);
-
     } finally {
       setBusy(false);
     }
@@ -230,349 +212,159 @@ rx_polarization,
       fullWidth
       PaperProps={{
         sx: {
-          bgcolor: "#17171A",
-          border: BORDER,
-          color: "#fff",
+          bgcolor: vars.bgCard,
+          border: `1px solid ${vars.border}`,
+          borderRadius: "20px",
+          color: TEXT,
+          backgroundImage: "none",
+          boxShadow: '0 20px 50px rgba(0,0,0,0.12)',
+          overflow: "hidden"
         },
       }}
     >
-      <DialogTitle sx={{ fontWeight: 600, fontSize: 22 }}>
+      <AmbientLighting />
+      <DialogTitle sx={{ fontWeight: 900, fontSize: 18, color: TEXT, textTransform: "uppercase", letterSpacing: "0.05em", px: 3, pt: 3, pb: 1 }}>
         Update Antenna
       </DialogTitle>
 
-      <DialogContent>
-        <Box component="form" onSubmit={handleSave}>
+      <DialogContent sx={{ px: 3, py: 2 }}>
+        <Box component="form" onSubmit={handleSave} sx={{ display: "grid", gap: 3 }}>
           {/* core fields */}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" },
-              gap: 2,
-              mt: 0.5,
-            }}
-          >
-            <Stack spacing={0.75}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" }, gap: 3 }}>
+            <Stack spacing={0.5}>
               <Typography sx={LABEL_SX}>Antenna Name *</Typography>
-              <TextField value={type} onChange={(e) => setType(e.target.value)} size="small" fullWidth sx={controlSx} />
+              <TextField value={type} onChange={(e) => setType(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
-            <Stack spacing={0.75}>
-  <Typography sx={LABEL_SX}>Location</Typography>
-  <TextField
-    value={location}
-    onChange={(e) => setLocation(e.target.value)}
-    size="small"
-    fullWidth
-    sx={controlSx}
-  />
-</Stack>
-
-            <Stack spacing={0.75}>
-              <Typography sx={LABEL_SX}>Antenna Size (m)</Typography>
-              <TextField value={size_m} onChange={(e) => setSize(e.target.value)} size="small" fullWidth sx={controlSx} />
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>Location *</Typography>
+              <TextField value={location} onChange={(e) => setLocation(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
-            <Stack spacing={0.75}>
-              <Typography sx={LABEL_SX}>EIRP (dBW)</Typography>
-              <TextField value={eirp_dbw} onChange={(e) => setEirp(e.target.value)} size="small" fullWidth sx={controlSx} />
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>Antenna Size (m) *</Typography>
+              <TextField value={size_m} onChange={(e) => setSize(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
-
-            <Stack spacing={0.75}>
-              <Typography sx={LABEL_SX}>Transmit Polarization</Typography>
-<FormControl fullWidth size="small">
-  <Select
-    multiple
-    value={tx_polarization}
-    onChange={(e) => setTxPol(e.target.value as string[])}
-    renderValue={(selected) => (selected as string[]).join(", ")}
-    sx={darkSelectSx}
-    MenuProps={darkMenu}
-  >
-    {["RHCP", "LHCP", "Linear"].map((pol) => (
-      <MenuItem key={pol} value={pol}>
-        <Checkbox checked={tx_polarization.includes(pol)} />
-        <ListItemText primary={pol} />
-      </MenuItem>
-    ))}
-  </Select>
-</FormControl>
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>EIRP (dBW) *</Typography>
+              <TextField value={eirp_dbw} onChange={(e) => setEirp(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
-            <Stack spacing={0.75}>
-              <Typography sx={LABEL_SX}>Receive Polarization</Typography>
-<FormControl fullWidth size="small">
-  <Select
-    multiple
-    value={rx_polarization}
-    onChange={(e) => setRxPol(e.target.value as string[])}
-    renderValue={(selected) => (selected as string[]).join(", ")}
-    sx={darkSelectSx}
-    MenuProps={darkMenu}
-  >
-    {["RHCP", "LHCP", "Linear"].map((pol) => (
-      <MenuItem key={pol} value={pol}>
-        <Checkbox checked={rx_polarization.includes(pol)} />
-        <ListItemText primary={pol} />
-      </MenuItem>
-    ))}
-  </Select>
-</FormControl>
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>Transmit Polarization *</Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  multiple
+                  value={tx_polarization}
+                  onChange={(e) => setTxPol(e.target.value as string[])}
+                  displayEmpty
+                  renderValue={(s) => (s as string[]).length ? (s as string[]).join(", ") : "Select Transmit Polarization"}
+                  sx={glassCtrlSx}
+                  MenuProps={{ PaperProps: { sx: { bgcolor: vars.bgCtrl, color: TEXT, border: `1px solid ${vars.borderWeak}` } } }}
+                >
+                  {POL_OPTIONS.map((p) => (
+                    <MenuItem key={p} value={p}>
+                      <Checkbox checked={tx_polarization.includes(p)} size="small" />
+                      <ListItemText primary={p} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Stack>
-
-            <Stack spacing={0.75}>
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>Receive Polarization *</Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  multiple
+                  value={rx_polarization}
+                  onChange={(e) => setRxPol(e.target.value as string[])}
+                  displayEmpty
+                  renderValue={(s) => (s as string[]).length ? (s as string[]).join(", ") : "Select Receive Polarization"}
+                  sx={glassCtrlSx}
+                  MenuProps={{ PaperProps: { sx: { bgcolor: vars.bgCtrl, color: TEXT, border: `1px solid ${vars.borderWeak}` } } }}
+                >
+                  {POL_OPTIONS.map((p) => (
+                    <MenuItem key={p} value={p}>
+                      <Checkbox checked={rx_polarization.includes(p)} size="small" />
+                      <ListItemText primary={p} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+            <Stack spacing={0.5}>
               <Typography sx={LABEL_SX}>Antenna Travel Range</Typography>
-              <TextField value={travel_range} onChange={(e) => setTravel(e.target.value)} size="small" fullWidth sx={controlSx} />
+              <TextField value={travel_range} onChange={(e) => setTravel(e.target.value)} size="small" fullWidth sx={glassCtrlSx} placeholder="e.g. 4° to 434° Az, 3° to 46° El" />
             </Stack>
-            <Stack spacing={0.75}>
-              <Typography sx={LABEL_SX}>Tracking Velocity</Typography>
-              <TextField value={tracking_velocity} onChange={(e) => setVel(e.target.value)} size="small" fullWidth sx={controlSx} />
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>Tracking Velocity (°/s)</Typography>
+              <TextField value={tracking_velocity} onChange={(e) => setVel(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
-
-            <Stack spacing={0.75}>
-              <Typography sx={LABEL_SX}>Tracking Acceleration</Typography>
-              <TextField value={tracking_acceleration} onChange={(e) => setAcc(e.target.value)} size="small" fullWidth sx={controlSx} />
+            <Stack spacing={0.5}>
+              <Typography sx={LABEL_SX}>Tracking Acceleration (°/s²)</Typography>
+              <TextField value={tracking_acceleration} onChange={(e) => setAcc(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
-            <Stack spacing={0.75} sx={{ gridColumn: { md: "span 2" } }}>
-              <Typography sx={LABEL_SX}>Tracking Modes</Typography>
-  <FormControl fullWidth size="small">
-  <Select
-    value={tracking_modes}
-    onChange={(e) => setModes(e.target.value)}
-    displayEmpty
-    renderValue={(v) => v || "Select Tracking Mode"}
-    sx={darkSelectSx}
-    MenuProps={darkMenu}
-  >
-    <MenuItem disabled value="">
-      Select Tracking Mode
-    </MenuItem>
-
-    {[
-      "TLE",
-      "Auto Track",
-      "Program",
-      "Step Track",
-      "Others",
-    ].map((mode) => (
-      <MenuItem key={mode} value={mode}>
-        {mode}
-      </MenuItem>
-    ))}
-  </Select>
-</FormControl>
-
-
+            <Stack spacing={0.5} sx={{ gridColumn: { md: "span 3" } }}>
+              <Typography sx={LABEL_SX}>Tracking Modes *</Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={tracking_modes}
+                  onChange={(e) => setModes(e.target.value)}
+                  displayEmpty
+                  renderValue={(v) => v || "Select Tracking Mode"}
+                  sx={glassCtrlSx}
+                  MenuProps={{ PaperProps: { sx: { bgcolor: vars.bgCtrl, color: TEXT, border: `1px solid ${vars.borderWeak}` } } }}
+                >
+                  {["TLE", "Auto Track", "Program", "Step Track", "Others"].map((m) => (
+                    <MenuItem key={m} value={m}>{m}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Stack>
           </Box>
 
           {/* Bands */}
-          <Box sx={{ mt: 2, p: 1.25, border: BORDER, borderRadius: 1 }}>
-            <Typography sx={{ fontWeight: 700, mb: 1 }}>Bands</Typography>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "200px 1fr auto auto auto" },
-
-                gap: 1,
-                alignItems: "center",
-              }}
-            >
-              <FormControl size="small" sx={{ minWidth: 180 }}>
-                <Select<string>
-                  value={curBand}
-                  onChange={(e: SelectChangeEvent<string>) => setCurBand(e.target.value as string)}
-                  displayEmpty
-                  renderValue={(v) => (v ? (v as string) : "Select Band")}
-                  sx={darkSelectSx}
-                  MenuProps={darkMenu}
-                >
-                  <MenuItem disabled value="">Select Band</MenuItem>
-                  {BAND_OPTIONS.map((b) => (
-                    <MenuItem key={b} value={b}>
-                      <ListItemText primary={b} />
-                    </MenuItem>
-                  ))}
+          <Box sx={{ mt: 1, p: 2, borderRadius: "16px", border: `1px solid ${vars.borderWeak}`, background: "rgba(255,255,255,0.01)" }}>
+            <Typography sx={{ ...LABEL_SX, mb: 2 }}>Bands/Carriers *</Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.5fr 1fr auto auto auto" }, gap: 2, alignItems: "center", mb: 2 }}>
+              <FormControl fullWidth size="small">
+                <Select value={curBand} onChange={(e) => setCurBand(e.target.value)} displayEmpty renderValue={(v) => v ? v : "Select Band"} sx={glassCtrlSx}>
+                  {BAND_OPTIONS.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
                 </Select>
               </FormControl>
-             <TextField
-  value={curGT}
-  onChange={(e) => setCurGT(e.target.value)}
-  placeholder="Enter G/T"
-  size="small"
-  sx={controlSx}
-/>
-
-<FormControlLabel
-  control={
-    <Checkbox
-      checked={isUplink}
-      onChange={(e) => setIsUplink(e.target.checked)}
-    />
-  }
-  label="Uplink"
-/>
-
-<FormControlLabel
-  control={
-    <Checkbox
-      checked={isDownlink}
-      onChange={(e) => setIsDownlink(e.target.checked)}
-    />
-  }
-  label="Downlink"
-/>
-
-              <Button variant="contained" onClick={addBand} sx={{ textTransform: "none", height: 32, bgcolor: "#e03f3f", "&:hover": { bgcolor: "#cc3535" } }}>
-                Add
-              </Button>
+              <TextField value={curGT} onChange={(e) => setCurGT(e.target.value)} placeholder="G/T (dB/K)" size="small" sx={glassCtrlSx} />
+              <FormControlLabel control={<Checkbox checked={isUplink} onChange={(e) => setIsUplink(e.target.checked)} size="small" />} label={<Typography sx={{ fontSize: 12, fontWeight: 700 }}>Uplink</Typography>} />
+              <FormControlLabel control={<Checkbox checked={isDownlink} onChange={(e) => setIsDownlink(e.target.checked)} size="small" />} label={<Typography sx={{ fontSize: 12, fontWeight: 700 }}>Downlink</Typography>} />
+              <Button onClick={addBand} variant="contained" sx={{ ...premiumBtnSx, height: 32, background: RED, "&:hover": { background: "#d62654" }, boxShadow: "none" }}>Add</Button>
             </Box>
 
-            <Box sx={{ mt: 1 }}>
+            <Stack spacing={1}>
               {bands.map((b, i) => (
-                <Box
-                  key={`${b.band}-${i}`}
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "repeat(4,1fr)" , md: "200px 1fr 1fr auto" },
-                    gap: 1,
-                    bgcolor: "#1d1d20",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 1,
-                    p: 1,
-                    mb: 1,
-                    alignItems: "center",
-                  }}
-                >
-                  <Box sx={{ fontSize: 13 }}><b>Band:</b> {b.band}</Box>
-                <Box sx={{ fontSize: 13 }}>
-  <b>G/T:</b> {b.gt}
-</Box>
-<Box sx={{ fontSize: 13 }}>
-  <b>Link:</b>{" "}
-  {[b.uplink && "Uplink", b.downlink && "Downlink"]
-    .filter(Boolean)
-    .join("/")}
-</Box>
-
-                  <Button size="small" onClick={() => removeBand(i)} sx={{ color: "#ff9a9a", textTransform: "none" }}>
-                    Remove
-                  </Button>
+                <Box key={i} sx={{ px: 2, py: 1, bgcolor: "rgba(255,255,255,0.02)", border: `1px solid ${vars.borderWeak}`, borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700 }}>{b.band}</Typography>
+                  <Box sx={{ display: "flex", gap: 3, alignItems: "center" }}>
+                    <Typography sx={{ fontSize: 11, color: DIM }}>G/T: <b>{b.gt}</b></Typography>
+                    <Typography sx={{ fontSize: 11, color: DIM }}>Link: <b>{[b.uplink && "Uplink", b.downlink && "Downlink"].filter(Boolean).join("/")}</b></Typography>
+                    <Button size="small" onClick={() => removeBand(i)} sx={{ color: RED, textTransform: "none", fontSize: 11, fontWeight: 700 }}>Remove</Button>
+                  </Box>
                 </Box>
               ))}
-              {!bands.length && <Typography sx={{ color: "#9aa", fontSize: 13, mt: 0.5 }}>No bands added.</Typography>}
-            </Box>
+            </Stack>
           </Box>
-
-          {/* Receive G/T */}
-          {/* <Box sx={{ mt: 2, p: 1.25, border: BORDER, borderRadius: 1 }}>
-            <Typography sx={{ fontWeight: 700, mb: 1 }}>Receive G/T</Typography>
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "200px 1fr auto" }, gap: 1, alignItems: "center" }}>
-              <FormControl size="small" sx={{ minWidth: 180 }}>
-                <Select<string>
-                  value={gtBand}
-                  onChange={(e: SelectChangeEvent<string>) => setGtBand(e.target.value as string)}
-                  displayEmpty
-                  renderValue={(v) => (v ? (v as string) : "Select Band")}
-                  sx={darkSelectSx}
-                  MenuProps={darkMenu}
-                >
-                  <MenuItem disabled value="">Select Band</MenuItem>
-                  {BAND_OPTIONS.map((b) => (
-                    <MenuItem key={b} value={b}>
-                      <ListItemText primary={b} />
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField value={gtVal} onChange={(e) => setGtVal(e.target.value)} placeholder="G/T" size="small" sx={controlSx} />
-              <Button variant="contained" onClick={addGT} sx={{ textTransform: "none", height: 32, bgcolor: "#e03f3f", "&:hover": { bgcolor: "#cc3535" } }}>
-                Add
-              </Button>
-            </Box>
-
-            <Box sx={{ mt: 1 }}>
-              {gts.map((g, i) => (
-                <Box
-                  key={`${g.band}-${i}`}
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "repeat(3,1fr)", md: "200px 1fr auto" },
-                    gap: 1,
-                    bgcolor: "#1d1d20",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 1,
-                    p: 1,
-                    mb: 1,
-                    alignItems: "center",
-                  }}
-                >
-                  <Box sx={{ fontSize: 13 }}><b>Band:</b> {g.band}</Box>
-                  <Box sx={{ fontSize: 13 }}><b>G/T:</b> {g.gt}</Box>
-                  <Button size="small" onClick={() => removeGT(i)} sx={{ color: "#ff9a9a", textTransform: "none" }}>
-                    Remove
-                  </Button>
-                </Box>
-              ))}
-              {!gts.length && <Typography sx={{ color: "#9aa", fontSize: 13, mt: 0.5 }}>No G/T rows added.</Typography>}
-            </Box>
-          </Box> */}
         </Box>
       </DialogContent>
 
-<DialogActions
-  sx={{
-    px: 3,
-    pb: 2.25,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  }}
->
-  {onDelete && (
-    <Button
-      onClick={handleDelete}
-      variant="contained"
-      sx={{
-        bgcolor: "#E24B4B",
-        textTransform: "none",
-        fontWeight: 500,
-        px: 2.5,
-        borderRadius: 1.5,
-        "&:hover": { bgcolor: "#c63c3c" },
-      }}
-      disabled={!row || busy}
-    >
-      Delete
-    </Button>
-  )}
-
-
-<Box sx={{ display: "flex", gap: 1 }}>
-  <Button
-    onClick={onClose}
-    variant="text"
-    sx={{ color: "rgba(255,255,255,0.9)", textTransform: "none", fontWeight: 700 }}
-    disabled={busy}
-  >
-    Cancel
-  </Button>
-
-  <Button
-    onClick={handleSave}
-    type="submit"
-    variant="contained"
-    disabled={!canSave || busy}
-    sx={{
-      bgcolor: PRIMARY,
-      textTransform: "none",
-      fontWeight: 500,
-      px: 3,
-      borderRadius: 1.5,
-      "&:hover": { bgcolor: "#6b46f1" },
-      "&.Mui-disabled": { bgcolor: "#2f2f33", color: "#b5b7bd" },
-    }}
-  >
-    Edit
-  </Button>
-</Box>
-
+      <DialogActions sx={{ px: 3, pb: 3, pt: 1, display: "flex", justifyContent: "space-between" }}>
+        {onDelete && (
+          <Button onClick={handleDelete} variant="contained" sx={{ ...premiumBtnSx, background: RED, "&:hover": { background: "#d62654" } }}>
+            Delete
+          </Button>
+        )}
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button onClick={onClose} sx={{ color: DIM, textTransform: "none", fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} variant="contained" disabled={!canSave || busy} sx={premiumBtnSx}>
+            Edit
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

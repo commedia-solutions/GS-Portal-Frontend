@@ -1,32 +1,39 @@
 /* ====== DARK (current look) ====== */
 body.theme-dark {
-  --bg-app:    #0F0F0F;
-  --bg-card:   #1C1C1E;
-  --bg-ctrl:   #1C1C1E;
-  --bg-hover:  rgba(255,255,255,0.06);
+  --bg-app:    #0B1115;
+  --bg-card:   #0B1115;
+  --bg-ctrl:   rgba(255, 255, 255, 0.05);
+  --bg-hover:  rgba(255, 255, 255, 0.08);
 
-  --text:      #E8E8EA;
-  --text-dim:  rgba(232,232,234,0.72);
-  --text-weak: rgba(232,232,234,0.55);
+  --text:      #FFFFFF;
+  --text-dim:  rgba(255, 255, 255, 0.7);
+  --text-weak: rgba(255, 255, 255, 0.45);
 
-  --border:    rgba(255,255,255,0.14);
-  --border-weak: rgba(255,255,255,0.10);
+  --border:    rgba(255, 255, 255, 0.12);
+  --border-weak: rgba(255, 255, 255, 0.06);
 
-  --accent:    #7C57F2;
+  --accent:    #0EA5E9;
   --danger:    #ef4a4a;
   --ok:        #2e7d32;
 
   --scrollbar: #3f3f3f;
 
   /* page-specific helpers */
-  --bg-strip:  #1C1C1E;
-  --bg-thead:  #000000;
+  --bg-strip:  rgba(255, 255, 255, 0.02);
+  --bg-thead:  rgba(11, 17, 21, 0.95);
+  --thead-text: #ffffff;
   --donut-track: #2f2f2f;
-  --bg-mid: rgba(255, 99, 71, 0.10);
+  --bg-mid: rgba(14, 165, 233, 0.1);
+  --sidebar-bg: #0B1115;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-control-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-text: #ffffff;
+  --sidebar-icon: rgba(255, 255, 255, 0.68);
+  --sidebar-muted: rgba(255, 255, 255, 0.46);
 
   /* table row alternation */
   --row-odd: transparent;
-  --row-even: rgba(255,255,255,0.04);
+  --row-even: rgba(255, 255, 255, 0.02);
 }
 
 /* ====== LIGHT (new look) ====== */
@@ -51,9 +58,16 @@ body.theme-light {
 
   /* page-specific helpers */
   --bg-strip: var(--bg-card);
-  --bg-thead: var(--bg-card);
+  --bg-thead: #464B4E;
+  --thead-text: #ffffff;
   /* ✅ add donut track for light mode */
   --donut-track: #e9e9e9;
+  --sidebar-bg: #F2F8FC;
+  --sidebar-border: rgba(14, 165, 233, 0.28);
+  --sidebar-control-bg: #ffffff;
+  --sidebar-text: #16242E;
+  --sidebar-icon: #53616B;
+  --sidebar-muted: rgba(22, 36, 46, 0.45);
 
   /* table row alternation */
   --row-odd: transparent;

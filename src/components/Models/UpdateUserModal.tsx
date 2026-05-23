@@ -12,6 +12,17 @@ import { vars } from "../../ui/toast/themeBridge";
 import { useI18n } from "../../i18n";
 import { updateUser, setUserPassword, getAssignmentForUser, updateAssignmentForUser } from "../../api/iam";
 import type { Theme } from "@mui/material/styles";
+import {
+  AmbientLighting,
+  PREMIUM_ACTION_BUTTON_SX,
+  PREMIUM_DIALOG_ACTIONS_SX,
+  PREMIUM_DIALOG_CONTENT_SX,
+  PREMIUM_DIALOG_PAPER_SX,
+  PREMIUM_DIALOG_TITLE_SX,
+  PREMIUM_FORM_CONTROL_SX,
+  PREMIUM_FORM_LABEL_SX,
+  PREMIUM_MENU_PROPS,
+} from "../../ui/styles";
 
 /* theme + CTRL styling copied from AddUserModal */
 const BG_DARK = "#151517";
@@ -23,6 +34,7 @@ const BORDER_LIGHT = "1px solid rgba(0,0,0,0.12)";
 const UI = { ctrlH: 36, font: 13, icon: 16 };
 
 const controlSx = {
+  ...PREMIUM_FORM_CONTROL_SX,
   borderRadius: 1,
   "& .MuiInputBase-root, & .MuiOutlinedInput-root": {
     height: `${UI.ctrlH}px`,
@@ -44,7 +56,7 @@ const controlSx = {
   }
 } as const;
 
-const labelSx = { color: vars.textDim, mb: 0.5, fontSize: 12 } as const;
+const labelSx = { ...PREMIUM_FORM_LABEL_SX } as const;
 
 export type UpdateUserModalProps = {
   open: boolean;
@@ -133,14 +145,16 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
           border: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
           borderRadius: 2,
           boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
+          ...PREMIUM_DIALOG_PAPER_SX,
         }),
       }}
     >
-      <DialogTitle sx={{ fontWeight: 800, color: (t) => t.palette.mode === "dark" ? vars.text : "#000" }}>
+      <AmbientLighting />
+      <DialogTitle sx={{ ...PREMIUM_DIALOG_TITLE_SX }}>
         {t("Update User")}
       </DialogTitle>
 
-      <DialogContent dividers>
+      <DialogContent dividers sx={{ ...PREMIUM_DIALOG_CONTENT_SX }}>
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.25 }}>
           <Box>
             <Typography sx={labelSx}>{t("Full Name")}</Typography>
@@ -155,7 +169,7 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
           <Box>
             <Typography sx={labelSx}>{t("User Type")}</Typography>
             <FormControl size="small" fullWidth>
-              <Select value={userType} onChange={(e) => setUserType(e.target.value as any)} sx={controlSx}>
+              <Select value={userType} onChange={(e) => setUserType(e.target.value as any)} sx={controlSx} MenuProps={PREMIUM_MENU_PROPS}>
                 <MenuItem disabled value="">{t("Select Type")}</MenuItem>
                 <MenuItem value="Local">{t("Local")}</MenuItem>
                 <MenuItem value="LDAP">{t("LDAP")}</MenuItem>
@@ -166,7 +180,7 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
           <Box>
             <Typography sx={labelSx}>{t("Assign Entity")}</Typography>
             <FormControl size="small" fullWidth>
-              <Select value={assignEntity} onChange={(e) => setAssignEntity(e.target.value)} sx={controlSx}>
+              <Select value={assignEntity} onChange={(e) => setAssignEntity(e.target.value)} sx={controlSx} MenuProps={PREMIUM_MENU_PROPS}>
                 <MenuItem value=""><em>{t("Global")}</em></MenuItem>
                 {entities.map((e) => <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>)}
               </Select>
@@ -176,7 +190,7 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
           <Box sx={{ gridColumn: "1 / span 2" }}>
             <Typography sx={labelSx}>{t("Assign Role")}</Typography>
             <FormControl size="small" fullWidth>
-              <Select value={assignRole} onChange={(e) => setAssignRole(e.target.value)} sx={controlSx}>
+              <Select value={assignRole} onChange={(e) => setAssignRole(e.target.value)} sx={controlSx} MenuProps={PREMIUM_MENU_PROPS}>
                 <MenuItem disabled value="">{t("Select Role")}</MenuItem>
                 {roles.map((r) => <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>)}
               </Select>
@@ -233,13 +247,13 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2 }}>
+      <DialogActions sx={{ ...PREMIUM_DIALOG_ACTIONS_SX }}>
         <Button onClick={onClose} sx={{ textTransform: "none", fontWeight: 700 }}>{t("Cancel")}</Button>
         <Button
           variant="contained"
           disabled={!emailOk || (!!confirmPw && !pwMatch)}
           onClick={handleSave}
-          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b46f1" } }}
+          sx={PREMIUM_ACTION_BUTTON_SX}
         >
           {t("Save")}
         </Button>

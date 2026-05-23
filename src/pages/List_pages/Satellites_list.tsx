@@ -1,82 +1,46 @@
-// src/pages/Add_data_pages/SatellitesList.tsx
+// src/pages/List_pages/Satellites_list.tsx
 import React from "react";
 import {
-  Box,
-  Card,
-  Button,
-  TextField,
-  InputAdornment,
-  TablePagination,
+  Box, Button, TextField, InputAdornment, TablePagination,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import DownloadIcon from "@mui/icons-material/Download";
 import PrintIcon from "@mui/icons-material/Print";
+import DateRangeUI from "../../components/DateRangeUI";
 import MainLayout from "../../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import UpdateSatelliteModal from "../../components/Models/UpdateSatelliteModal";
-import api, { getAuthToken } from "../../api/http"; // ✅ use same client + fresh token
+import api from "../../api/http";
 import { useI18n } from "../../i18n";
-
 import { useActionAccess } from "../../auth/useActionAccess";
+import { vars, sxPresets } from "../../ui/toast/themeBridge";
+import { PREMIUM_CARD_SX, THEAD_CELL_SX, ROW_CELL_SX, PAGINATION_SX, AmbientLighting, TableScanLine, glassRowHoverSx } from "../../ui/styles";
+import { Card } from "@mui/material";
 
+/* ─────────────────────── style constants ─────────────────────── */
+const TEXT = vars.text;
+const DIM = vars.textDim;
+const ACCENT = vars.accent;
+const BORDER = vars.border;
 
-/* ---------- API base (safe fallback for fetch-based export) ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE ?? "";
-const API = API_BASE ? `${API_BASE}/api` : `/api`;
-
-/* ---------- Use CSS variables ---------- */
-const TOK = {
-  TEXT: "var(--text)",
-  TEXT_DIM: "var(--text-dim)",
-  CARD_BG: "var(--bg-card)",
-  CONTROL_BG: "var(--bg-ctrl)",
-  HOVER: "var(--bg-hover)",
-  BORDER_STR: "1px solid var(--border)",
-  BORDER_WEAK: "var(--border-weak)",
-  ICON: "var(--text)",
-  ACCENT: "var(--accent)",
-  SCROLLBAR: "var(--scrollbar)",
-};
-
-const UI = {
-  ctrlH: 30,
-  font: 13,
-  icon: 16,
-  gap: 0.75,
-  headerPx: 1.25,
-  headerPy: 0.6,
-  searchW: 260,
-  paginationH: 36,
-};
-
-const compactCtrlSx = {
-  bgcolor: TOK.CONTROL_BG,
-  borderRadius: 1,
-  color: TOK.TEXT,
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "var(--border)",
-  },
+const ctrlSx = {
   "& .MuiOutlinedInput-root": {
-    height: `${UI.ctrlH}px`,
-    color: TOK.TEXT,
-    backgroundColor: TOK.CONTROL_BG,
-    paddingLeft: 8,
+    height: "32px",
+    fontSize: 12.5,
+    color: TEXT,
+    backgroundColor: vars.bgCtrl,
+    borderRadius: "9px",
+    "& fieldset": { borderColor: BORDER },
+    "&:hover fieldset": { borderColor: vars.accent },
+    "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: 1 },
   },
-  "& .MuiInputBase-input": {
-    height: `${UI.ctrlH - 2}px`,
-    padding: "0 10px",
-    fontSize: UI.font,
-    lineHeight: 1,
-    color: TOK.TEXT,
-  },
-  "& .MuiInputBase-input::placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
-  "& input::-webkit-input-placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
-  "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
+  "& .MuiInputBase-input": { padding: "0 10px", fontSize: 12.5, color: TEXT },
+  "& .MuiInputBase-input::placeholder": { color: DIM, opacity: 1 },
+  "& .MuiSvgIcon-root": { fontSize: 16, color: DIM },
 } as const;
 
-/* ---------- table ---------- */
+/* ---------- Types ---------- */
 type Row = {
   id: number;
   sr: number;
@@ -90,511 +54,228 @@ type Row = {
   dateTime: string;
 };
 
-type Column = {
-  key: keyof Row | "action";
-  label: string;
-  width?: number;
-  min?: number;
-  flex?: number;
-  align?: "left" | "center" | "right";
-};
-
-
-function ThemedScrollTable({
-  rows,
-  columns,
-  onEdit,
-  emptyText,
-  isEditor,
-  onResize,
-}: {
-  rows: Row[];
-  columns: Column[];
-  onEdit: (r: Row) => void;
-  emptyText: string;
-  isEditor: boolean;
-  onResize?: (key: string, width: number) => void;
-}) {
-
-  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
-  const colTemplate = columns
-    .map((c) => {
-      if (c.key === "action") return "120px";
-      return c.width != null ? `${c.width}px` : `minmax(${Math.max(c.min ?? 80, 80)}px, ${c.flex ?? 1}fr)`;
-    })
-    .join(" ");
-
-  const cellSx = {
-    px: "14px",
-    py: "10px",
-    fontSize: 13,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    minWidth: "80px",
-  } as const;
-
-  return (
-    <Box sx={{ overflowX: "auto" }}>
-      <Box sx={{ width: "100%", minWidth: minTotal, tableLayout: "fixed" }}>
-        {/* header */}
-        <Box
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 2,
-            display: "grid",
-            gridTemplateColumns: colTemplate,
-            bgcolor: "var(--sat-thead-bg)",
-            borderBottom: TOK.BORDER_STR,
-          }}
-        >
-          {columns.map((c) => (
-            <Box
-              key={String(c.key)}
-              sx={{
-                ...cellSx,
-                fontWeight: 700,
-                color: "var(--sat-thead-text)",
-                textAlign: c.align ?? "center",
-                position: "relative",
-                "& .resizer": {
-                  position: "absolute",
-                  right: 0,
-                  top: "20%",
-                  height: "60%",
-                  width: "2px",
-                  bgcolor: "rgba(255,255,255,0.15)",
-                  cursor: "col-resize",
-                  "&:hover": { bgcolor: TOK.ACCENT, width: "4px" },
-                  ".theme-light &": {
-                    bgcolor: "rgba(0,0,0,0.12)",
-                  },
-                },
-              }}
-            >
-              {c.label}
-              {onResize && ["station", "pol"].includes(String(c.key)) && (
-                <Box
-                  className="resizer"
-                  onMouseDown={(e) => {
-                    const startX = e.pageX;
-                    const startWidth = c.width ?? c.min ?? 80;
-                    const onMove = (me: MouseEvent) => {
-                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
-                    };
-                    const onUp = () => {
-                      document.removeEventListener("mousemove", onMove);
-                      document.removeEventListener("mouseup", onUp);
-                    };
-                    document.addEventListener("mousemove", onMove);
-                    document.addEventListener("mouseup", onUp);
-                  }}
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
-
-        {/* rows */}
-        {rows.map((r, idx) => (
-          <Box
-            key={r.id ?? idx}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: colTemplate,
-              borderBottom: TOK.BORDER_STR,
-              bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
-            }}
-          >
-            {columns.map((c) => {
-              if (c.key === "action") {
-                return (
-                  <Box
-                    key={`action-${idx}`}
-                    sx={{ ...cellSx, display: "flex", justifyContent: "center", alignItems: "center", overflow: "visible" }}
-                  >
-                    {isEditor && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        sx={{
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          px: 1.25,
-                          bgcolor: TOK.ACCENT,
-                          color: "#fff",
-                          "& .MuiSvgIcon-root": { color: "#fff" },
-                          "&:hover": { filter: "brightness(0.95)" },
-                        }}
-                        onClick={() => onEdit(r)}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                  </Box>
-                );
-              }
-              const cellValue = String(r[c.key as keyof Row] ?? "");
-              return (
-                <Box
-                  key={String(c.key)}
-                  title={cellValue}
-                  sx={{
-                    ...cellSx,
-                    color: TOK.TEXT_DIM,
-                    textAlign: c.align ?? "center",
-                    width: c.width ? `${c.width}px` : "auto",
-                  }}
-                >
-                  {cellValue}
-                </Box>
-              );
-            })}
-          </Box>
-        ))}
-
-        {!rows.length && (
-          <Box sx={{ px: "14px", py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
-            {emptyText}
-          </Box>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
 /* ---------- Page ---------- */
 export default function SatellitesList() {
   const { t } = useI18n();
-
-  const [search, setSearch] = React.useState("");
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(10);
-
-  const [rows, setRows] = React.useState<Row[]>([]);
-  const [loading, setLoading] = React.useState(false);
-
-  const [editing, setEditing] = React.useState<Row | null>(null);
-  const [modalOpen, setModalOpen] = React.useState(false);
-
   const { hasWriteAccess } = useActionAccess();
   const canEdit = hasWriteAccess("satellites");
 
+  const [search, setSearch] = React.useState("");
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(25);
+  const [rows, setRows] = React.useState<Row[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [editing, setEditing] = React.useState<Row | null>(null);
+  const [modalOpen, setModalOpen] = React.useState(false);
+
+  const [fromDate, setFromDate] = React.useState<Date | null>(null);
+  const [toDate, setToDate] = React.useState<Date | null>(null);
 
   const fetchRows = React.useCallback(async () => {
     try {
       setLoading(true);
-      // cache-buster so we never get stale data
       const r = await api.get(`/api/satellites?_=${Date.now()}`);
-      const j: any = r as any;
-
-      const arr: any[] = Array.isArray(j)
-        ? j
-        : Array.isArray(j?.data)
-          ? j.data
-          : Array.isArray(j?.rows)
-            ? j.rows
-            : [];
-
-      const mapped: Row[] = arr.map((x: any, i: number) => ({
-        id: Number(x.id),
-
-        sr: i + 1,
-        satId: String(x.satellite_id ?? ""),
-        satName: String(x.satellite_name ?? ""),
-        norad: String(x.norad_id ?? ""),
-        itu: String(x.itu_name ?? ""),
-        station: String(x.station_name ?? ""),
-        pol: String(x.polarization ?? ""),
-        addedBy: String(x.added_by ?? ""),
-        dateTime: (() => {
-          const dt = x.date_time || x.created_at || x.updated_at;
-          if (!dt) return "—";
-          return String(dt).replace("T", " ").split(".")[0];
-        })(),
-      }));
-
-
+      const arr = Array.isArray(r) ? r : (r as any)?.data || [];
+      const mapped: Row[] = arr.map((x: any, i: number) => {
+        let addedBy = x.added_by || "—";
+        if (addedBy === "UI") addedBy = "System Admin";
+        return {
+          id: Number(x.id),
+          sr: i + 1,
+          satId: String(x.satellite_id ?? ""),
+          satName: String(x.satellite_name ?? ""),
+          norad: String(x.norad_id ?? ""),
+          itu: String(x.itu_name ?? ""),
+          station: x.station_name || "—",
+          pol: x.polarization || "—",
+          addedBy: addedBy,
+          dateTime: x.updated_at ? new Date(x.updated_at).toLocaleString("en-IN") : "—"
+        };
+      });
       setRows(mapped);
-      setPage(0);
     } catch (e: any) {
-      console.error("Failed to load satellites", e);
-      const msg = e?.response?.data?.message || e?.message || "Failed to load satellites";
-      alert(msg);
+      console.error(e);
       setRows([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  React.useEffect(() => {
-    fetchRows();
-  }, [fetchRows]);
+  React.useEffect(() => { fetchRows(); }, [fetchRows]);
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter((r) =>
-      [r.satId, r.satName, r.norad, r.itu, r.station, r.pol].join(" ").toLowerCase().includes(q)
-    );
+    return rows.filter((r) => [r.satId, r.satName, r.norad, r.itu, r.station, r.pol, r.addedBy].join(" ").toLowerCase().includes(q));
   }, [rows, search]);
 
-  const paged = React.useMemo(
-    () => filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filtered, page, rowsPerPage]
-  );
+  const paged = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const doExport = React.useCallback(async () => {
-    try {
-      // ✅ use the same fresh auth token the api client uses
-      const token = getAuthToken();
-      const resp = await fetch(`${API}/satellites/export?format=csv&_=${Date.now()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (!resp.ok) {
-        const msg = await resp.text().catch(() => "");
-        alert(`Export failed (${resp.status}): ${msg || resp.statusText}`);
-        return;
-      }
-      const blob = await resp.blob();
-      const dispo = resp.headers.get("Content-Disposition") || "";
-      const m = dispo.match(/filename="?([^"]+)"?/i);
-      const filename = m?.[1] || "satellites.csv";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error("Export error", e);
-      alert("Export failed.");
-    }
-  }, []);
-
-  const doPrint = React.useCallback(() => window.print(), []);
-
-  const handleEdit = (r: Row) => {
-    if (!canEdit) return;
-    setEditing(r);
-    setModalOpen(true);
+  const doExport = () => {
+    const cols = COLUMNS.filter(c => c.key !== "action");
+    const header = cols.map(c => c.label).join(",");
+    const csvRows = filtered.map((r, idx) => {
+      return [
+        page * rowsPerPage + idx + 1,
+        `"${r.satId}"`,
+        `"${r.satName}"`,
+        `"${r.norad}"`,
+        `"${r.itu}"`,
+        `"${r.station}"`,
+        `"${r.pol}"`,
+        `"${r.addedBy}"`,
+        `"${r.dateTime}"`
+      ].join(",");
+    });
+    const blob = new Blob([[header, ...csvRows].join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "satellites.csv";
+    a.click();
   };
 
-  const handleSave = async () => {
-    await fetchRows();
-    setModalOpen(false);
-  };
-  const handleDelete = async () => {
-    await fetchRows();
-    setModalOpen(false);
+  const theadCellSx = {
+    ...THEAD_CELL_SX,
+    fontSize: 9.5, fontWeight: 800, textAlign: "center",
+    textTransform: "uppercase" as const, letterSpacing: "0.12em", color: "var(--thead-text)",
+    borderBottom: `1px solid ${vars.border}`, whiteSpace: "nowrap" as const
   };
 
-  const [dynamicCols, setDynamicCols] = React.useState<Column[]>([
-    { key: "sr", label: t("Sr No"), width: 72, align: "center" },
-    { key: "satId", label: t("Satellite ID"), min: 120, flex: 1, align: "center" },
-    { key: "satName", label: t("Satellite Name"), min: 160, flex: 1.1, align: "center" },
-    { key: "norad", label: t("Norad ID"), min: 120, flex: 0.9, align: "center" },
-    { key: "itu", label: t("ITU Name"), min: 120, flex: 0.9, align: "center" },
-    { key: "station", label: t("Station"), min: 160, flex: 1.1, align: "center" },
-    { key: "pol", label: t("Polarization"), min: 140, flex: 1, align: "center" },
-    { key: "addedBy", label: t("Added By"), min: 140, flex: 1, align: "center" },
-    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1.2, align: "center" },
-  ]);
-
-  const handleResize = (key: string, width: number) => {
-    setDynamicCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
+  const bodyCellSx = {
+    padding: "12px 14px", overflow: "hidden", textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const, minWidth: "80px", textAlign: "center" as const,
+    fontSize: 12, borderBottom: `1px solid ${vars.borderWeak}`, color: vars.text
   };
 
-  const FINAL_COLUMNS = React.useMemo(() => {
-    const cols = [...dynamicCols];
-    if (canEdit) cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
-    return cols;
-  }, [dynamicCols, t, canEdit]);
+  const GRID_CELL_STYLES = "70px 100px 1.5fr 100px 100px 1.5fr 100px 1.5fr 120px";
+
+  const COLUMNS = [
+    { key: "sr", label: t("Sr") },
+    { key: "satId", label: t("ID") },
+    { key: "satName", label: t("Name") },
+    { key: "norad", label: t("NORAD") },
+    { key: "itu", label: t("ITU") },
+    { key: "station", label: t("Station") },
+    { key: "pol", label: t("Pol") },
+    { key: "dateTime", label: t("Last Update") },
+    { key: "action", label: t("Action") },
+  ];
+
+
 
   return (
     <MainLayout title="">
-      <Box sx={{ px: 2, py: 1.5 }}>
-        <Card
-          elevation={0}
-          sx={{
-            bgcolor: TOK.CARD_BG,
-            color: TOK.TEXT,
-            border: TOK.BORDER_STR,
-            borderRadius: 2,
-            height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
-            display: "flex",
-            flexDirection: "column",
-            boxShadow: "none",
-            backgroundImage: "none",
-            "--sat-thead-bg": "#000000",
-            "--sat-thead-text": "#ffffff",
-            ".theme-dark &": {
-              "--sat-thead-bg": "#000000",
-              "--sat-thead-text": "#ffffff",
-            },
-            ".theme-light &": {
-              "--sat-thead-bg": "#464B4E",
-              "--sat-thead-text": "#ffffff",
-            },
-          }}
-        >
-          {/* header strip */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: UI.gap,
-              px: UI.headerPx,
-              py: UI.headerPy,
-              borderBottom: TOK.BORDER_STR,
-              bgcolor: "transparent",
-            }}
-          >
-            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: UI.gap }}>
-              <TextField
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={loading ? t("Loading…") : t("Search…")}
-                size="small"
-                sx={{ width: UI.searchW, ...compactCtrlSx }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start" sx={{ mr: 0.25 }}>
-                      <SearchIcon sx={{ fontSize: UI.icon, color: TOK.ICON }} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+      <Box sx={{ px: 2, pt: 1, pb: 2, height: `calc(100vh - ${TOPBAR_HEIGHT}px)`, display: "flex", flexDirection: "column" }}>
+        <Card sx={{ ...PREMIUM_CARD_SX, flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <AmbientLighting />
 
-              <Button
-                onClick={doExport}
-                variant="contained"
-                size="small"
-                startIcon={<DownloadIcon />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  bgcolor: "#16a34a",
-                  color: "#fff",
-                  "& .MuiSvgIcon-root": { color: "#fff" },
-                  "&:hover": { bgcolor: "#14833e", color: "#fff" },
-                }}
-              >
+          {/* Toolbar */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.5, borderBottom: `1px solid ${vars.border}`, flexWrap: "wrap", position: "relative", zIndex: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: ACCENT, boxShadow: `0 0 8px ${ACCENT}88` }} />
+              <Box sx={{ fontSize: 13.5, fontWeight: 700, color: TEXT }}>{t("Satellite List")}</Box>
+              <Box sx={{ ml: 0.5, px: 1, py: 0.2, borderRadius: "999px", bgcolor: `rgba(14, 165, 233,0.12)`, color: ACCENT, border: `1px solid rgba(14, 165, 233,0.2)`, fontSize: 11, fontWeight: 700 }}>
+                {filtered.length}
+              </Box>
+            </Box>
+
+            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+              <DateRangeUI
+                label={t("Select Date Range")}
+                startDate={fromDate}
+                endDate={toDate}
+                onChange={(s, e) => { setFromDate(s); setToDate(e); setPage(0); }}
+              />
+              <TextField
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder={t("Search…")} size="small" sx={{ width: 170, ...ctrlSx }}
+                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 15 }} /></InputAdornment> }}
+              />
+              <Button onClick={doExport} variant="contained" size="small" startIcon={<DownloadIcon />} sx={{ height: 32, textTransform: "none", fontWeight: 700, bgcolor: "#16a34a", "&:hover": { bgcolor: "#14833e" } }}>
                 {t("Export")}
               </Button>
-
-              <Button
-                onClick={doPrint}
-                variant="outlined"
-                size="small"
-                startIcon={<PrintIcon />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  borderColor: TOK.BORDER_WEAK,
-                  color: TOK.TEXT,
-                  bgcolor: TOK.HOVER,
-                  "&:hover": { bgcolor: TOK.HOVER },
-                }}
-              >
+              <Button onClick={() => window.print()} variant="outlined" size="small" startIcon={<PrintIcon />} sx={{ height: 32, textTransform: "none", fontWeight: 700, borderColor: vars.border, color: vars.text }}>
                 {t("Print")}
               </Button>
             </Box>
           </Box>
 
-          {/* body */}
-          <Box sx={{ flex: 1, minHeight: 0, p: 1, pt: 1, pb: 0.5 }}>
-            <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden" }}>
-              <Box
-                sx={{
-                  height: "100%",
-                  overflow: "auto",
-                  pr: 1,
-                  scrollbarWidth: "thin",
-                  scrollbarColor: `${TOK.SCROLLBAR} transparent`,
-                  "&::-webkit-scrollbar": { width: 8, height: 8 },
-                  "&::-webkit-scrollbar-thumb": { background: `var(--scrollbar)`, borderRadius: 8 },
-                  "&::-webkit-scrollbar-thumb:hover": {
-                    background: "color-mix(in srgb, var(--scrollbar) 80%, #888)",
-                  },
-                  "&::-webkit-scrollbar-track": { background: "transparent" },
-                }}
-              >
-                <ThemedScrollTable
-                  rows={paged}
-                  columns={FINAL_COLUMNS}
-                  onEdit={handleEdit}
-                  emptyText={t("No satellites found.")}
-                  isEditor={canEdit}
-                  onResize={handleResize}
-                />
+          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: "auto", position: "relative", ...sxPresets.scroller }}>
+            <TableScanLine />
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  {COLUMNS.map(c => (
+                    <TableCell key={c.key} sx={theadCellSx}>{c.label}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paged.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={COLUMNS.length} sx={{ py: 8, textAlign: "center", color: DIM }}>
+                      {loading ? t("Loading…") : t("No satellites found")}
+                    </TableCell>
+                  </TableRow>
+                ) : paged.map((r, idx) => (
+                  <TableRow key={r.id} className="glass-shine-row" sx={{
+                    bgcolor: "transparent",
+                    transition: "all 0.25s",
+                    cursor: "pointer",
+                    "&:hover": {
+                      bgcolor: 'rgba(255, 255, 255, 0.03)',
+                      "& .hover-accent": { opacity: 1, height: "70%" }
+                    }
+                  }}>
+                    <TableCell sx={{ ...bodyCellSx, color: vars.textDim, position: "relative" }}>
+                      <Box className="hover-accent" sx={{
+                        position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+                        width: "3px", height: "0%", opacity: 0,
+                        background: `linear-gradient(to bottom, transparent, var(--accent), transparent)`,
+                        boxShadow: `0 0 10px var(--accent)`,
+                        transition: "all 0.3s ease",
+                        pointerEvents: "none"
+                      }} />
+                      {page * rowsPerPage + idx + 1}
+                    </TableCell>
+                    <TableCell sx={bodyCellSx}>{r.satId}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, color: ACCENT, fontWeight: 700, fontSize: 13 }}>{r.satName}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.norad}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.itu}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.station}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.pol}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.dateTime}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, display: "flex", justifyContent: "center" }}>
+                      {canEdit && (
+                        <Button size="small" variant="contained" sx={{ textTransform: "none", fontWeight: 700, fontSize: 12, px: 1.25, bgcolor: ACCENT }} onClick={() => { setEditing(r); setModalOpen(true); }}>
+                          {t("Edit")}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-              </Box>
-            </Box>
+          <Box sx={{ borderTop: `1px solid ${vars.border}`, position: "relative", zIndex: 1 }}>
+            <TablePagination component="div" count={filtered.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[10, 25, 50]} sx={PAGINATION_SX} />
           </Box>
-
-          {/* pagination */}
-          <Box sx={{ borderTop: TOK.BORDER_STR }}>
-            <TablePagination
-              component="div"
-              count={filtered.length}
-              page={page}
-              onPageChange={(_, p) => setPage(p)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage={t("Rows per page:")}
-              sx={{
-                px: 1,
-                color: TOK.TEXT,
-                minHeight: UI.paginationH,
-                "& .MuiTablePagination-toolbar": { minHeight: UI.paginationH, p: 0, pl: 1, pr: 1, gap: 0.5 },
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: UI.font, m: 0, color: TOK.TEXT_DIM,
-                },
-                "& .MuiTablePagination-input": { fontSize: UI.font, m: 0, color: TOK.TEXT },
-                "& .MuiSelect-select": {
-                  py: 0, px: 1, fontSize: UI.font, height: UI.ctrlH - 6,
-                  display: "flex", alignItems: "center", bgcolor: TOK.CONTROL_BG, borderRadius: 1,
-                },
-                "& .MuiIconButton-root": { p: 0.25, color: TOK.TEXT },
-                ".MuiSvgIcon-root": { color: TOK.TEXT, fontSize: UI.icon },
-              }}
-            />
-          </Box>
-
-          {/* modal */}
-          <UpdateSatelliteModal
-            open={modalOpen}
-            row={
-              editing
-                ? {
-                  id: editing.id, // ✅ ADD THIS
-
-                  satId: editing.satId,
-                  satName: editing.satName,
-                  norad: editing.norad,
-                  itu: editing.itu,
-                  station: editing.station,
-                  pol: editing.pol,
-                }
-                : null
-            }
-            onClose={() => setModalOpen(false)}
-            onSave={handleSave}
-            onDelete={handleDelete}
-          />
         </Card>
       </Box>
+
+      <UpdateSatelliteModal
+        open={modalOpen}
+        row={editing ? { id: editing.id, satId: editing.satId, satName: editing.satName, norad: editing.norad, itu: editing.itu, station: editing.station, pol: editing.pol } : null}
+        onClose={() => setModalOpen(false)}
+        onSave={() => { fetchRows(); setModalOpen(false); }}
+        onDelete={() => { fetchRows(); setModalOpen(false); }}
+      />
+
+      <style>{`
+        @keyframes sc-scan-line { 0% { left: -30%; } 100% { left: 100%; } }
+        @keyframes sc-fog-breathe { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+      `}</style>
     </MainLayout>
   );
 }

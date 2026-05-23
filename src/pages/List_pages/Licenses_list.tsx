@@ -1,417 +1,99 @@
+// src/pages/List_pages/Licenses_list.tsx
 import React from "react";
 import {
-  Box,
-  Card,
-  Button,
-  TextField,
-  InputAdornment,
-  TablePagination,
+  Box, Button, TextField, InputAdornment, TablePagination,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import DownloadIcon from "@mui/icons-material/Download";
 import PrintIcon from "@mui/icons-material/Print";
+import SearchIcon from "@mui/icons-material/Search";
 import MainLayout from "../../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import UpdateLicenseModal, { type LicenseLike } from "../../components/Models/UpdateLicenseModal";
 import { useActionAccess } from "../../auth/useActionAccess";
-
-
 import { useI18n } from "../../i18n";
-import api from "../../api/http"; // ⬅️ use the same helper as Add page
+import api from "../../api/http";
+import { vars, sxPresets } from "../../ui/toast/themeBridge";
+import { TableScanLine } from "../../ui/styles";
 
-/* ---------- Theme tokens via CSS variables ---------- */
-const TOK = {
-  TEXT: "var(--text)",
-  TEXT_DIM: "var(--text-dim)",
-  CARD_BG: "var(--bg-card)",
-  CONTROL_BG: "var(--bg-ctrl)",
-  HOVER: "var(--bg-hover)",
-  BORDER_STR: "1px solid var(--border)",
-  BORDER_WEAK: "var(--border-weak)",
-  ICON: "var(--text)",
-  ACCENT: "var(--accent)",
-  SCROLLBAR: "var(--scrollbar)",
+/* ─────────────────────── style constants ─────────────────────── */
+const theadCellSx = {
+  px: 1, py: 1.5,
+  fontWeight: 800, fontSize: 9.5,
+  textAlign: "center" as const,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.12em', color: "var(--thead-text)",
+  bgcolor: vars.bgThead, borderBottom: `1px solid ${vars.border}`,
+  whiteSpace: "nowrap" as const
+};
+
+const bodyCellSx = {
+  padding: "12px 14px", overflow: "hidden", textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const, minWidth: "80px", textAlign: "center" as const,
+  fontSize: 12, borderBottom: `1px solid ${vars.borderWeak}`, color: vars.text
+};
+
+const PAGINATION_SX = {
+  px: 1,
+  bgcolor: vars.bgCard,
+  color: vars.text,
+  borderTop: `1px solid ${vars.border}`,
+  "& .MuiTablePagination-toolbar": { minHeight: 36, p: 0, pl: 1, pr: 1, gap: 0.5 },
+  "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: 12, m: 0, color: vars.textDim, fontWeight: 600 },
+  "& .MuiTablePagination-input": { fontSize: 12, m: 0, color: vars.text },
+  "& .MuiTablePagination-select": { bgcolor: vars.bgCtrl, borderRadius: "6px", fontSize: 12, fontWeight: 700, px: 1, mr: 2, display: 'flex', alignItems: 'center', height: 28 },
+  "& .MuiIconButton-root": { color: vars.text, p: 0.5, "&:hover": { bgcolor: vars.bgHover }, "&.Mui-disabled": { color: vars.textWeak } },
+  ".MuiSvgIcon-root": { fontSize: 20 },
 } as const;
 
-const SCROLLER_SX = {
-  scrollbarWidth: "thin",
-  scrollbarColor: `${TOK.SCROLLBAR} transparent`,
-  "&::-webkit-scrollbar": { width: 8, height: 8 },
-  "&::-webkit-scrollbar-thumb": { background: TOK.SCROLLBAR, borderRadius: 8 },
-  "&::-webkit-scrollbar-thumb:hover": { background: TOK.SCROLLBAR },
-  "&::-webkit-scrollbar-track": { background: "transparent" },
-} as const;
-
-/* ---------- UI ---------- */
-const UI = {
-  ctrlH: 30,
-  font: 13,
-  icon: 16,
-  gap: 0.75,
-  headerPx: 1.25,
-  headerPy: 0.6,
-  searchW: 260,
-  paginationH: 36,
-} as const;
-
-/* compact input */
-const compactCtrlSx = {
-  bgcolor: TOK.CONTROL_BG,
-  borderRadius: 1,
-  color: TOK.TEXT,
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: TOK.BORDER_WEAK },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "var(--border)" },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "var(--border)",
-  },
+const ctrlSx = {
   "& .MuiOutlinedInput-root": {
-    height: `${UI.ctrlH}px`,
-    color: TOK.TEXT,
-    backgroundColor: TOK.CONTROL_BG,
-    paddingLeft: 8,
+    height: "32px",
+    fontSize: 12,
+    color: vars.text,
+    backgroundColor: vars.bgCtrl,
+    borderRadius: "8px",
+    "& fieldset": { border: 'none' },
+    "&:hover fieldset": { border: 'none' },
+    "&.Mui-focused fieldset": { border: 'none' },
   },
-  "& .MuiInputBase-input": {
-    height: `${UI.ctrlH - 2}px`,
-    padding: "0 10px",
-    fontSize: UI.font,
-    lineHeight: 1,
-    color: TOK.TEXT,
-  },
-  "& .MuiInputBase-input::placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
-  "& input::-webkit-input-placeholder": { color: TOK.TEXT_DIM, opacity: 1 },
-  "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
+  "& .MuiInputBase-input": { padding: "0 10px 0 10px", fontSize: 12, color: vars.text },
+  "& .MuiInputBase-input::placeholder": { color: vars.textWeak, opacity: 1 },
+  "& .MuiSvgIcon-root": { fontSize: 18, color: vars.textDim },
 } as const;
 
-/* ---------- Table types ---------- */
+/* ---------- Types ---------- */
 type Row = LicenseLike;
 
-type Column = {
-  key: keyof Row | "action";
-  label: string;
-  width?: number;
-  min?: number;
-  flex?: number;
-  align?: "left" | "center" | "right";
-};
-
-/* ---------- Wide export type & band parser ---------- */
-type ExportWideRow = {
-  id: number;
-  license_req_no: string;
-  satellite_name: string;
-  station_name: string;
-  applied_date: string;
-  receipt_date: string;
-  validity_expiry: string;
-  status: string;
-  remarks: string | null;
-  bands: string;
-  added_by: string;
-  created_at: string;
-  updated_at: string;   // ✅ ADD THIS
-};
-function parseBands(bands: string): { band: string; uplink: string; downlink: string }[] {
-  if (!bands) return [];
-  return bands
-    .split("||")
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .map((chunk) => {
-      const [band = "", uplink = "", downlink = ""] = chunk.split("|").map((s) => (s ?? "").trim());
-      return { band, uplink, downlink };
-    })
-    .filter((b) => b.band);
-}
-
-// 🎯 License Status color grading (matches Add License statuses)
 const getLicenseStatusStyle = (status: string) => {
-  switch (status) {
-    case "Pending":
-      return {
-        bgcolor: "#FEF3C7",   // light yellow
-        color: "#92400E",     // dark amber
-        border: "1px solid #FCD34D",
-      };
-    case "Approved":
-      return {
-        bgcolor: "#DCFCE7",   // light green
-        color: "#166534",     // dark green
-        border: "1px solid #86EFAC",
-      };
-    case "Rejected":
-      return {
-        bgcolor: "#FFE4E6",   // light red/pink
-        color: "#9F1239",     // dark red
-        border: "1px solid #FDA4AF",
-      };
-    case "Expired":
-      return {
-        bgcolor: "#E5E7EB",   // light gray
-        color: "#374151",     // dark gray
-        border: "1px solid #D1D5DB",
-      };
-    default:
-      return {
-        bgcolor: "transparent",
-        color: TOK.TEXT_DIM,
-        border: "none",
-      };
-  }
+  const s = (status || "").toLowerCase();
+  if (s.includes("approved") || s.includes("done")) return { bgcolor: "rgba(0, 255, 157, 0.1)", color: "#00FF9D" };
+  if (s.includes("pending") || s.includes("triaged")) return { bgcolor: "rgba(0, 217, 255, 0.1)", color: "#00D9FF" };
+  if (s.includes("rejected") || s.includes("failed")) return { bgcolor: "rgba(255, 46, 99, 0.1)", color: "#FF2E63" };
+  return { bgcolor: "rgba(255, 255, 255, 0.08)", color: "#E0E0E0" };
 };
-
-/* ---------- Table ---------- */
-const CELL_PX = "clamp(6px, 0.8vw, 12px)";
-
-function ThemedScrollTable({
-  rows,
-  columns,
-  onUpdate,
-  emptyText,
-  isEditor,
-  onResize,
-}: {
-  rows: Row[];
-  columns: Column[];
-  onUpdate: (r: Row) => void;
-  emptyText: string;
-  isEditor: boolean;
-  onResize?: (key: string, width: number) => void;
-}) {
-
-  const minTotal = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 120), 0) + 16;
-  const colTemplate = columns
-    .map((c) => (c.width != null ? `${c.width}px` : `minmax(${c.min ?? 120}px, ${c.flex ?? 1}fr)`))
-    .join(" ");
-
-  return (
-    <Box>
-      <Box sx={{ width: "100%", minWidth: minTotal }}>
-        {/* header uses CSS vars defined on Card */}
-        <Box
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 1,
-            display: "grid",
-            gridTemplateColumns: colTemplate,
-            bgcolor: "var(--lic-thead-bg)",
-            borderBottom: TOK.BORDER_STR,
-          }}
-        >
-          {columns.map((c) => (
-            <Box
-              key={String(c.key)}
-              sx={{
-                px: CELL_PX,
-                py: 1,
-                fontWeight: 700,
-                fontSize: 13,
-                color: "var(--lic-thead-text)",
-                textAlign: c.align ?? "center",
-                whiteSpace: "nowrap",
-                position: "relative",
-                "& .resizer": {
-                  position: "absolute",
-                  right: 0,
-                  top: "20%",
-                  height: "60%",
-                  width: "2px",
-                  bgcolor: "rgba(255,255,255,0.15)",
-                  cursor: "col-resize",
-                  "&:hover": { bgcolor: TOK.ACCENT, width: "4px" },
-                  ".theme-light &": { bgcolor: "rgba(0,0,0,0.12)" },
-                },
-              }}
-            >
-              {c.label}
-              {onResize && c.key !== "action" && (
-                <Box
-                  className="resizer"
-                  onMouseDown={(e) => {
-                    const startX = e.pageX;
-                    const startWidth = c.width ?? c.min ?? 120;
-                    const onMove = (me: MouseEvent) => {
-                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
-                    };
-                    const onUp = () => {
-                      document.removeEventListener("mousemove", onMove);
-                      document.removeEventListener("mouseup", onUp);
-                    };
-                    document.addEventListener("mousemove", onMove);
-                    document.addEventListener("mouseup", onUp);
-                  }}
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
-
-        {/* rows */}
-        {rows.map((r, idx) => (
-          <Box
-            key={r.id ?? idx}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: colTemplate,
-              borderBottom: TOK.BORDER_STR,
-              bgcolor: "transparent",
-              "&:nth-of-type(odd)": { bgcolor: "var(--row-stripe)" },
-            }}
-          >
-            {columns.map((c) => {
-              if (c.key === "action") {
-                return (
-                  <Box
-                    key={`action-${idx}`}
-                    sx={{
-                      px: CELL_PX,
-                      py: 0.75,
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    {isEditor && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        sx={{
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          px: 1.25,
-                          bgcolor: TOK.ACCENT,
-                          color: "#fff",
-                          "& .MuiSvgIcon-root": { color: "#fff" },
-                          "&:hover": { filter: "brightness(0.95)" },
-                        }}
-                        onClick={() => onUpdate(r)}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                  </Box>
-                );
-              }
-              // 🎯 Status pill rendering
-              if (c.key === "status") {
-                return (
-                  <Box
-                    key={`status-${idx}`}
-                    sx={{
-                      px: CELL_PX,
-                      py: 1,
-                      textAlign: "center",
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        px: 1.2,
-                        py: 0.4,
-                        borderRadius: 999,
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        lineHeight: 1,
-                        whiteSpace: "nowrap",
-                        ...getLicenseStatusStyle(String(r.status)),
-                      }}
-                    >
-                      {r.status}
-                    </Box>
-                  </Box>
-                );
-              }
-
-              return (
-                <Box
-                  key={String(c.key)}
-                  sx={{
-                    px: CELL_PX,
-                    py: 1,
-                    fontSize: 13,
-                    color: TOK.TEXT_DIM,
-                    textAlign: c.align ?? "center",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {r[c.key as keyof Row] as any}
-                </Box>
-              );
-            })}
-          </Box>
-        ))}
-
-        {!rows.length && (
-          <Box sx={{ px: CELL_PX, py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
-            {emptyText}
-          </Box>
-        )}
-      </Box>
-    </Box>
-  );
-}
 
 /* ---------- Page ---------- */
 export default function LicensesList() {
   const { t } = useI18n();
-
   const { hasWriteAccess } = useActionAccess();
   const canEdit = hasWriteAccess("licenses");
+
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(10);
-
+  const [rowsPerPage, setRowsPerPage] = React.useState(25);
   const [rows, setRows] = React.useState<Row[]>([]);
   const [loading, setLoading] = React.useState(false);
-
-  // modal wiring
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
-
-  /* ---------- Resizing Logic ---------- */
-  const [dynamicCols, setDynamicCols] = React.useState<Column[]>([
-    { key: "sr", label: t("Sr No"), width: 70, align: "center" },
-    { key: "satName", label: t("Satellite Name"), min: 120, flex: 1.1, align: "center" },
-    { key: "station", label: t("Station"), min: 100, flex: 1, align: "center" },
-    { key: "applied", label: t("Applied Date"), min: 120, flex: 0.9, align: "center" },
-    { key: "receipt", label: t("Receipt Date"), min: 120, flex: 0.9, align: "center" },
-    { key: "validity", label: t("Validity"), min: 120, flex: 0.9, align: "center" },
-    { key: "band", label: t("Band"), min: 120, flex: 0.9, align: "center" },
-    { key: "downlink", label: t("Downlink"), min: 110, flex: 0.8, align: "center" },
-    { key: "uplink", label: t("Uplink"), min: 110, flex: 0.8, align: "center" },
-    { key: "status", label: t("Status"), min: 100, flex: 0.7, align: "center" },
-    { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" },
-    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" },
-    { key: "remarks", label: t("Remarks"), min: 120, flex: 1, align: "center" },
-  ]);
-
-  const handleResize = (key: string, width: number) => {
-    setDynamicCols((prev) => prev.map((c) => (c.key === key ? { ...c, width, flex: undefined } : c)));
-  };
-
-  const FINAL_COLUMNS = React.useMemo(() => {
-    const cols = [...dynamicCols];
-    if (canEdit) {
-      cols.push({ key: "action", label: t("Action"), width: 120, align: "center" });
-    }
-    return cols;
-  }, [dynamicCols, t, canEdit]);
-
 
   const fetchRows = React.useCallback(async () => {
     try {
       setLoading(true);
-
-      // use the same helper and origin as the Add page, add cache buster
-      const j = await api.get<any>(`/api/licenses/export?format=json&shape=wide&_=${Date.now()}`);
-      const data: ExportWideRow[] = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-
-      const mapped: Row[] = data.map((x, i) => {
-        const bands = parseBands(x.bands);
-
+      const res = await api.get<any>(`/api/licenses/export?format=json&shape=wide&_=${Date.now()}`);
+      const arr = Array.isArray(res) ? res : res?.data || [];
+      const mapped: Row[] = arr.map((x: any, i: number) => {
+        const rawBands = x.bands || "";
+        const parts = rawBands.split("||").map((c: string) => c.split("|").map((s: string) => s.trim()));
         return {
           id: Number(x.id),
           sr: i + 1,
@@ -421,272 +103,204 @@ export default function LicensesList() {
           applied: x.applied_date || "",
           receipt: x.receipt_date || "",
           validity: x.validity_expiry || "",
-          band: bands.map((b) => b.band).join(", "),
-          downlink: bands.map((b) => b.downlink).join(", "),
-          uplink: bands.map((b) => b.uplink).join(", "),
+          band: parts.map((p: any) => p[0]).filter(Boolean).join(", "),
+          downlink: parts.map((p: any) => p[2]).filter(Boolean).join(", "),
+          uplink: parts.map((p: any) => p[1]).filter(Boolean).join(", "),
           status: x.status || "",
-
-          addedBy: x.added_by || "—",   // ✅ ADD THIS
-
-          dateTime: x.updated_at
-            ? new Date(x.updated_at).toLocaleString("en-IN")
-            : "—",
-
+          addedBy: x.added_by || "—",
+          dateTime: x.updated_at ? new Date(x.updated_at).toLocaleString("en-IN") : "—",
           remarks: x.remarks || "—",
         } as Row;
       });
-
-
       setRows(mapped);
-      setPage(0);
-    } catch (e) {
-      console.error("Failed to load licenses", e);
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); setRows([]); }
+    finally { setLoading(false); }
   }, []);
 
-  React.useEffect(() => {
-    fetchRows();
-  }, [fetchRows]);
+  React.useEffect(() => { fetchRows(); }, [fetchRows]);
 
-  const filtered = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [
-        r.reqNo,
-        r.satName,
-        r.station,
-        r.applied,
-        r.receipt,
-        r.validity,
-        r.band,
-        r.downlink,
-        r.uplink,
-        r.status,
-        r.addedBy,
-        r.dateTime,
-        r.remarks,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [rows, search]);
+  const filtered = rows.filter((r) => [r.satName, r.station, r.status, r.addedBy, r.remarks].join(" ").toLowerCase().includes(search.toLowerCase()));
+  const paged = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const paged = React.useMemo(
-    () => filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filtered, page, rowsPerPage]
-  );
-
-  const openModal = (r: Row) => {
-    if (!canEdit) return;
-    setEditing(r);
-    setModalOpen(true);
+  const doExport = () => {
+    const cols = COLUMNS.filter(c => c.key !== "action");
+    const header = cols.map(c => c.label).join(",");
+    const csvRows = filtered.map((r, idx) => {
+      return [
+        page * rowsPerPage + idx + 1,
+        `"${r.satName}"`,
+        `"${r.station}"`,
+        `"${r.applied}"`,
+        `"${r.receipt}"`,
+        `"${r.validity}"`,
+        `"${r.band}"`,
+        `"${r.downlink}"`,
+        `"${r.uplink}"`,
+        `"${r.status}"`,
+        `"${r.addedBy}"`,
+        `"${r.dateTime}"`,
+        `"${r.remarks}"`
+      ].join(",");
+    });
+    const blob = new Blob([[header, ...csvRows].join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "licenses.csv";
+    a.click();
   };
+
+  const COLUMNS = [
+    { key: "sr", label: t("No"), width: 60 },
+    { key: "satName", label: t("Name"), width: 180 },
+    { key: "station", label: t("Station"), width: 160 },
+    { key: "applied", label: t("Applied"), width: 120 },
+    { key: "receipt", label: t("Receipt Date"), width: 120 },
+    { key: "validity", label: t("Expiry"), width: 120 },
+    { key: "band", label: t("Band"), width: 220 },
+    { key: "downlink", label: t("Downlink"), width: 100 },
+    { key: "uplink", label: t("Uplink"), width: 100 },
+    { key: "status", label: t("Status"), width: 160 },
+    { key: "addedBy", label: t("Added By"), width: 140 },
+    { key: "dateTime", label: t("Date/Time"), width: 200 },
+    { key: "remarks", label: t("Remarks"), width: 200 },
+    { key: "action", label: t("Action"), width: 120, isFlex: true },
+  ];
 
   return (
     <MainLayout title="">
       <Box sx={{ px: 2, py: 1.5 }}>
-        <Card
-          sx={{
-            bgcolor: TOK.CARD_BG,
-            color: TOK.TEXT,
-            border: TOK.BORDER_STR,
-            borderRadius: 2,
-            height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
-            display: "flex",
-            flexDirection: "column",
-            boxShadow: "none",
-            backgroundImage: "none",
+        <Box sx={{
+          height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
+          position: "relative",
+          bgcolor: vars.bgCard,
+          border: `1px solid ${vars.border}`,
+          borderRadius: 2,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          boxShadow: "none",
+        }}>
+          {/* Effects */}
+          <Box sx={{
+            position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%',
+            background: 'radial-gradient(circle, rgba(14, 165, 233, 0.08), transparent 70%)',
+            filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0,
+          }} />
+          <Box sx={{
+            position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%',
+            background: 'radial-gradient(circle, rgba(124, 110, 245, 0.08), transparent 70%)',
+            filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0,
+          }} />
+          <Box className="table-surface-scan" />
 
-            /* header colors to match Documents page */
-            "--lic-thead-bg": "#000000",
-            "--lic-thead-text": "#ffffff",
-            "--row-stripe": "rgba(255,255,255,0.06)",
+          {/* Toolbar */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.5, borderBottom: `1px solid ${vars.border}`, flexWrap: "wrap", position: "relative", zIndex: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#0EA5E9", boxShadow: `0 0 10px #0EA5E9` }} />
+              <Box sx={{ fontSize: 14, fontWeight: 800, color: "#fff", letterSpacing: '0.02em' }}>{t("License List")}</Box>
+              <Box sx={{ ml: 1, px: 1, py: 0.2, borderRadius: "6px", bgcolor: `rgba(14, 165, 233, 0.1)`, color: "#0EA5E9", border: `1px solid rgba(14, 165, 233, 0.2)`, fontSize: 11, fontWeight: 700 }}>
+                {filtered.length}
+              </Box>
+            </Box>
 
-            ".theme-dark &": {
-              "--lic-thead-bg": "#000000",
-              "--lic-thead-text": "#ffffff",
-              "--row-stripe": "rgba(255,255,255,0.06)",
-            },
-            ".theme-light &": {
-              "--lic-thead-bg": "#464B4E",
-              "--lic-thead-text": "#ffffff",
-              "--row-stripe": "rgba(0,0,0,0.035)",
-            },
-          }}
-        >
-          {/* header strip — transparent like Documents */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: UI.gap,
-              px: UI.headerPx,
-              py: UI.headerPy,
-              borderBottom: TOK.BORDER_STR,
-              bgcolor: "transparent",
-            }}
-          >
-            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: UI.gap }}>
+            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
               <TextField
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={loading ? t("Loading…") : t("Search…")}
-                size="small"
-                sx={{ width: UI.searchW, ...compactCtrlSx }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start" sx={{ mr: 0.25 }}>
-                      <SearchIcon sx={{ fontSize: UI.icon, color: TOK.ICON }} />
-                    </InputAdornment>
-                  ),
-                }}
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder={t("Search…")} size="small" sx={{ width: 220, ...ctrlSx }}
+                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 15 }} /></InputAdornment> }}
               />
-
-              <Button
-                onClick={async () => {
-                  // keep auth header, but use same-origin path and add cache buster
-                  const token = localStorage.getItem("token");
-                  try {
-                    const resp = await fetch(`/api/licenses/export?shape=wide&_=${Date.now()}`, {
-                      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                    });
-                    if (!resp.ok) {
-                      const msg = await resp.text().catch(() => "");
-                      alert(`Export failed (${resp.status}): ${msg || resp.statusText}`);
-                      return;
-                    }
-                    const blob = await resp.blob();
-                    const dispo = resp.headers.get("Content-Disposition") || "";
-                    const m = dispo.match(/filename="?([^"]+)"?/i);
-                    const filename = m?.[1] || "licenses.csv";
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                  } catch (e) {
-                    console.error("Export error", e);
-                    alert("Export failed.");
-                  }
-                }}
-                variant="contained"
-                size="small"
-                startIcon={<DownloadIcon />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  bgcolor: "#16a34a",
-                  color: "#fff",
-                  "& .MuiSvgIcon-root": { color: "#fff" },
-                  "&:hover": { bgcolor: "#14833e", color: "#fff" },
-                }}
-              >
+              <Button onClick={doExport} variant="contained" size="small" sx={{ height: 32, textTransform: "none", fontWeight: 700, bgcolor: "#16a34a", "&:hover": { bgcolor: "#14833e" } }}>
                 {t("Export")}
               </Button>
-
-              <Button
-                onClick={() => window.print()}
-                variant="outlined"
-                size="small"
-                startIcon={<PrintIcon />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  borderColor: TOK.BORDER_WEAK,
-                  color: TOK.TEXT,
-                  bgcolor: TOK.HOVER,
-                  "&:hover": { bgcolor: TOK.HOVER },
-                }}
-              >
+              <Button onClick={() => window.print()} variant="outlined" size="small" startIcon={<PrintIcon />} sx={{ height: 32, textTransform: "none", fontWeight: 700, borderColor: vars.border, color: vars.text }}>
                 {t("Print")}
               </Button>
             </Box>
           </Box>
 
-          {/* body */}
-          <Box sx={{ flex: 1, minHeight: 0, p: 1, pt: 1, pb: 0.5, bgcolor: "transparent" }}>
-            <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden", bgcolor: "transparent" }}>
-              <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX, bgcolor: "transparent" }}>
-                <ThemedScrollTable
-                  rows={paged}
-                  columns={FINAL_COLUMNS}
-                  onUpdate={openModal}
-                  emptyText={t("No licenses found.")}
-                  isEditor={canEdit}
-                  onResize={handleResize}
-                />
+          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: "auto", ...sxPresets.scroller, position: "relative", zIndex: 1 }}>
+            <TableScanLine />
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  {COLUMNS.map(c => (
+                    <TableCell key={c.key} sx={{ ...theadCellSx, minWidth: c.width }}>{c.label}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paged.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={COLUMNS.length} sx={{ py: 8, textAlign: "center", color: vars.textDim }}>
+                      {loading ? t("Loading…") : t("No licenses found")}
+                    </TableCell>
+                  </TableRow>
+                ) : paged.map((r, idx) => (
+                  <TableRow key={r.id} className="glass-shine-row" sx={{
+                    bgcolor: "transparent",
+                    transition: "all 0.25s",
+                    cursor: "pointer",
+                    "&:hover": {
+                      bgcolor: vars.bgHover,
+                      "& .hover-accent": { opacity: 1, height: "70%" }
+                    }
+                  }}>
+                    <TableCell sx={{ ...bodyCellSx, color: vars.textDim, position: "relative" }}>
+                      <Box className="hover-accent" sx={{
+                        position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+                        width: "3px", height: "0%", opacity: 0,
+                        background: `linear-gradient(to bottom, transparent, var(--accent), transparent)`,
+                        boxShadow: `0 0 10px var(--accent)`,
+                        transition: "all 0.3s ease",
+                        pointerEvents: "none"
+                      }} />
+                      {page * rowsPerPage + idx + 1}
+                    </TableCell>
+                    <TableCell sx={{ ...bodyCellSx, fontWeight: 700, fontSize: 13, color: vars.accent }}>{r.satName}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.station}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.applied}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.receipt}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.validity}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.band}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.downlink}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.uplink}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, overflow: "visible" }}>
+                      {(() => {
+                        const s = getLicenseStatusStyle(String(r.status));
+                        return (
+                          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.4, borderRadius: "6px", bgcolor: s.bgcolor, color: s.color, fontSize: 11, fontWeight: 700, border: `1px solid ${s.color}20` }}>
+                            <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+                            {r.status.toUpperCase()}
+                          </Box>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell sx={{ ...bodyCellSx, fontWeight: 700 }}>{r.addedBy}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, color: vars.textDim }}>{r.dateTime}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, color: vars.textDim }} title={r.remarks}>{r.remarks}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, display: "flex", justifyContent: "center" }}>
+                      {canEdit && (
+                        <Button size="small" variant="contained" sx={{ textTransform: "none", fontWeight: 700, fontSize: 11, height: 26, px: 2, borderRadius: '6px', bgcolor: 'rgba(14, 165, 233, 0.1)', color: '#0EA5E9', border: '1px solid rgba(14, 165, 233, 0.3)', "&:hover": { bgcolor: 'rgba(14, 165, 233, 0.2)', borderColor: '#0EA5E9' } }} onClick={() => { setEditing(r); setModalOpen(true); }}>{t("Edit")}</Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-              </Box>
-            </Box>
+          <Box sx={PAGINATION_SX}>
+            <TablePagination component="div" count={filtered.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[10, 25, 50]} sx={PAGINATION_SX} />
           </Box>
-
-          {/* pagination */}
-          <Box sx={{ borderTop: TOK.BORDER_STR }}>
-            <TablePagination
-              component="div"
-              count={filtered.length}
-              page={page}
-              onPageChange={(_, p) => setPage(p)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage={t("Rows per page:")}
-              sx={{
-                px: 1,
-                color: TOK.TEXT,
-                minHeight: UI.paginationH,
-                "& .MuiTablePagination-toolbar": { minHeight: UI.paginationH, p: 0, pl: 1, pr: 1, gap: 0.5 },
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: UI.font,
-                  m: 0,
-                  color: TOK.TEXT_DIM,
-                },
-                "& .MuiTablePagination-input": { fontSize: UI.font, m: 0, color: TOK.TEXT },
-                "& .MuiSelect-select": {
-                  py: 0,
-                  px: 1,
-                  fontSize: UI.font,
-                  height: UI.ctrlH - 6,
-                  display: "flex",
-                  alignItems: "center",
-                  bgcolor: TOK.CONTROL_BG,
-                  borderRadius: 1,
-                },
-                "& .MuiIconButton-root": { p: 0.25, color: TOK.TEXT },
-                ".MuiSvgIcon-root": { color: TOK.TEXT, fontSize: UI.icon },
-              }}
-            />
-          </Box>
-
-          {/* modal */}
-          <UpdateLicenseModal
-            open={modalOpen}
-            row={editing}
-            onClose={() => setModalOpen(false)}
-            onSaved={() => {
-              setModalOpen(false);
-              fetchRows();
-            }}
-            onDeleted={() => {
-              setModalOpen(false);
-              fetchRows();
-            }}
-          />
-        </Card>
+        </Box>
       </Box>
+
+      <UpdateLicenseModal open={modalOpen} row={editing} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); fetchRows(); }} onDeleted={() => { setModalOpen(false); fetchRows(); }} />
+
+      <style>{`
+        @keyframes sc-scan-line { 0% { left: -30%; } 100% { left: 100%; } }
+        @keyframes sc-fog-breathe { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+      `}</style>
     </MainLayout>
   );
 }

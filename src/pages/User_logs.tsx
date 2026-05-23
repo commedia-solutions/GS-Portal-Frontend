@@ -15,6 +15,12 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material";
 
 
@@ -36,6 +42,7 @@ const API = API_BASE ? `${API_BASE}/api` : "/api";
 const TOK = {
   TEXT: "var(--text)",
   TEXT_DIM: "var(--text-dim)",
+  TEXT_WEAK: "var(--text-weak)",
   CARD_BG: "var(--bg-card)",
   CONTROL_BG: "var(--bg-ctrl)",
   HOVER: "var(--bg-hover)",
@@ -45,21 +52,6 @@ const TOK = {
   ACCENT: "var(--accent)",
   SCROLLBAR: "var(--scrollbar)",
 };
-
-/* ---------- Shared scroller ---------- */
-const SCROLLER_SX = {
-  height: "100%",
-  overflow: "auto",
-  pr: 1,
-  scrollbarWidth: "thin",
-  scrollbarColor: `${TOK.SCROLLBAR} transparent`,
-  "&::-webkit-scrollbar": { width: 8, height: 8 },
-  "&::-webkit-scrollbar-thumb": { background: `var(--scrollbar)`, borderRadius: 8 },
-  "&::-webkit-scrollbar-thumb:hover": {
-    background: "color-mix(in srgb, var(--scrollbar) 80%, #888)",
-  },
-  "&::-webkit-scrollbar-track": { background: "transparent" },
-} as const;
 
 /* ---------- UI ---------- */
 const UI = {
@@ -193,7 +185,31 @@ const toCamelCaseLabel = (val: string) => {
     .join(" ");
 };
 
+/* ---------- Table style tokens (match pass list) ---------- */
+const theadCellSx = {
+  px: "14px",
+  py: "10px",
+  fontWeight: 800,
+  fontSize: 9.5,
+  textAlign: "center" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.12em",
+  color: "var(--thead-text)",
+  bgcolor: "var(--bg-thead)",
+  borderBottom: TOK.BORDER_STR,
+  whiteSpace: "nowrap" as const,
+};
 
+const bodyCellSx = {
+  padding: "10px 14px",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  textAlign: "center" as const,
+  fontSize: 12,
+  color: TOK.TEXT_DIM,
+  borderBottom: TOK.BORDER_WEAK,
+};
 
 /* ---------- Themed table ---------- */
 function ThemedScrollTable({
@@ -205,91 +221,114 @@ function ThemedScrollTable({
   colLabels: { sr: string; dt: string; user: string; module: string; action: string; view: string };
   onView: (row: UIRow) => void;
 }) {
-
   return (
-    <Box sx={{ width: "100%", minWidth: "100%" }}>
-      <Box
-        sx={{
-          position: "sticky",
-          top: 0,
-          zIndex: 2,
-          display: "grid",
-          gridTemplateColumns: "80px 200px 160px 160px 290px 100px",
-          bgcolor: "var(--logs-thead-bg)",
-          borderBottom: TOK.BORDER_STR,
-        }}
-      >
-        {[colLabels.sr, colLabels.dt, colLabels.user, colLabels.module, colLabels.action, colLabels.view].map(
-          (label) => (
-            <Box
-              key={label}
+    <TableContainer sx={{
+      flex: 1, minHeight: 0,
+      overflow: "auto",
+      scrollbarWidth: "thin",
+      scrollbarColor: `${TOK.SCROLLBAR} transparent`,
+      "&::-webkit-scrollbar": { width: 8, height: 8 },
+      "&::-webkit-scrollbar-thumb": { background: "var(--scrollbar)", borderRadius: 8 },
+      "&::-webkit-scrollbar-thumb:hover": { background: "color-mix(in srgb, var(--scrollbar) 80%, #888)" },
+      "&::-webkit-scrollbar-track": { background: "transparent" },
+      position: "relative",
+    }}>
+      {/* Table Surface Scan Line */}
+      <Box className="table-surface-scan" />
+      <Table size="small" stickyHeader>
+        <TableHead>
+          <TableRow>
+            {[colLabels.sr, colLabels.dt, colLabels.user, colLabels.module, colLabels.action, colLabels.view].map((label) => (
+              <TableCell key={label} sx={theadCellSx}>{label}</TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow
+              key={r.sr}
+              className="glass-shine-row"
               sx={{
-                px: "14px",
-                py: "10px",
-                fontWeight: 700,
-                fontSize: 13,
-                color: "var(--logs-thead-text)",
-                textAlign: "center",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                minWidth: "80px",
+                bgcolor: "transparent",
+                transition: "all 0.25s",
+                cursor: "default",
+                "&:hover": {
+                  bgcolor: TOK.HOVER,
+                  "& .hover-accent": { opacity: 1, height: "70%" },
+                },
               }}
             >
-              {label}
-            </Box>
-          )
-        )}
-      </Box>
+              {/* Accent bar on hover */}
+              <TableCell sx={{ ...bodyCellSx, position: "relative", width: 80 }}>
+                <Box
+                  className="hover-accent"
+                  sx={{
+                    position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+                    width: "3px", height: "0%", opacity: 0,
+                    background: "linear-gradient(to bottom, transparent, var(--accent), transparent)",
+                    boxShadow: "0 0 10px var(--accent)",
+                    transition: "all 0.3s ease",
+                    pointerEvents: "none",
+                  }}
+                />
+                {r.sr}
+              </TableCell>
 
-      {rows.map((r, idx) => (
-        <Box
-          key={`${r.sr}-${idx}`}
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "80px 200px 160px 160px 290px 100px",
-            borderBottom: TOK.BORDER_STR,
-            bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
-            "&:hover": { bgcolor: TOK.HOVER },
-          }}
-        >
-          {(["sr", "dateTime", "user", "module"] as const).map((k) => (
-            <Box key={k} sx={{ px: "14px", py: "10px", fontSize: 13, color: TOK.TEXT_DIM, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: "80px" }} title={(r as any)[k] ?? ""}>{(r as any)[k] ?? "\u2014"}</Box>
+              <TableCell sx={bodyCellSx} title={r.dateTime}>{r.dateTime ?? "—"}</TableCell>
+              <TableCell sx={{ ...bodyCellSx, fontWeight: 700, color: TOK.TEXT }} title={r.user}>{r.user ?? "—"}</TableCell>
+              <TableCell sx={bodyCellSx} title={r.module}>{r.module ?? "—"}</TableCell>
+
+              {/* Action chip */}
+              <TableCell sx={{ ...bodyCellSx, overflow: "visible" }}>
+                {(() => {
+                  const chip = actionChip(r.action);
+                  return (
+                    <Box sx={{
+                      display: "inline-flex",
+                      px: 1.25, py: 0.3, borderRadius: 1,
+                      fontSize: 11, fontWeight: 700,
+                      bgcolor: chip.bg, color: chip.color,
+                      whiteSpace: "nowrap", maxWidth: 240,
+                      overflow: "hidden", textOverflow: "ellipsis",
+                    }} title={chip.label}>
+                      {chip.label}
+                    </Box>
+                  );
+                })()}
+              </TableCell>
+
+              {/* View button */}
+              <TableCell sx={{ ...bodyCellSx, overflow: "visible" }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    textTransform: "none",
+                    fontSize: 12,
+                    borderColor: "var(--border)",
+                    color: TOK.TEXT,
+                    height: 26,
+                    minHeight: 26,
+                    "&:hover": { bgcolor: TOK.HOVER, borderColor: TOK.ACCENT },
+                  }}
+                  onClick={() => onView(r)}
+                >
+                  View
+                </Button>
+              </TableCell>
+            </TableRow>
           ))}
-          {/* Action column with colored chip */}
-          <Box sx={{ px: "14px", py: "8px", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {(() => { const chip = actionChip(r.action); return (<Box sx={{ px: 1.25, py: 0.3, borderRadius: 1, fontSize: 11, fontWeight: 700, bgcolor: chip.bg, color: chip.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "260px" }} title={chip.label}>{chip.label}</Box>); })()}
-          </Box>
 
-          {/* âœ… View Button */}
-          <Box sx={{ px: "14px", py: "10px", textAlign: "center" }}>
-            <Button
-              size="small"
-              variant="outlined"
-              sx={{
-                textTransform: "none",
-                fontSize: 12,
-                borderColor: "var(--border)",
-                color: TOK.TEXT,
-                height: 26,
-                minHeight: 26,
-                "&:hover": { bgcolor: TOK.HOVER, borderColor: TOK.ACCENT },
-              }}
-              onClick={() => onView(r)}
-            >
-              View
-            </Button>
-          </Box>
-
-        </Box>
-      ))}
-
-      {!rows.length && (
-        <Box sx={{ px: 1.25, py: 2, color: TOK.TEXT_DIM, textAlign: "center" }}>
-          No logs.
-        </Box>
-      )}
-    </Box>
+          {!rows.length && (
+            <TableRow>
+              <TableCell colSpan={6} sx={{ textAlign: "center", py: 4, color: TOK.TEXT_DIM, borderBottom: "none" }}>
+                No logs.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
@@ -502,23 +541,35 @@ export default function PortalLogsPage() {
     <MainLayout title="">
       <Box sx={{ px: 2, py: 1.5 }}>
         <Card
-          elevation={0}
           sx={{
+            position: 'relative',
+            overflow: 'hidden',
             bgcolor: TOK.CARD_BG,
-            color: TOK.TEXT,
-            border: TOK.BORDER_WEAK,
-            borderRadius: 2,
+            backdropFilter: "blur(20px)",
+            border: TOK.BORDER_STR,
+            borderRadius: '20px',
             height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
             display: "flex",
             flexDirection: "column",
-            boxShadow: "none",
+            boxShadow: '0 20px 50px rgba(0,0,0,0.12)',
             backgroundImage: "none",
-            "--logs-thead-bg": "#000000",
-            "--logs-thead-text": "#ffffff",
-            ".theme-dark &": { "--logs-thead-bg": "#000000", "--logs-thead-text": "#ffffff" },
-            ".theme-light &": { "--logs-thead-bg": "#464B4E", "--logs-thead-text": "#ffffff" },
+            "--logs-thead-bg": "transparent",
+            "--logs-thead-text": "var(--thead-text)",
+            ".theme-dark &": { "--logs-thead-bg": "transparent", "--logs-thead-text": "var(--thead-text)" },
+            ".theme-light &": { "--logs-thead-bg": "transparent", "--logs-thead-text": "var(--thead-text)" },
           }}
         >
+          {/* Ambient Volumetric Lighting */}
+          <Box sx={{
+            position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%',
+            background: 'radial-gradient(circle, rgba(14, 165, 233, 0.08), transparent 70%)',
+            filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0,
+          }} />
+          <Box sx={{
+            position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%',
+            background: 'radial-gradient(circle, rgba(124, 110, 245, 0.08), transparent 70%)',
+            filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0,
+          }} />
           {/* header */}
           <Box
             sx={{
@@ -609,31 +660,25 @@ export default function PortalLogsPage() {
           </Box>
 
           {/* body */}
-          <Box sx={{ flex: 1, minHeight: 0, p: 1, pt: 1, pb: 0.5 }}>
-            <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden" }}>
-              <Box sx={SCROLLER_SX}>
-                {loading ? (
-                  <Box sx={{ p: 2, color: TOK.TEXT_DIM }}>{t("Loadingâ€¦")}</Box>
-                ) : errMsg ? (
-                  <Box sx={{ p: 2, color: "#ef4444" }}>{errMsg}</Box>
-                ) : (
-                  <ThemedScrollTable
-                    rows={rows}
-
-                    colLabels={COL_LABELS}
-                    onView={(row) => {
-                      setSelectedRow(row);
-                      setOpenView(true);
-                    }}
-                  />
-
-                )}
-              </Box>
-            </Box>
+          <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+            {loading ? (
+              <Box sx={{ p: 2, color: TOK.TEXT_DIM }}>{t("Loading…")}</Box>
+            ) : errMsg ? (
+              <Box sx={{ p: 2, color: "#ef4444" }}>{errMsg}</Box>
+            ) : (
+              <ThemedScrollTable
+                rows={rows}
+                colLabels={COL_LABELS}
+                onView={(row) => {
+                  setSelectedRow(row);
+                  setOpenView(true);
+                }}
+              />
+            )}
           </Box>
 
           {/* pagination */}
-          <Box sx={{ borderTop: TOK.BORDER_WEAK }}>
+          <Box sx={{ borderTop: TOK.BORDER_STR, bgcolor: TOK.CARD_BG }}>
             <TablePagination
               component="div"
               count={total}
@@ -646,34 +691,29 @@ export default function PortalLogsPage() {
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
-              rowsPerPageOptions={[10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 50000, 100000]} // âœ… more options
+              rowsPerPageOptions={[10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 50000, 100000]} // ✅ more options
               labelRowsPerPage={t("Rows per page:")}
               sx={{
-                px: 1,
-                color: TOK.TEXT,
-                minHeight: UI.paginationH,
-                "& .MuiTablePagination-toolbar": { minHeight: UI.paginationH, p: 0, pl: 1, pr: 1, gap: 0.5 },
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: UI.font, margin: 0, color: TOK.TEXT_DIM,
-                },
-                "& .MuiTablePagination-input": { fontSize: UI.font, margin: 0, color: TOK.TEXT },
-                "& .MuiSelect-select": {
-                  py: 0, px: 1, fontSize: UI.font, height: UI.ctrlH - 6,
-                  display: "flex", alignItems: "center", bgcolor: TOK.CONTROL_BG, borderRadius: 1,
-                },
-                "& .MuiIconButton-root": { p: 0.25, color: TOK.TEXT },
-                ".MuiSvgIcon-root": { color: TOK.TEXT, fontSize: UI.icon },
+                px: 1, color: TOK.TEXT,
+                "& .MuiTablePagination-toolbar": { minHeight: 36, p: 0, pl: 1, pr: 1, gap: 0.5 },
+                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: 12, margin: 0, color: TOK.TEXT_DIM, fontWeight: 600 },
+                "& .MuiTablePagination-input": { fontSize: 12, margin: 0, color: TOK.TEXT },
+                "& .MuiTablePagination-select": { bgcolor: TOK.CONTROL_BG, borderRadius: "6px", fontSize: 12, fontWeight: 700, px: 1, mr: 2, display: 'flex', alignItems: 'center', height: 28 },
+                "& .MuiIconButton-root": { color: TOK.TEXT, p: 0.5, "&:hover": { bgcolor: TOK.HOVER }, "&.Mui-disabled": { color: TOK.TEXT_WEAK } },
+                ".MuiSvgIcon-root": { fontSize: 20 },
               }}
             />
           </Box>
         </Card>
       </Box>
 
-      {/* âœ… View Dialog */}
-      <Dialog open={openView} onClose={() => {
-        setOpenView(false);
-        setSelectedRow(null);
-      }} maxWidth="md" fullWidth>
+      {/* ✅ View Dialog — rich structured view */}
+      <Dialog
+        open={openView}
+        onClose={() => { setOpenView(false); setSelectedRow(null); }}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1.5 }}>
           {selectedRow && (() => {
             const chip = actionChip(selectedRow.action);
@@ -683,14 +723,14 @@ export default function PortalLogsPage() {
               </Box>
             );
           })()}
-          Event Log Details
+          Log Entry Details
         </DialogTitle>
 
         <DialogContent dividers>
           {selectedRow ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
 
-              {/* Meta info grid */}
+              {/* ── Meta info grid ── */}
               {([
                 ["Date & Time", selectedRow.dateTime],
                 ["User", selectedRow.user],
@@ -703,7 +743,7 @@ export default function PortalLogsPage() {
                 </Box>
               ))}
 
-              {/* Record / Document name */}
+              {/* ── Record / Document name (if present) ── */}
               {selectedRow.remarks?.targetLabel && (
                 <Box sx={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 1 }}>
                   <Typography sx={{ fontWeight: 700, fontSize: 13 }}>Record / File</Typography>
@@ -713,28 +753,67 @@ export default function PortalLogsPage() {
                 </Box>
               )}
 
-              {tab === "event" && (() => {
+              {/* ── Structured details (works for both Access and Event tabs) ── */}
+              {(() => {
                 const details = selectedRow.remarks;
-                if (!details) return <Typography sx={{ color: TOK.TEXT_DIM, mt: 1, fontSize: 13 }}>No details available.</Typography>;
 
-                const oldVal = details?.oldValue || null;
-                const newVal = details?.newValue || null;
-                const payload = details?.payload || null;
-                const targetLabel = details?.targetLabel || null;
-
-                const ignoreKeys = new Set(["created_at", "updated_at", "createdAt", "updatedAt", "created_by", "updated_by", "deleted_by", "createdBy", "updatedBy", "deletedBy"]);
+                // ── helpers ──────────────────────────────────────────────────
+                const ignoreKeys = new Set([
+                  "created_at", "updated_at", "createdAt", "updatedAt",
+                  "created_by", "updated_by", "deleted_by",
+                  "createdBy", "updatedBy", "deletedBy",
+                ]);
 
                 const formatValue = (val: any): string => {
                   if (val == null || val === "") return "—";
                   if (typeof val === "string") {
                     const d = new Date(val);
-                    if (!isNaN(d.getTime()) && val.includes("T")) return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+                    if (!isNaN(d.getTime()) && val.includes("T"))
+                      return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
                     return val;
                   }
                   if (typeof val === "boolean") return val ? "Yes" : "No";
                   if (typeof val === "object") return JSON.stringify(val, null, 2);
                   return String(val);
                 };
+
+                // ── no remarks at all ─────────────────────────────────────────
+                if (!details) {
+                  return (
+                    <Typography sx={{ color: TOK.TEXT_DIM, mt: 1, fontSize: 13 }}>
+                      No additional details available.
+                    </Typography>
+                  );
+                }
+
+                // ── if remarks is a plain string (not JSON) ───────────────────
+                if (typeof details === "string") {
+                  return (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 11, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "1.5px" }}>
+                        Raw Data / Remarks
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5, borderRadius: 1, fontSize: 12,
+                          bgcolor: "rgba(0,0,0,0.35)", color: "#a3e635",
+                          border: "1px solid var(--border-weak)",
+                          overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                          maxHeight: 320,
+                        }}
+                      >
+                        {details}
+                      </Box>
+                    </Box>
+                  );
+                }
+
+                // ── structured object path ────────────────────────────────────
+                const oldVal = details?.oldValue || null;
+                const newVal = details?.newValue || null;
+                const payload = details?.payload || null;
+                const targetLabel = details?.targetLabel || null;
 
                 const changes: { field: string; old: any; new: any }[] = [];
                 let snapshot: Record<string, any> = {};
@@ -749,7 +828,7 @@ export default function PortalLogsPage() {
                       changedKeys.add(k);
                     }
                   });
-                  snapshot = newVal;
+                  snapshot = { ...newVal };
                 } else if (!oldVal && newVal && typeof newVal === "object") {
                   Object.keys(newVal).forEach(k => {
                     if (ignoreKeys.has(k)) return;
@@ -761,22 +840,49 @@ export default function PortalLogsPage() {
                     snapshot[k] = oldVal[k];
                   });
                 } else if (payload && typeof payload === "object") {
-                  snapshot = payload;
+                  snapshot = { ...payload };
+                } else if (typeof details === "object") {
+                  // fallback: show the whole remarks object as snapshot
+                  snapshot = { ...details };
                 }
 
-                if (snapshot) {
-                  delete snapshot.payload;
-                  delete snapshot.targetLabel;
-                  delete snapshot.oldValue;
-                  delete snapshot.newValue;
-                }
+                // strip internal meta keys from snapshot
+                delete snapshot.payload;
+                delete snapshot.targetLabel;
+                delete snapshot.oldValue;
+                delete snapshot.newValue;
 
-                const snapKeys = Object.keys(snapshot).filter(k => !ignoreKeys.has(k) && snapshot[k] !== undefined);
+                const snapKeys = Object.keys(snapshot).filter(
+                  k => !ignoreKeys.has(k) && snapshot[k] !== undefined
+                );
+
+                // if nothing structured exists, show raw JSON
+                if (changes.length === 0 && snapKeys.length === 0 && !targetLabel) {
+                  return (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 11, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "1.5px" }}>
+                        Raw Data / Remarks
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5, borderRadius: 1, fontSize: 12,
+                          bgcolor: "rgba(0,0,0,0.35)", color: "#a3e635",
+                          border: "1px solid var(--border-weak)",
+                          overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                          maxHeight: 320,
+                        }}
+                      >
+                        {JSON.stringify(details, null, 2)}
+                      </Box>
+                    </Box>
+                  );
+                }
 
                 return (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 1 }}>
 
-                    {/* TARGET LABEL */}
+                    {/* TARGET ENTITY */}
                     {targetLabel && (
                       <Box sx={{ p: 1.5, bgcolor: "rgba(124,87,242,0.1)", border: "1px solid rgba(124,87,242,0.3)", borderRadius: 1 }}>
                         <Typography sx={{ fontWeight: 800, fontSize: 11, color: TOK.ACCENT, textTransform: "uppercase", mb: 0.5, letterSpacing: "1px" }}>
@@ -788,7 +894,7 @@ export default function PortalLogsPage() {
                       </Box>
                     )}
 
-                    {/* WHAT CHANGED — only for updates */}
+                    {/* WHAT CHANGED */}
                     {changes.length > 0 && (
                       <Box>
                         <Typography sx={{ fontWeight: 800, fontSize: 11, color: TOK.TEXT_DIM, textTransform: "uppercase", mb: 1, letterSpacing: "1.5px" }}>
@@ -806,20 +912,12 @@ export default function PortalLogsPage() {
                                 {c.field}
                               </Box>
                               <Box sx={{ p: 1.25, borderRight: "1px solid var(--border-weak)", display: "flex", alignItems: "center" }}>
-                                <Box sx={{
-                                  px: 1, py: 0.4, borderRadius: 1, fontSize: 12, fontWeight: 600,
-                                  bgcolor: "rgba(194,65,12,0.2)", color: "#fb923c",
-                                  border: "1px solid rgba(194,65,12,0.45)", wordBreak: "break-all"
-                                }}>
+                                <Box sx={{ px: 1, py: 0.4, borderRadius: 1, fontSize: 12, fontWeight: 600, bgcolor: "rgba(194,65,12,0.2)", color: "#fb923c", border: "1px solid rgba(194,65,12,0.45)", wordBreak: "break-all" }}>
                                   {formatValue(c.old)}
                                 </Box>
                               </Box>
                               <Box sx={{ p: 1.25, display: "flex", alignItems: "center" }}>
-                                <Box sx={{
-                                  px: 1, py: 0.4, borderRadius: 1, fontSize: 12, fontWeight: 600,
-                                  bgcolor: "rgba(21,128,61,0.2)", color: "#4ade80",
-                                  border: "1px solid rgba(21,128,61,0.45)", wordBreak: "break-all"
-                                }}>
+                                <Box sx={{ px: 1, py: 0.4, borderRadius: 1, fontSize: 12, fontWeight: 600, bgcolor: "rgba(21,128,61,0.2)", color: "#4ade80", border: "1px solid rgba(21,128,61,0.45)", wordBreak: "break-all" }}>
                                   {formatValue(c.new)}
                                 </Box>
                               </Box>
@@ -839,23 +937,11 @@ export default function PortalLogsPage() {
                           {snapKeys.map((k, i) => {
                             const isChanged = changedKeys.has(k);
                             return (
-                              <Box key={k} sx={{
-                                display: "grid",
-                                gridTemplateColumns: "35% 65%",
-                                borderBottom: i < snapKeys.length - 1 ? "1px solid var(--border-weak)" : "none",
-                                bgcolor: isChanged ? "rgba(124,45,18,0.12)" : (i % 2 === 0 ? "rgba(0,0,0,0.12)" : "transparent"),
-                              }}>
-                                <Box sx={{
-                                  p: 1.25, fontSize: 12, fontWeight: 600,
-                                  borderRight: "1px solid var(--border-weak)", display: "flex", alignItems: "center",
-                                  color: isChanged ? "#fb923c" : TOK.TEXT_DIM, wordBreak: "break-all"
-                                }}>
+                              <Box key={k} sx={{ display: "grid", gridTemplateColumns: "35% 65%", borderBottom: i < snapKeys.length - 1 ? "1px solid var(--border-weak)" : "none", bgcolor: isChanged ? "rgba(124,45,18,0.12)" : (i % 2 === 0 ? "rgba(0,0,0,0.12)" : "transparent") }}>
+                                <Box sx={{ p: 1.25, fontSize: 12, fontWeight: 600, borderRight: "1px solid var(--border-weak)", display: "flex", alignItems: "center", color: isChanged ? "#fb923c" : TOK.TEXT_DIM, wordBreak: "break-all" }}>
                                   {k}
                                 </Box>
-                                <Box sx={{
-                                  p: 1.25, fontSize: 12, fontWeight: isChanged ? 600 : 400,
-                                  color: isChanged ? "#4ade80" : TOK.TEXT, display: "flex", alignItems: "center", wordBreak: "break-all"
-                                }}>
+                                <Box sx={{ p: 1.25, fontSize: 12, fontWeight: isChanged ? 600 : 400, color: isChanged ? "#4ade80" : TOK.TEXT, display: "flex", alignItems: "center", wordBreak: "break-all" }}>
                                   {formatValue(snapshot[k])}
                                 </Box>
                               </Box>
@@ -865,9 +951,6 @@ export default function PortalLogsPage() {
                       </Box>
                     )}
 
-                    {changes.length === 0 && snapKeys.length === 0 && (
-                      <Typography sx={{ color: TOK.TEXT_DIM, fontSize: 13 }}>No meaningful details found for this operation.</Typography>
-                    )}
                   </Box>
                 );
               })()}

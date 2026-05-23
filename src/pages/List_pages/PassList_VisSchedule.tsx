@@ -1,4 +1,3 @@
-// src/pages/List_pages/PassList_VisSchedule.tsx
 // Pass List – shows all published passes from visibility_schedule
 import React from "react";
 import {
@@ -8,15 +7,13 @@ import {
 } from "@mui/material";
 import { Select, MenuItem, FormControl } from "@mui/material";
 import { DownloadOutlined as DownloadOutlinedIcon, DeleteOutlined as DeleteOutlinedIcon } from "@mui/icons-material";
-import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-
 import MainLayout from "../../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import api, { apiFetch } from "../../api/http";
 import { useActionAccess } from "../../auth/useActionAccess";
 import { vars, sxPresets } from "../../ui/toast/themeBridge";
 import { useI18n } from "../../i18n";
+import DateRangeUI from "../../components/DateRangeUI";
 
 /* ---------- Types ---------- */
 interface VSRow {
@@ -35,9 +32,27 @@ interface VSRow {
 
 /* ---------- Shared UI tokens ---------- */
 const CARD_SX = {
-    bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}`,
-    borderRadius: 2, display: "flex", flexDirection: "column",
-    backgroundImage: "none", boxShadow: "none",
+    position: 'relative',
+    overflow: 'hidden',
+    bgcolor: vars.bgCard,
+    backdropFilter: "blur(20px)",
+    border: `1px solid ${vars.border}`,
+    borderRadius: '20px',
+    display: "flex", flexDirection: "column",
+    backgroundImage: "none", boxShadow: '0 20px 50px rgba(0,0,0,0.12)',
+} as const;
+
+const PAGINATION_SX = {
+    px: 1,
+    bgcolor: vars.bgCard,
+    color: vars.text,
+    borderTop: `1px solid ${vars.border}`,
+    "& .MuiTablePagination-toolbar": { minHeight: 36, p: 0, pl: 1, pr: 1, gap: 0.5 },
+    "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: 12, m: 0, color: vars.textDim, fontWeight: 600 },
+    "& .MuiTablePagination-input": { fontSize: 12, m: 0, color: vars.text },
+    "& .MuiTablePagination-select": { bgcolor: vars.bgCtrl, borderRadius: "6px", fontSize: 12, fontWeight: 700, px: 1, mr: 2, display: 'flex', alignItems: 'center', height: 28 },
+    "& .MuiIconButton-root": { color: vars.text, p: 0.5, "&:hover": { bgcolor: vars.bgHover }, "&.Mui-disabled": { color: vars.textWeak } },
+    ".MuiSvgIcon-root": { fontSize: 20 },
 } as const;
 
 const TABLE_SCROLL_SX = {
@@ -83,35 +98,58 @@ function Labeled({ label, children, width }: { label: string; children: React.Re
 }
 
 /* ---------- Status badge ---------- */
-function PassStatusBadge({ status }: { status: string }) {
+const getBadgeStyle = (status: string) => {
     const s = (status || "").toLowerCase();
-    let bg = "#374151", color = "#d1d5db";
-    if (s === "supported") { bg = "#14532d"; color = "#86efac"; }
-    else if (s === "pass_requested" || s === "requested") { bg = "#312e81"; color = "#a5b4fc"; }
-    else if (s === "pass_cancelled") { bg = "#7c2d12"; color = "#fca5a5"; }
-    else if (s === "no_support") { bg = "#7f1d1d"; color = "#fca5a5"; }
-    else if (s === "idle") { bg = "#1f2937"; color = "#9ca3af"; }
+    if (s.includes("approved") || s.includes("supported") || s.includes("done") || s.includes("completed"))
+        return { bgcolor: "rgba(0, 255, 157, 0.1)", color: "#00FF9D" };
+    if (s.includes("pending") || s.includes("requested") || s.includes("triaged"))
+        return { bgcolor: "rgba(255, 184, 0, 0.12)", color: "#FFB800" };
+    if (s.includes("rejected") || s.includes("failed") || s.includes("cancelled") || s.includes("no_support"))
+        return { bgcolor: "rgba(255, 46, 99, 0.1)", color: "#FF2E63" };
+    return { bgcolor: "rgba(255, 255, 255, 0.08)", color: "#E0E0E0" };
+};
+
+function PassStatusBadge({ status }: { status: string }) {
+    const s = getBadgeStyle(status);
     return (
-        <Box sx={{ display: "inline-flex", alignItems: "center", px: 1.2, py: 0.3, borderRadius: 999, fontSize: 12, fontWeight: 600, bgcolor: bg, color, whiteSpace: "nowrap" }}>
-            {status || "—"}
+        <Box sx={{
+            display: "inline-flex", alignItems: "center", gap: 1,
+            px: 1.5, py: 0.5, borderRadius: "6px",
+            bgcolor: `${s.color}15`, border: `1px solid ${s.color}33`,
+            color: s.color, minWidth: 100, justifyContent: "center"
+        }}>
+            <Box sx={{
+                width: 6, height: 6, borderRadius: "50%", bgcolor: s.color,
+                boxShadow: `0 0 10px ${s.color}, 0 0 4px ${s.color}`
+            }} />
+            <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                {(status || "—").toUpperCase()}
+            </Typography>
         </Box>
     );
 }
 
 function PostPassBadge({ status }: { status: string }) {
     const currentStatus = status || "Pending";
-    const isCompleted = currentStatus === "Completed";
+    const s = getBadgeStyle(currentStatus);
     return (
         <Box sx={{
-            display: "inline-flex", alignItems: "center", px: 1.2, py: 0.3,
-            borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
-            bgcolor: isCompleted ? "#16a34a" : "#d97706",
-            color: "#fff",
+            display: "inline-flex", alignItems: "center", gap: 1,
+            px: 1.5, py: 0.5, borderRadius: "6px",
+            bgcolor: `${s.color}15`, border: `1px solid ${s.color}33`,
+            color: s.color, minWidth: 100, justifyContent: "center"
         }}>
-            {currentStatus}
+            <Box sx={{
+                width: 6, height: 6, borderRadius: "50%", bgcolor: s.color,
+                boxShadow: `0 0 10px ${s.color}, 0 0 4px ${s.color}`
+            }} />
+            <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                {currentStatus.toUpperCase()}
+            </Typography>
         </Box>
     );
 }
+
 
 /* ---------- Main Page ---------- */
 export default function PassListVisSchedule() {
@@ -149,8 +187,7 @@ export default function PassListVisSchedule() {
         if (station !== "All" && r.stn !== station) return false;
         if (satellite !== "All" && r.sc !== satellite) return false;
         if (fromDate || toDate) {
-            const rowDate = (r.date_text || "").replace(/-/g, " ");
-            const parts = rowDate.split(" ").map(x => parseInt(x, 10));
+            const parts = r.date_text.split(/[/-]/).map(x => parseInt(x, 10));
             const dt = new Date(parts[0], parts[1] - 1, parts[2]);
             if (fromDate && dt < new Date(new Date(fromDate).setHours(0, 0, 0, 0))) return false;
             if (toDate && dt > new Date(new Date(toDate).setHours(23, 59, 59, 999))) return false;
@@ -184,8 +221,8 @@ export default function PassListVisSchedule() {
 
     const handleDelete = async () => {
         try {
-            await apiFetch("/api/visibility-schedule", { 
-                method: "DELETE", 
+            await apiFetch("/api/visibility-schedule", {
+                method: "DELETE",
                 body: JSON.stringify({ ids: selectedIds }),
                 headers: { "Content-Type": "application/json" }
             });
@@ -213,14 +250,19 @@ export default function PassListVisSchedule() {
     };
 
     const theadCellSx = {
-        color: "#ffffff", fontWeight: 700, bgcolor: "#000000", whiteSpace: "nowrap",
-        padding: "10px 14px", overflow: "hidden", textOverflow: "ellipsis",
-    } as const;
+        px: 1, py: 1.5,
+        fontWeight: 800, fontSize: 9.5,
+        textAlign: "center", textTransform: 'uppercase' as const,
+        letterSpacing: '0.12em', color: "var(--thead-text)",
+        bgcolor: vars.bgThead, borderBottom: `1px solid ${vars.border}`,
+        whiteSpace: "nowrap" as const
+    };
 
     const bodyCellSx = {
-        padding: "10px 14px", overflow: "hidden", textOverflow: "ellipsis",
-        whiteSpace: "nowrap", minWidth: "80px",
-    } as const;
+        padding: "12px 14px", overflow: "hidden", textOverflow: "ellipsis",
+        whiteSpace: "nowrap" as const, minWidth: "80px", textAlign: "center" as const,
+        fontSize: 12, borderBottom: `1px solid ${vars.borderWeak}`,
+    };
 
     return (
         <MainLayout title="">
@@ -238,6 +280,17 @@ export default function PassListVisSchedule() {
 
             <Box sx={{ px: 2, py: 1.5 }}>
                 <Card sx={{ ...CARD_SX, width: "100%", height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)` }}>
+                    {/* Ambient Volumetric Lighting */}
+                    <Box sx={{
+                        position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%',
+                        background: 'radial-gradient(circle, rgba(14, 165, 233, 0.08), transparent 70%)',
+                        filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0,
+                    }} />
+                    <Box sx={{
+                        position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%',
+                        background: 'radial-gradient(circle, rgba(124, 110, 245, 0.08), transparent 70%)',
+                        filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0,
+                    }} />
 
                     {/* Page header */}
                     <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}` }}>
@@ -250,8 +303,8 @@ export default function PassListVisSchedule() {
                     <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto", p: 2, ...SCROLLER_SX }}>
                         <Card sx={{
                             ...CARD_SX, border: `1px solid ${vars.border}`, p: 0,
-                            "--passes-thead-bg": "#000000", "--passes-thead-text": "#ffffff",
-                            "--row-stripe": "rgba(255,255,255,0.06)",
+                            "--passes-thead-bg": "var(--bg-thead)", "--passes-thead-text": "var(--thead-text)",
+                            "--row-stripe": "var(--row-even)",
                         }}>
                             {/* Filter bar */}
                             <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${vars.border}`, display: "flex", alignItems: "center", gap: UI.gap, flexWrap: "wrap" }}>
@@ -275,16 +328,12 @@ export default function PassListVisSchedule() {
                                     </FormControl>
                                 </Labeled>
 
-                                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                                    <Labeled label={t("From Date")} width={UI.dateW}>
-                                        <DatePicker value={fromDate} onChange={(v) => { setFromDate(v); setPage(0); }}
-                                            slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
-                                    </Labeled>
-                                    <Labeled label={t("To Date")} width={UI.dateW}>
-                                        <DatePicker value={toDate} onChange={(v) => { setToDate(v); setPage(0); }}
-                                            slotProps={{ textField: { size: "small", sx: { width: UI.dateW, bgcolor: TOK.CONTROL_BG, borderRadius: 1, "& .MuiOutlinedInput-root": { height: 30, paddingLeft: 0 }, "& input": { height: 28, fontSize: 13, padding: "0 10px !important" } } } }} />
-                                    </Labeled>
-                                </LocalizationProvider>
+                                <DateRangeUI
+                                    label={t("Select Date Range")}
+                                    startDate={fromDate}
+                                    endDate={toDate}
+                                    onChange={(start, end) => { setFromDate(start); setToDate(end); setPage(0); }}
+                                />
 
                                 <Button onClick={clearFilters} size="small" sx={{ color: "#2563eb", textTransform: "none", fontWeight: 700, mt: 2 }}>{t("Clear")}</Button>
 
@@ -310,7 +359,9 @@ export default function PassListVisSchedule() {
                             </Box>
 
                             {/* Table */}
-                            <TableContainer sx={{ flex: 1, minHeight: 0, ...TABLE_SCROLL_SX }}>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, ...TABLE_SCROLL_SX, position: 'relative' }}>
+                                {/* Table Surface Scan Line */}
+                                <Box className="table-surface-scan" />
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
@@ -322,32 +373,46 @@ export default function PassListVisSchedule() {
                                                     disabled={!canWrite || visible.length === 0}
                                                     sx={{ color: "rgba(255,255,255,0.3)", "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#fff" } }} />
                                             </TableCell>
-                                            <TableCell sx={theadCellSx}>Sr No.</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("DATE")} (yyyy mm dd)</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("S/C")}</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("STN")}</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("ORBIT")}</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("Max")}</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("AOS")} (hh:mm:ss)</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("LOS")} (hh:mm:ss)</TableCell>
-                                            <TableCell sx={theadCellSx}>{t("OPERATIONS")}</TableCell>
+                                            <TableCell sx={theadCellSx}>Sr</TableCell>
+                                            {["DATE", "S/C", "STN", "ORBIT", "MAX", "AOS", "LOS", "OPERATIONS"].map(h => (
+                                                <TableCell key={h} sx={theadCellSx}>{h}</TableCell>
+                                            ))}
                                             <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
                                             <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Post Pass Status</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
                                         {visible.map((r, index) => (
-                                            <TableRow key={r.id} sx={{ bgcolor: index % 2 === 0 ? "var(--row-odd)" : "var(--row-even)" }}>
-                                                <TableCell padding="checkbox">
+                                            <TableRow key={r.id} className="glass-shine-row" sx={{
+                                                bgcolor: "transparent",
+                                                transition: 'all 0.25s',
+                                                cursor: 'pointer',
+                                                '&:hover': {
+                                                    bgcolor: 'rgba(255, 255, 255, 0.03)',
+                                                    "& .hover-accent": {
+                                                        opacity: 1,
+                                                        height: "70%",
+                                                    },
+                                                }
+                                            }}>
+                                                <TableCell padding="checkbox" sx={{ borderBottom: `1px solid ${vars.borderWeak}`, position: "relative" }}>
+                                                    <Box className="hover-accent" sx={{
+                                                        position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+                                                        width: "3px", height: "0%", opacity: 0,
+                                                        background: `linear-gradient(to bottom, transparent, var(--accent), transparent)`,
+                                                        boxShadow: `0 0 10px var(--accent)`,
+                                                        transition: "all 0.3s ease",
+                                                        pointerEvents: "none"
+                                                    }} />
                                                     <Checkbox size="small"
                                                         checked={selectedIds.includes(r.id)}
                                                         onChange={() => toggleSelect(r.id)}
                                                         disabled={!canWrite}
                                                         sx={{ color: vars.textDim, "&.Mui-checked": { color: "#7CA7FF" } }} />
                                                 </TableCell>
-                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{(page * rowsPerPage) + index + 1}</TableCell>
-                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{(r.date_text || "").replace(/-/g, " ")}</TableCell>
-                                                <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.sc}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.textDim }}>{(page * rowsPerPage) + index + 1}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: vars.textDim }}>{r.date_text}</TableCell>
+                                                <TableCell sx={{ ...bodyCellSx, color: "var(--accent)", fontWeight: 700, fontSize: 13 }}>{r.sc}</TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.stn}</TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.orbit}</TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: vars.text }}>{r.max_ele}</TableCell>
@@ -380,6 +445,7 @@ export default function PassListVisSchedule() {
                                 rowsPerPage={rowsPerPage}
                                 onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
                                 rowsPerPageOptions={[25, 50, 100]}
+                                sx={PAGINATION_SX}
                             />
                         </Card>
                     </Box>

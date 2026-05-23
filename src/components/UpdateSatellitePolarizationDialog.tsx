@@ -7,18 +7,27 @@ import {
   DialogContent,
   DialogTitle,
   TextField,
+  Typography,
+  Stack,
 } from "@mui/material";
+import { vars } from "../ui/toast/themeBridge";
+import { AmbientLighting } from "../ui/styles";
+
+/* ✅ theme tokens */
+const TEXT = vars.text;
+const DIM = vars.textDim;
+const ACCENT = vars.accent;
+const RED = "#FF2E63";
 
 export type SatPolRow = {
   id: number;
   sat: string;
-  pols: string[]; // comma-separated in UI, array in state/props
+  pols: string[];
 };
 
 type Props = {
   open: boolean;
   row: SatPolRow | null;
-  // Keep these props for compatibility with parent, but they’re unused now
   satOptions?: string[];
   polOptions?: string[];
   onClose: () => void;
@@ -26,24 +35,41 @@ type Props = {
   onDelete: (toDelete: SatPolRow) => void;
 };
 
-const PRIMARY = "#7C57F2";
-const BORDER = "1px solid rgba(255,255,255,0.14)";
-
-/** Consistent dark text field styling */
-
-
-const fieldSx = {
-  "& .MuiInputBase-root": {
-    backgroundColor: "#1C1C1E",
-    color: "#fff",
-    borderRadius: 1,                      // <— smaller corners (consistent)
+const glassCtrlSx = {
+  "& .MuiOutlinedInput-root": {
+    height: "36px", fontSize: 13, color: TEXT,
+    backgroundColor: vars.bgCtrl, borderRadius: "12px",
+    backdropFilter: "blur(10px)",
+    "& fieldset": { borderColor: vars.borderWeak },
+    "&:hover fieldset": { borderColor: vars.accent },
+    "&.Mui-focused fieldset": { border: `1px solid ${vars.accent}` },
   },
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.24)" },
-  "& .MuiFormLabel-root": { color: "rgba(255,255,255,0.95)" },
-  "& .MuiInputBase-input": { color: "#fff" },
-};
+  "& .MuiInputBase-input": { padding: "0 14px", fontSize: 13, color: TEXT },
+  "& .MuiInputBase-input::placeholder": { color: DIM, opacity: 0.7 },
+} as const;
 
+const LABEL_SX = {
+  fontSize: 10.5,
+  fontWeight: 900,
+  color: ACCENT,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  mb: 0.8,
+} as const;
+
+const premiumBtnSx = {
+  textTransform: "none", fontWeight: 800, fontSize: 12.5, px: 3, height: 40,
+  borderRadius: "12px", background: `linear-gradient(135deg, ${ACCENT}, #0369a1)`,
+  boxShadow: `0 8px 20px rgba(14, 165, 233, 0.25)`,
+  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+  color: "#fff",
+  "&:hover": {
+    background: `linear-gradient(135deg, #0ea5e9, #075985)`,
+    transform: "translateY(-1px)",
+    boxShadow: `0 10px 25px rgba(14, 165, 233, 0.35)`,
+  },
+  "&.Mui-disabled": { opacity: 0.5, color: "rgba(255,255,255,0.3)" }
+} as const;
 
 export default function UpdateSatellitePolarizationDialog({
   open,
@@ -52,14 +78,14 @@ export default function UpdateSatellitePolarizationDialog({
   onSave,
   onDelete,
 }: Props) {
-  const [sat, setSat] = React.useState(row?.sat ?? "");
-  const [polInput, setPolInput] = React.useState(row?.pols?.join(", ") ?? "");
+  const [sat, setSat] = React.useState("");
+  const [polInput, setPolInput] = React.useState("");
 
-  // keep local state in sync when a different row is opened
   React.useEffect(() => {
+    if (!open) return;
     setSat(row?.sat ?? "");
     setPolInput(row?.pols?.join(", ") ?? "");
-  }, [row]);
+  }, [row, open]);
 
   const parsedPols = React.useMemo(
     () =>
@@ -86,89 +112,83 @@ export default function UpdateSatellitePolarizationDialog({
       onClose={onClose}
       fullWidth
       maxWidth="md"
-      PaperProps={{ sx: { bgcolor: "#17171A", color: "#fff", border: BORDER } }}
+      PaperProps={{
+        sx: {
+          bgcolor: vars.bgCard,
+          border: `1px solid ${vars.border}`,
+          borderRadius: "20px",
+          color: TEXT,
+          backgroundImage: "none",
+          boxShadow: '0 20px 50px rgba(0,0,0,0.12)',
+          overflow: "hidden"
+        },
+      }}
     >
-      <DialogTitle sx={{ fontWeight: 500, fontSize: 20, pb: 1.25 }}>
+      <AmbientLighting />
+      <DialogTitle sx={{ fontWeight: 900, fontSize: 18, color: TEXT, textTransform: "uppercase", letterSpacing: "0.05em", px: 3, pt: 3, pb: 1 }}>
         Update Satellite Polarization
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 2.25, pb: 1.25 }}>
+      <DialogContent sx={{ px: 3, py: 2 }}>
         <Box
           sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-            gap: 1.5,
+            gap: 3,
+            mt: 1,
           }}
         >
-         
+          <Stack spacing={0.5}>
+            <Typography sx={LABEL_SX}>Satellite Name *</Typography>
+            <TextField
+              placeholder="e.g., GS-02"
+              value={sat}
+              onChange={(e) => setSat(e.target.value)}
+              fullWidth
+              size="small"
+              sx={glassCtrlSx}
+            />
+          </Stack>
 
-          <TextField
-  label="Satellite Name *"
-  placeholder="e.g., GS-02"
-  value={sat}
-  onChange={(e) => setSat(e.target.value)}
-  fullWidth
-  variant="outlined"
-  size="small"
-  margin="normal"
-  InputLabelProps={{ shrink: true }}      // keeps label clear of the outline
-  sx={fieldSx}
-/>
-
-<TextField
-  label="Polarization *"
-  placeholder="e.g., RHCP or RHCP, LHCP"
-  value={polInput}
-  onChange={(e) => setPolInput(e.target.value)}
-  fullWidth
-  variant="outlined"
-  size="small"
-  margin="normal"
-  InputLabelProps={{ shrink: true }}
-  sx={fieldSx}
-/>
+          <Stack spacing={0.5}>
+            <Typography sx={LABEL_SX}>Polarization *</Typography>
+            <TextField
+              placeholder="e.g., RHCP or RHCP, LHCP"
+              value={polInput}
+              onChange={(e) => setPolInput(e.target.value)}
+              fullWidth
+              size="small"
+              sx={glassCtrlSx}
+            />
+          </Stack>
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>
+      <DialogActions sx={{ px: 3, pb: 3, pt: 1, display: "flex", justifyContent: "space-between" }}>
         <Button
           onClick={handleDelete}
-          color="error"
           variant="contained"
-          sx={{ textTransform: "none", fontWeight: 500, borderRadius: 2, px: 2.5, mr: "auto" }}
+          sx={{ ...premiumBtnSx, background: RED, "&:hover": { background: "#d62654" } }}
         >
           Delete
         </Button>
 
-        <Button
-          onClick={onClose}
-          variant="outlined"
-          sx={{
-            textTransform: "none",
-            border: "1px solid rgba(255,255,255,0.24)",
-            color: "#fff",
-            borderRadius: 2,
-            px: 2.5,
-          }}
-        >
-          Cancel
-        </Button>
-
-        <Button
-          onClick={handleSave}
-          variant="contained"
-          sx={{
-            backgroundColor: PRIMARY,
-            textTransform: "none",
-            fontWeight: 500,
-            borderRadius: 2,
-            px: 3,
-            "&:hover": { backgroundColor: "#6E4DE0" },
-          }}
-          disabled={!sat.trim() || parsedPols.length === 0}
-        >
-          Edit
-        </Button>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button
+            onClick={onClose}
+            sx={{ color: DIM, textTransform: "none", fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            disabled={!sat.trim() || parsedPols.length === 0}
+            sx={premiumBtnSx}
+          >
+            Edit
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

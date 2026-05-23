@@ -1,166 +1,66 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+// src/pages/Add_data_pages/Add_Licenses.tsx
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Box,
-  Card,
-  Button,
-  Typography,
-  TextField,
-  FormControl,
-  Select,
-  MenuItem,
-  IconButton,
-  Checkbox,
-  ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Box, Button, Typography, TextField, FormControl, MenuItem, Checkbox, ListItemText,
+  Backdrop, CircularProgress, Stack, Card, Grid, Dialog, DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import MainLayout from "../../layouts/MainLayout";
-import { TOPBAR_HEIGHT } from "../../components/TopNav";
+import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import { LocalizationProvider, DesktopDatePicker } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import type { SelectChangeEvent } from "@mui/material/Select";
-
-/* HTTP helper */
+import MainLayout from "../../layouts/MainLayout";
+import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import api from "../../api/http";
-
-/* theme bridge */
-import { vars, sxPresets } from "../../ui/toast/themeBridge";
-
-/* i18n */
+import { vars } from "../../ui/toast/themeBridge";
+import { PREMIUM_CARD_SX, AmbientLighting } from "../../ui/styles";
 import { useI18n } from "../../i18n";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import BadgeIcon from "@mui/icons-material/Badge";
+import TuneIcon from "@mui/icons-material/Tune";
 
-/* ===================== THEME + SIZING ===================== */
-const CARD_SX = {
-  bgcolor: vars.bgCard,
-  color: vars.text,
-  border: `1px solid ${vars.border}`,
-  borderRadius: 2,
-  display: "flex",
-  flexDirection: "column",
-  backgroundImage: "none",
-  boxShadow: "none",
+/* ─────────────────────── style constants ─────────────────────── */
+const TEXT = vars.text;
+const DIM = vars.textDim;
+const ACCENT = vars.accent;
+
+const glassCtrlSx = {
+  "& .MuiOutlinedInput-root": {
+    height: "36px", fontSize: 13, color: TEXT,
+    backgroundColor: vars.bgCtrl, borderRadius: "12px",
+    backdropFilter: "blur(10px)",
+    "& fieldset": { borderColor: vars.border, transition: "all 0.2s" },
+    "&:hover fieldset": { borderColor: `${ACCENT}66` },
+    "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: 1 }
+  },
+  "& .MuiInputBase-input": { padding: "0 14px", fontSize: 13, color: TEXT },
+  "& .MuiInputBase-input::placeholder": { color: DIM, opacity: 0.7 },
+  "& .MuiSelect-select": { padding: "0 14px !important", display: "flex", alignItems: "center", fontSize: 13, color: TEXT, height: "36px !important" },
+  "& .MuiSvgIcon-root": { fontSize: 18, color: DIM }
 } as const;
 
-const COLORS = { link: vars.accent, purple: "#7C57F2" };
-
-const FIELD_H = 36;
-const CONTENT_H = 32;
-const FONT_PX = 13;
-const HORIZ_PAD = 8;
-
-const controlSx = {
-  ...sxPresets.ctrl,
-  borderRadius: 1,
-  "& .MuiInputBase-root, & .MuiOutlinedInput-root": {
-    height: `${FIELD_H}px`,
-    minHeight: `${FIELD_H}px`,
-    alignItems: "center",
-  },
-  "& .MuiOutlinedInput-input, & .MuiInputBase-input": {
-    height: `${CONTENT_H}px`,
-    lineHeight: `${CONTENT_H}px`,
-    padding: `0 ${HORIZ_PAD}px`,
-    fontSize: `${FONT_PX}px`,
-    color: vars.text,
-  },
-  "& .MuiSelect-select, & .MuiSelect-select.MuiInputBase-inputSizeSmall": {
-    height: `${CONTENT_H}px !important`,
-    lineHeight: `${CONTENT_H}px`,
-    padding: `0 ${HORIZ_PAD}px !important`,
-    fontSize: `${FONT_PX}px`,
-    display: "flex",
-    alignItems: "center",
-  },
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
-  "& .MuiSvgIcon-root": { color: vars.text, fontSize: 18 },
-} as const;
-
-/* interior fill */
-const filledField = (t: any) => {
-  const isDark = t.palette.mode === "dark";
-  return {
-    "& .MuiOutlinedInput-root": { backgroundColor: isDark ? "#232325" : "#fff" },
-    "& .MuiOutlinedInput-root.Mui-focused": { backgroundColor: isDark ? "#232325" : "#fff" },
-    "& .MuiSelect-select": { backgroundColor: isDark ? "#232325" : "#fff" },
-    "& .MuiInputBase-input": {
-      color: isDark ? vars.text : "#000",
-      "::placeholder": { color: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)", opacity: 1 },
-    },
-  };
+const pickerSx = {
+  ...glassCtrlSx,
+  "& .MuiInputAdornment-root .MuiIconButton-root": { p: 0.5, color: DIM },
+  "& .MuiOutlinedInput-root": { paddingRight: "8px" }
 };
 
-const SCROLLER_SX = sxPresets.scroller;
-
-const menuTheme = {
-  PaperProps: {
-    elevation: 0,
-    sx: {
-      bgcolor: vars.bgCard,
-      color: vars.text,
-      border: `1px solid ${vars.border}`,
-      "& .MuiMenuItem-root.Mui-selected": { bgcolor: vars.bgHover },
-      "& .MuiMenuItem-root:hover": { bgcolor: vars.bgHover },
-    },
+const premiumBtnSx = {
+  textTransform: "none", fontWeight: 800, fontSize: 12.5, px: 3, height: 44,
+  borderRadius: "12px", background: `linear-gradient(135deg, ${ACCENT}, #0369a1)`,
+  boxShadow: `0 8px 20px rgba(14, 165, 233, 0.25)`,
+  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+  "&:hover": {
+    background: `linear-gradient(135deg, #0ea5e9, #075985)`,
+    transform: "translateY(-1px)",
+    boxShadow: `0 10px 25px rgba(14, 165, 233, 0.35)`,
   },
-};
-
-const LABEL_SX = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: vars.textDim,
-  mb: 0.5,
-  lineHeight: 1.2,
+  "&.Mui-disabled": { opacity: 0.5, color: "rgba(255,255,255,0.3)" }
 } as const;
 
+type BandRow = { id: number; band: string; uplink: boolean; downlink: boolean };
+const fmtDate = (d: Date | null) => d ? `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}` : "";
 
-const PICKER_POPPER_SX = {
-  "& .MuiPaper-root": {
-    bgcolor: vars.bgCard,
-    color: vars.text,
-    border: `1px solid ${vars.border}`,
-    borderRadius: 1.25,
-    boxShadow: "0 12px 32px rgba(0,0,0,0.25)",
-  },
-  "& .MuiPickersCalendarHeader-label": { fontSize: 13, fontWeight: 700, color: vars.text },
-  "& .MuiDayCalendar-weekDayLabel": { fontSize: 11, color: vars.textDim },
-  "& .MuiPickersDay-root": {
-    width: 28,
-    height: 28,
-    fontSize: 12,
-    margin: "0 2px",
-    color: vars.text,
-    "&.Mui-selected": {
-      bgcolor: `${vars.accent} !important`,
-      color: "#fff",
-    },
-  },
-  "& .MuiIconButton-root": { p: 0.5, color: vars.text },
-} as const;
-
-/* ============================== App logic ============================== */
-const LICENSE_PREFIX = "LRN-";
-
-type BandRow = {
-  id: number;
-  band: string;
-  uplink: boolean;
-  downlink: boolean;
-};
-
-
-type GroundStationRow = { id?: number; ground_station?: string; station_name?: string; name?: string; supporting_partner?: string;[k: string]: unknown };
-type SatelliteRow = { satellite_name?: string; name?: string; satellite_id?: string;[k: string]: unknown };
-
-const fmtDate = (d: Date | null) =>
-  d ? `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}` : "";
-
-/* ---------------- CAPTCHA ---------------- */
+/* ---------------- CAPTCHA UI ---------------- */
 type Captcha = { text: string; svg: string };
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
 function pick(chars: string, n: number) { let s = ""; for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)]; return s; }
@@ -173,44 +73,21 @@ function makeCaptcha(width = 220, height = 80, length = 5): Captcha {
     const y = height / 2 + rand(-5, 5);
     const r = rand(-24, 24);
     const fontSize = rand(30, 38);
-    return `<text x="${x}" y="${y}" font-size="${fontSize}" font-weight="700"
-              text-anchor="middle" dominant-baseline="middle"
-              transform="rotate(${r} ${x} ${y})">${ch}</text>`;
+    return `<text x="${x}" y="${y}" font-size="${fontSize}" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${r} ${x} ${y})" fill="white">${ch}</text>`;
   }).join("");
   const lines = Array.from({ length: 4 }).map(() => {
     const x1 = rand(0, width), y1 = rand(0, height);
     const x2 = rand(0, width), y2 = rand(0, height);
-    const op = rand(0.25, 0.45).toFixed(2);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(1, 2)}"/>`;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="0.3" stroke-width="1"/>`;
   }).join("");
-  const dots = Array.from({ length: 35 }).map(() => {
-    const x = rand(0, width), y = rand(0, height);
-    const op = rand(0.15, 0.35).toFixed(2);
-    return `<circle cx="${x}" cy="${y}" r="${rand(0.8, 2.2)}" fill="white" fill-opacity="${op}"/>`;
-  }).join("");
-  const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <filter id="wavy">
-      <feTurbulence type="fractalNoise" baseFrequency="${rand(0.9, 1.3) / 100}" numOctaves="2" result="noise"/>
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="${rand(8, 14)}" xChannelSelector="R" yChannelSelector="G"/>
-    </filter>
-    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="#1a1a1d"/>
-      <stop offset="100%" stop-color="#121214"/>
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#bg)"/>
-  <g filter="url(#wavy)" fill="#e7e7ff">${chars}</g>
-  <g>${lines}${dots}</g>
-</svg>`.trim();
-  return { text, svg };
+  return {
+    text,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#1a1a1d"/>${chars}${lines}</svg>`.trim()
+  };
 }
 function svgDataUrl(svg: string) { return "data:image/svg+xml;utf8," + encodeURIComponent(svg); }
 
-function CaptchaDialog({
-  open, onCancel, onOk,
-}: { open: boolean; onCancel: () => void; onOk: () => void; }) {
+function CaptchaDialog({ open, onCancel, onOk }: { open: boolean; onCancel: () => void; onOk: () => void; }) {
   const { t } = useI18n();
   const [cap, setCap] = useState<Captcha>(() => makeCaptcha());
   const [input, setInput] = useState("");
@@ -222,614 +99,257 @@ function CaptchaDialog({
     if (input.trim().toLowerCase() === cap.text.toLowerCase()) { setError(""); onOk(); }
     else { setError(t("Incorrect code. Try again.")); refresh(); }
   };
-  useEffect(() => {
-    if (open) {
-      refresh();
-      // focus inside the dialog to avoid aria-hidden focus warning
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [open]);
+  useEffect(() => { if (open) { refresh(); setTimeout(() => inputRef.current?.focus(), 0); } }, [open]);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onCancel}
-      maxWidth="xs"
-      fullWidth
-      // KEY PARTS: keep mounted and don't restore focus to old trigger
-      keepMounted
-      disableRestoreFocus
-      PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}
-    >
+    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth keepMounted disableRestoreFocus PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}`, borderRadius: "16px" } }}>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("Verify you’re human")}</DialogTitle>
       <DialogContent>
-        <Box sx={{ display: "grid", gap: 1 }}>
-          <img src={svgDataUrl(cap.svg)} alt="captcha"
-            style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${vars.border}` }} />
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <TextField
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t("Type the letters")}
-              size="small"
-              fullWidth
-              autoFocus
-              inputRef={inputRef}
-              sx={(tMui) => ({ ...sxPresets.ctrl, "& .MuiOutlinedInput-root": { height: 36, background: tMui.palette.mode === "dark" ? "#232325" : "#fff" } })}
-            />
-            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: vars.border }}>
-              {t("Refresh")}
-            </Button>
-          </Box>
-          {error && <Box sx={{ color: "#f87171", fontSize: 12, mt: 0.25 }}>{error}</Box>}
-        </Box>
+        <Stack spacing={2}>
+          <img src={svgDataUrl(cap.svg)} alt="captcha" style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${vars.border}` }} />
+          <Stack direction="row" spacing={1}>
+            <TextField value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("Type the letters")} size="small" fullWidth autoFocus inputRef={inputRef} sx={glassCtrlSx} />
+            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: vars.border, color: TEXT, borderRadius: "12px" }}>{t("Refresh")}</Button>
+          </Stack>
+          {error && <Typography sx={{ color: "#f87171", fontSize: 12 }}>{error}</Typography>}
+        </Stack>
       </DialogContent>
-      <DialogActions sx={{ px: 2, pb: 2 }}>
-        <Button onClick={onCancel} sx={{ textTransform: "none" }}>{t("Cancel")}</Button>
-        <Button onClick={submit} variant="contained"
-          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b46f1" } }}>
-          {t("Verify")}
-        </Button>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button onClick={onCancel} sx={{ textTransform: "none", color: DIM }}>{t("Cancel")}</Button>
+        <Button onClick={submit} variant="contained" sx={{ ...premiumBtnSx, height: 36 }}>{t("Verify")}</Button>
       </DialogActions>
     </Dialog>
   );
 }
-/* ---------------- end CAPTCHA ---------------- */
 
 export default function AddLicense() {
   const { t } = useI18n();
 
   const [licenseReqNo, setLicenseReqNo] = useState("LRN-...");
+  const [stationsSel, setStationsSel] = useState<string[]>([]);
   const [satellitesSel, setSatellitesSel] = useState<string[]>([]);
   const [appliedDate, setAppliedDate] = useState<Date | null>(null);
   const [receiptDate, setReceiptDate] = useState<Date | null>(null);
   const [validity, setValidity] = useState<Date | null>(null);
   const [status, setStatus] = useState("Pending");
   const [remarks, setRemarks] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [noLicenseRequired, setNoLicenseRequired] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [stationsSel, setStationsSel] = useState<string[]>([]);
   const [stationOptions, setStationOptions] = useState<string[]>([]);
-  const [stationObjects, setStationObjects] = useState<GroundStationRow[]>([]);
-  const [satOptions, setSatOptions] = useState<string[]>([]);
   const [satByStation, setSatByStation] = useState<Record<string, string[]>>({});
-  const [rows, setRows] = useState<BandRow[]>([{ id: 1, band: "", uplink: false, downlink: false }]);
+  const [satOptions, setSatOptions] = useState<string[]>([]);
+  const [rows, setRows] = useState<BandRow[]>([]);
+  const [newBand, setNewBand] = useState<BandRow>({ id: 0, band: "", uplink: false, downlink: false });
 
-  /* Removed ISRO check - available for all stations */
-  const isIsroStation = true;
-
-
-  const nextIdRef = useRef(2);
-
-  const fetchStations = useCallback(async () => {
-    try {
-      const j = await api.get<any>("/api/ground-stations");
-      const arr: GroundStationRow[] = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
-      setStationObjects(arr);
-      setStationOptions(
-        arr
-          .map((r) =>
-            String(r.ground_station ?? r.station_name ?? r.name ?? "").trim()
-          )
-          .filter(Boolean)
-      );
-    } catch {
-      setStationObjects([]);
-      setStationOptions([]);
-    }
-  }, []);
-
-  const fetchSatellites = useCallback(async () => {
-    try {
-      const j = await api.get<any>("/api/satellites");
-      const arr: any[] = Array.isArray(j) ? j : [];
-
-      const map: Record<string, string[]> = {};
-
-      arr.forEach((r) => {
-        const stationsRaw = String(r.station_name ?? "");
-        const sat = String(r.satellite_name ?? "").trim();
-        if (!stationsRaw || !sat) return;
-
-        const stations = stationsRaw.split(",");
-
-        stations.forEach((st) => {
-          const station = st.trim();
-          if (!station) return;
-
-          if (!map[station]) map[station] = [];
-          if (!map[station].includes(sat)) {
-            map[station].push(sat);
-          }
-        });
-      });
-
-      console.log("SATELLITE MAP:", map);
-      setSatByStation(map);
-      setSatOptions([]);
-    } catch {
-      setSatByStation({});
-      setSatOptions([]);
-    }
-  }, []);
-
-
-  const fetchNextLicenseNo = useCallback(async () => {
-    try {
-      const j: any = await api.get("/api/licenses?limit=1");
-      const lastRow = j?.data?.[0];
-      let nextNum = Number(j?.total ?? 0) + 1;
-
-      if (lastRow?.license_req_no?.startsWith(LICENSE_PREFIX)) {
-        const lastNum = parseInt(lastRow.license_req_no.replace(LICENSE_PREFIX, ""), 10);
-        if (!isNaN(lastNum) && lastNum >= nextNum) {
-          nextNum = lastNum + 1;
-        }
-      }
-      setLicenseReqNo(`${LICENSE_PREFIX}${String(nextNum).padStart(3, "0")}`);
-    } catch {
-      setLicenseReqNo(`${LICENSE_PREFIX}${Math.floor(Math.random() * 900 + 100)}`);
-    }
-  }, []);
+  const [captchaOpen, setCaptchaOpen] = useState(false);
 
   useEffect(() => {
-    fetchStations();
-    fetchSatellites();
-    fetchNextLicenseNo();
-  }, [fetchStations, fetchSatellites, fetchNextLicenseNo]);
+    (async () => {
+      try {
+        const [gs, sats, lics] = await Promise.all([api.get<any>("/api/ground-stations"), api.get<any>("/api/satellites"), api.get<any>("/api/licenses?limit=1")]);
+        const gsArr = Array.isArray(gs?.data) ? gs.data : Array.isArray(gs) ? gs : [];
+        setStationOptions(gsArr.map((r: any) => String(r.ground_station || r.station_name || r.name || "").trim()).filter(Boolean).sort());
 
-  const addRow = () =>
-    setRows((r) => [...r, { id: nextIdRef.current++, band: "", uplink: false, downlink: false }]);
+        const satEntries = Array.isArray(sats) ? sats : [];
+        const map: Record<string, string[]> = {};
+        satEntries.forEach((r: any) => {
+          const names = (r.station_name || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+          const sat = (r.satellite_name || "").trim();
+          if (sat) names.forEach((st: string) => { if (!map[st]) map[st] = []; if (!map[st].includes(sat)) map[st].push(sat); });
+        });
+        setSatByStation(map);
 
-  const removeRow = (id: number) => setRows((r) => (r.length === 1 ? r : r.filter((x) => x.id !== id)));
-  const updateRow = (id: number, key: keyof BandRow, value: string | boolean) =>
+        const total = Number(lics?.total ?? 0);
+        setLicenseReqNo(`LRN-${String(total + 1).padStart(3, "0")}`);
+      } catch (e) { console.error(e); }
+    })();
+  }, []);
 
-    setRows((r) => r.map((x) => (x.id === id ? { ...x, [key]: value } : x)));
-
-
-  const clearAll = () => {
-    setSatellitesSel([]);
-    setStationsSel([]);
-    setAppliedDate(null);
-    setReceiptDate(null);
-    setValidity(null);
-    setStatus("Pending");
-    setRemarks("");
-    setNoLicenseRequired(false);
-    setRows([{ id: 1, band: "", uplink: false, downlink: false }]);
-    nextIdRef.current = 2;
+  const handleStationChange = (e: SelectChangeEvent<string[]>) => {
+    const v = typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value;
+    setStationsSel(v); setSatellitesSel([]);
+    const first = v[0]; setSatOptions(first && satByStation[first] ? satByStation[first] : []);
   };
 
   const handleSave = async () => {
-    if (!satellitesSel.length || !stationsSel.length) {
-      alert(t("Please fill Station and Satellite."));
-      return;
-    }
-    if (!noLicenseRequired && !appliedDate) {
-      alert(t("Please fill Applied Date."));
-      return;
-    }
-    const bands = rows
-      .filter(r => r.band)
-      .map(r => ({
-        band_name: r.band,
-        uplink: r.uplink ? "Yes" : "No",
-        downlink: r.downlink ? "Yes" : "No",
-      }));
-
-
-
-    const payload = {
-      license_req_no: noLicenseRequired ? "NO-LICENSE" : licenseReqNo,
-      station_name: stationsSel.join(", "),
-      satellite_name: satellitesSel.join(", "),
-      applied_date: noLicenseRequired ? "" : fmtDate(appliedDate),
-      receipt_date: noLicenseRequired ? "" : fmtDate(receiptDate),
-      validity_expiry: noLicenseRequired ? "" : fmtDate(validity),
-      status: noLicenseRequired ? "No License Required" : status,
-      remarks,
-      bands: noLicenseRequired ? [] : bands,
-    };
-
     try {
       setIsSaving(true);
+      const bands = rows.map(r => ({ band_name: r.band, uplink: r.uplink ? "Yes" : "No", downlink: r.downlink ? "Yes" : "No" }));
+      const payload = {
+        license_req_no: noLicenseRequired ? "NO-LICENSE" : licenseReqNo,
+        station_name: stationsSel.join(", "), satellite_name: satellitesSel.join(", "),
+        applied_date: noLicenseRequired ? "" : fmtDate(appliedDate),
+        receipt_date: noLicenseRequired ? "" : fmtDate(receiptDate),
+        validity_expiry: noLicenseRequired ? "" : fmtDate(validity),
+        status: noLicenseRequired ? "No License Required" : status,
+        remarks, bands: noLicenseRequired ? [] : bands
+      };
       await api.post("/api/licenses", payload);
       alert(t("License saved successfully."));
-      clearAll();
-      await fetchNextLicenseNo();
-    } catch (e: any) {
-      alert(`${t("Failed to save license.")} ${e?.message || ""}`.trim());
-    } finally {
-      setIsSaving(false);
-    }
+      window.location.reload();
+    } catch (e: any) { alert(e?.message || t("Failed to save license.")); } finally { setIsSaving(false); }
   };
-
-  /* ---------- CAPTCHA wiring ---------- */
-  type CaptchaAction = "addRow" | "save";
-  const [captchaOpen, setCaptchaOpen] = useState(false);
-  const [captchaAction, setCaptchaAction] = useState<CaptchaAction | null>(null);
-  const runAfterCaptcha = useCallback(async () => {
-    if (captchaAction === "addRow") addRow();
-    if (captchaAction === "save") await handleSave();
-    setCaptchaAction(null);
-  }, [captchaAction]);
 
   return (
     <MainLayout title="">
-      <Box sx={{ px: 2, py: 1.5 }}>
-        <Card
-          sx={{
-            ...CARD_SX,
-            height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)`,
-            display: "flex",
-            flexDirection: "column",
-          }}
-          elevation={0}
-        >
-          {/* Header */}
-          <Box
-            sx={{
-              px: 1.25,
-              py: 0.7,
-              borderBottom: `1px solid ${vars.border}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              bgcolor: vars.bgCard,
-              color: vars.text,
-            }}
-          >
-            <Typography sx={{ fontWeight: 700, fontSize: 16 }}>{t("Add License Details")}</Typography>
-            <Box sx={{ ml: "auto" }}>
-              <Button
-                size="small"
-                onClick={clearAll}
-                sx={{ textTransform: "none", fontWeight: 600, color: COLORS.link, px: 1 }}
-              >
-                {t("Clear")}
-              </Button>
+      <Backdrop open={isSaving} sx={{ color: "#fff", zIndex: 2000 }}><CircularProgress color="inherit" /></Backdrop>
+      <CaptchaDialog open={captchaOpen} onCancel={() => setCaptchaOpen(false)} onOk={() => { setCaptchaOpen(false); handleSave(); }} />
+
+      <Box sx={{ 
+        px: 2, py: 0.5, 
+        bgcolor: vars.bgApp, 
+        height: `calc(100vh - ${TOPBAR_HEIGHT}px)`, 
+        display: "flex", justifyContent: "center", alignItems: "center", 
+        position: "relative", overflow: "hidden" 
+      }}>
+
+        {/* Ambient Effects */}
+        <Box sx={{ position: "absolute", inset: "-10%", background: `radial-gradient(circle at 20% 30%, rgba(14, 165, 233,0.12) 0%, transparent 40%)`, filter: "blur(70px)", pointerEvents: "none", zIndex: 0, animation: "sc-fog-breathe 25s ease-in-out infinite" }} />
+        <Box sx={{ position: "absolute", top: 0, bottom: 0, width: "35%", background: "linear-gradient(90deg, transparent, rgba(14, 165, 233,0.04), transparent)", pointerEvents: "none", zIndex: 0, animation: "sc-scan-line 15s linear infinite" }} />
+
+        <Card sx={{ ...PREMIUM_CARD_SX, width: "100%", maxWidth: 840, p: { xs: 1.5, sm: 2, md: 2.5 }, my: 0.5 }}>
+          <AmbientLighting />
+          <Box sx={{ position: "absolute", top: 0, left: 0, width: "100%", height: "4px", background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)` }} />
+
+          <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 1.5, gap: 1 }}>
+            <Box>
+              <Typography sx={{ fontWeight: 900, fontSize: { xs: 18, sm: 22 }, color: TEXT, letterSpacing: "-0.01em" }}>{t("Add License Details")}</Typography>
+              <Typography sx={{ fontSize: 11, color: DIM, mt: 0.1 }}>{t("Configure regulatory permits and organizational link assignments.")}</Typography>
             </Box>
+            <BadgeIcon sx={{ fontSize: 28, color: ACCENT, opacity: 0.4 }} />
           </Box>
 
-          {/* Body */}
-          <Box sx={{ flex: 1, minHeight: 0, p: 1.25, overflowY: "auto", ...SCROLLER_SX }}>
-            {/* Upper form */}
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" },
-                columnGap: 2,
-                rowGap: 2,
-                "& .form-item": { display: "flex", flexDirection: "column" },
-                "& .form-label": { ...LABEL_SX },
-              }}
-            >
-              {/* Row 1 */}
-              <Box className="form-item">
-                <Typography className="form-label">{t("License Req No *")}</Typography>
-                <TextField value={licenseReqNo} size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} InputProps={{ readOnly: true }} />
-              </Box>
-              <Box className="form-item">
-                <Typography className="form-label">{t("Station *")}</Typography>
-                <FormControl fullWidth size="small">
-                  <Select<string[]>
-                    multiple
-                    value={stationsSel}
-                    onChange={(e: SelectChangeEvent<string[]>) => {
-                      const v = typeof e.target.value === "string"
-                        ? e.target.value.split(",")
-                        : e.target.value;
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("License Req No *")}</Typography>
+                <TextField fullWidth size="small" value={noLicenseRequired ? "NO-LICENSE" : licenseReqNo} disabled sx={glassCtrlSx} />
+              </Stack>
+            </Grid>
 
-                      setStationsSel(v);
-                      setSatellitesSel([]); // clear previous satellites
-
-                      // ONLY first station is used (as per your UI logic)
-                      const st = v[0];
-                      const sats = st && satByStation[st] ? satByStation[st] : [];
-                      setSatOptions(sats);
-
-                      if (sats.length === 1) {
-                        setSatellitesSel([sats[0]]);
-                      }
-
-
-                    }}
-                    displayEmpty
-                    renderValue={(selected) =>
-                      selected.length ? selected.join(", ") : t("Select Station")
-                    }
-                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                    MenuProps={menuTheme}
-                  >
-                    <MenuItem disabled value="">{t("Select Station")}</MenuItem>
-                    {stationOptions.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        <Checkbox checked={stationsSel.indexOf(s) > -1} />
-                        <ListItemText primary={s} />
-                      </MenuItem>
-                    ))}
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Operational Station *")}</Typography>
+                <FormControl fullWidth size="small" sx={glassCtrlSx}>
+                  <Select multiple value={stationsSel} onChange={handleStationChange} displayEmpty renderValue={sel => sel.length ? sel.join(", ") : t("Select Stations")}>
+                    {stationOptions.map(s => <MenuItem key={s} value={s}><Checkbox checked={stationsSel.indexOf(s) > -1} sx={{ p: 0.5 }} /><ListItemText primary={s} /></MenuItem>)}
                   </Select>
                 </FormControl>
-              </Box>
+              </Stack>
+            </Grid>
 
-              <Box className="form-item">
-                <Typography className="form-label">{t("Satellite Name *")}</Typography>
-                <FormControl fullWidth size="small">
-                  <Select<string[]>
-                    multiple
-                    value={satellitesSel}
-                    disabled={!stationsSel.length}
-                    onChange={(e: SelectChangeEvent<string[]>) => {
-                      const v = e.target.value;
-                      setSatellitesSel(typeof v === "string" ? v.split(",") : v);
-                    }}
-                    displayEmpty
-                    renderValue={(selected) =>
-                      selected.length ? selected.join(", ") : t("Select Satellite")
-                    }
-                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                    MenuProps={menuTheme}
-                  >
-                    <MenuItem disabled value="">
-                      {t("Select Satellite")}
-                    </MenuItem>
-
-                    {satOptions.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        <Checkbox checked={satellitesSel.indexOf(s) > -1} />
-                        <ListItemText primary={s} />
-                      </MenuItem>
-                    ))}
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Target Satellite *")}</Typography>
+                <FormControl fullWidth size="small" sx={glassCtrlSx} disabled={!stationsSel.length}>
+                  <Select multiple value={satellitesSel} onChange={e => setSatellitesSel(typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value)} displayEmpty renderValue={sel => sel.length ? sel.join(", ") : t("Select Satellites")}>
+                    {satOptions.map(s => <MenuItem key={s} value={s}><Checkbox checked={satellitesSel.indexOf(s) > -1} sx={{ p: 0.5 }} /><ListItemText primary={s} /></MenuItem>)}
                   </Select>
                 </FormControl>
-              </Box>
+              </Stack>
+            </Grid>
 
-
-              {/* Row 2 */}
-              <Box className="form-item">
-                <Typography className="form-label">{t(noLicenseRequired ? "Applied Date" : "Applied Date *")}</Typography>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DesktopDatePicker
-                    value={appliedDate}
-                    onChange={(v) => setAppliedDate(v)}
-                    format="MM/dd/yyyy"
-                    disabled={noLicenseRequired}
-                    slotProps={{
-                      textField: { size: "small", sx: (tMui) => ({ ...controlSx, ...filledField(tMui), opacity: noLicenseRequired ? 0.5 : 1 }), placeholder: t("MM/DD/YYYY") },
-                      popper: { sx: PICKER_POPPER_SX },
-                    }}
-                  />
-                </LocalizationProvider>
-              </Box>
-
-              <Box className="form-item">
-                <Typography className="form-label">{t("Receipt Date")}</Typography>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DesktopDatePicker
-                    value={receiptDate}
-                    onChange={(v) => setReceiptDate(v)}
-                    format="MM/dd/yyyy"
-                    disabled={noLicenseRequired}
-                    slotProps={{
-                      textField: { size: "small", sx: (tMui) => ({ ...controlSx, ...filledField(tMui), opacity: noLicenseRequired ? 0.5 : 1 }), placeholder: t("MM/DD/YYYY") },
-                      popper: { sx: PICKER_POPPER_SX },
-                    }}
-                  />
-                </LocalizationProvider>
-              </Box>
-
-              <Box className="form-item">
-                <Typography className="form-label">{t("Validity (Expiry)")}</Typography>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DesktopDatePicker
-                    value={validity}
-                    onChange={(v) => setValidity(v)}
-                    format="MM/dd/yyyy"
-                    disabled={noLicenseRequired}
-                    slotProps={{
-                      textField: { size: "small", sx: (tMui) => ({ ...controlSx, ...filledField(tMui), opacity: noLicenseRequired ? 0.5 : 1 }), placeholder: t("MM/DD/YYYY") },
-                      popper: { sx: PICKER_POPPER_SX },
-                    }}
-                  />
-                </LocalizationProvider>
-              </Box>
-
-              {/* Row 3 */}
-              <Box className="form-item">
-                <Typography className="form-label">{t("Status *")}</Typography>
-                <FormControl fullWidth size="small">
-                  <Select value={noLicenseRequired ? "No License Required" : status} onChange={(e) => setStatus(e.target.value)} disabled={noLicenseRequired} sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} MenuProps={menuTheme}>
-                    {["Pending", "Approved", "Rejected", "Expired"].map((s) => (<MenuItem key={s} value={s}>{t(s)}</MenuItem>))}
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Licensing Status *")}</Typography>
+                <FormControl fullWidth size="small" sx={glassCtrlSx} disabled={noLicenseRequired}>
+                  <Select value={noLicenseRequired ? "No License Required" : status} onChange={e => setStatus(e.target.value as string)}>
+                    {["Pending", "Approved", "Rejected", "Expired"].map(s => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
                     {noLicenseRequired && <MenuItem value="No License Required">{t("No License Required")}</MenuItem>}
                   </Select>
                 </FormControl>
-              </Box>
+              </Stack>
+            </Grid>
 
-              {/* No License Required checkbox – only for ISRO stations */}
-              {isIsroStation && (
-                <Box className="form-item" sx={{ display: "flex", alignItems: "center", pt: 2.5 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
-                    <input
-                      type="checkbox"
-                      checked={noLicenseRequired}
-                      onChange={(e) => {
-                        setNoLicenseRequired(e.target.checked);
-                        if (e.target.checked) setStatus("No License Required");
-                        else setStatus("Pending");
-                      }}
-                      style={{ width: 16, height: 16, accentColor: "#7C57F2", cursor: "pointer" }}
-                    />
-                    <Typography sx={{ fontSize: 13, color: vars.text, fontWeight: 600 }}>
-                      {t("No License Required")}
-                    </Typography>
-                  </label>
-                </Box>
-              )}
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack spacing={0.8}>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Applied Date *")}</Typography>
+                  <DesktopDatePicker value={appliedDate} onChange={setAppliedDate} disabled={noLicenseRequired} slotProps={{ textField: { size: "small", sx: pickerSx, placeholder: "MM/DD/YYYY" } }} />
+                </Stack>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack spacing={0.8}>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Receipt Date")}</Typography>
+                  <DesktopDatePicker value={receiptDate} onChange={setReceiptDate} disabled={noLicenseRequired} slotProps={{ textField: { size: "small", sx: pickerSx, placeholder: "MM/DD/YYYY" } }} />
+                </Stack>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack spacing={0.8}>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Validity Period")}</Typography>
+                  <DesktopDatePicker value={validity} onChange={setValidity} disabled={noLicenseRequired} slotProps={{ textField: { size: "small", sx: pickerSx, placeholder: "MM/DD/YYYY" } }} />
+                </Stack>
+              </Grid>
+            </LocalizationProvider>
 
-              <Box className="form-item" sx={{ gridColumn: { xs: "auto", md: "span 2" } }}>
-                <Typography className="form-label">{t("Remarks")}</Typography>
-                <TextField value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t("Enter remarks")} size="small" sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
-              </Box>
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ height: "100%", pt: 1.5 }}>
+                <Checkbox size="small" checked={noLicenseRequired} onChange={e => { setNoLicenseRequired(e.target.checked); if (e.target.checked) setStatus("No License Required"); else setStatus("Pending"); }} sx={{ color: DIM, "&.Mui-checked": { color: ACCENT } }} />
+                <Typography sx={{ fontSize: 12, fontWeight: 800, color: TEXT }}>{t("Mark as [No License Required]")}</Typography>
+              </Stack>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Internal Remarks")}</Typography>
+                <TextField fullWidth size="small" value={remarks} onChange={e => setRemarks(e.target.value)} placeholder={t("Add operational notes...")} sx={glassCtrlSx} />
+              </Stack>
+            </Grid>
+          </Grid>
+
+          {/* Bands Sub-Terminal */}
+          <Box sx={{ mt: 4.5, p: 2, borderRadius: "12px", bgcolor: "rgba(0,0,0,0.2)", border: `1px solid ${vars.borderWeak}`, position: "relative",
+            opacity: noLicenseRequired ? 0.3 : 1, transition: "all 0.4s"
+          }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.2 }}>
+              <TuneIcon sx={{ fontSize: 16, color: ACCENT, opacity: 0.8 }} />
+              <Typography sx={{ fontWeight: 800, fontSize: 13, color: TEXT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("RF Band Configuration")}</Typography>
             </Box>
 
-            {/* Bands (Antenna-style container) – hidden when No License Required */}
-            <Box sx={{ mt: 2, border: `1px solid ${vars.border}`, borderRadius: 1.5, p: 1.25, opacity: noLicenseRequired ? 0.4 : 1, pointerEvents: noLicenseRequired ? "none" : "auto" }}>
-              <Typography sx={{ fontWeight: 700, fontSize: 14, mb: 1, color: vars.text }}>
-                {t("Bands/Carriers")}
-              </Typography>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1.5 }}>
+              <FormControl size="small" sx={{ flex: 1, minWidth: 200, ...glassCtrlSx }}>
+                <Select value={newBand.band} onChange={e => setNewBand({ ...newBand, band: e.target.value })} displayEmpty renderValue={v => v || t("Select Spectrum Band")}>
+                  {["UHF (300 MHz – 3 GHz)", "VHF (30 MHz – 300 MHz)", "L (1-2 GHz)", "S (2.0 – 2.3 GHz)", "C (4 – 8 GHz)", "X (8 – 12 GHz)", "Ku (12-18 GHz)", "Ka (26.5 to 40 GHz)"].map(b => <MenuItem key={b} value={b}>{t(b)}</MenuItem>)}
+                </Select>
+              </FormControl>
 
-              {/* Input row (same as Antenna) */}
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", justifyContent: "flex-start" }}>
+              <Stack direction="row" spacing={2} sx={{ bgcolor: "rgba(255,255,255,0.03)", px: 1.5, height: 34, borderRadius: "10px", alignItems: "center", border: "1px solid rgba(255,255,255,0.04)" }}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Checkbox size="small" checked={newBand.uplink} onChange={e => setNewBand({ ...newBand, uplink: e.target.checked })} sx={{ p: 0.2, color: DIM }} />
+                  <Typography sx={{ fontSize: 10, fontWeight: 700, color: TEXT }}>UPLINK</Typography>
+                </Stack>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Checkbox size="small" checked={newBand.downlink} onChange={e => setNewBand({ ...newBand, downlink: e.target.checked })} sx={{ p: 0.2, color: DIM }} />
+                  <Typography sx={{ fontSize: 10, fontWeight: 700, color: TEXT }}>DOWNLINK</Typography>
+                </Stack>
+              </Stack>
 
-                {/* Select Band */}
-                <FormControl size="small" sx={{ width: 180 }}>
-                  <Select
-                    value={rows[0].band}
-                    onChange={(e) => updateRow(rows[0].id, "band", e.target.value)}
-                    displayEmpty
-                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                    MenuProps={menuTheme}
-                  >
-                    <MenuItem disabled value="">{t("Select Bands/Carriers")}</MenuItem>
-                    {["UHF (300 MHz – 3 GHz)", "VHF (30 MHz – 300 MHz)", "L (1-2 GHz)", "S (2.0 – 2.3 GHz)", "C (4 – 8 GHz)", "X (8 – 12 GHz)", "Ku (12-18 GHz)", "Ka (26.5 to 40 GHz)"].map((b) => (
-                      <MenuItem key={b} value={b}>{t(b)}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+              <Button variant="contained" disabled={!newBand.band} onClick={() => { setRows([...rows, { ...newBand, id: Date.now() }]); setNewBand({ id: 0, band: "", uplink: false, downlink: false }); }} sx={{ ...premiumBtnSx, height: 34, whiteSpace: "nowrap" }}><AddRoundedIcon sx={{ fontSize: 17, mr: 0.5 }} /> {t("Add Band")}</Button>
+            </Stack>
 
-                {/* Enter G/T */}
-                {/* <TextField
-      size="small"
-      sx={(tMui) => ({ ...controlSx, ...filledField(tMui), width: 170 })}
-      placeholder={t("Enter G/T")}
-      value={rows[0].uplink}
-      onChange={(e) => updateRow(rows[0].id, "uplink", e.target.value)}
-    /> */}
-
-                {/* Checkboxes */}
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Checkbox
-                    checked={rows[0].uplink}
-                    onChange={(e) => updateRow(rows[0].id, "uplink", e.target.checked)}
-                    sx={{ p: 0.5 }}
-                  />
-                  <Typography sx={{ fontSize: 13 }}>{t("Uplink")}</Typography>
-
-                  <Checkbox
-                    checked={rows[0].downlink}
-                    onChange={(e) => updateRow(rows[0].id, "downlink", e.target.checked)}
-                    sx={{ p: 0.5 }}
-                  />
-                  <Typography sx={{ fontSize: 13 }}>{t("Downlink")}</Typography>
-
-                </Box>
-
-                {/* Clear and Add */}
-                {/* Clear and Add – move to right */}
-                <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
-                  <Button
-                    onClick={() => setRows([{ id: 1, band: "", uplink: false, downlink: false }])}
-
-                    size="small"
-                    sx={{
-                      textTransform: "none",
-                      color: vars.text,
-                      border: `1px solid ${vars.border}`,
-                      borderRadius: 1,
-                      px: 1.25,
-                      "&:hover": { background: vars.bgHover }
-                    }}
-                  >
-                    {t("Clear")}
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      if (!rows[0].band) return;
-
-                      const filled = { ...rows[0], id: nextIdRef.current++ };
-                      setRows((r) => [
-                        { id: 1, band: "", uplink: false, downlink: false },  // reset input
-                        ...r.slice(1),
-                        filled
-                      ]);
-
-                    }}
-
-                    size="small"
-                    variant="contained"
-                    sx={{
-                      textTransform: "none",
-                      fontWeight: 700,
-                      bgcolor: "#DC2626",
-                      color: "#fff",
-                      "&:hover": { bgcolor: "#B91C1C" }
-                    }}
-                  >
-                    {t("Add")}
-                  </Button>
-
-                </Box>
-              </Box>
-              {/* No bands line */}
-              <Box sx={{ mt: 1.25, pl: 0.5, color: vars.textDim, fontSize: 13 }}>
-                {rows.length <= 1 && !rows[0].band ? t("No bands added.") : ""}
-              </Box>
-
-              {/* Existing added bands */}
-              {rows.slice(1).map((r) => (
-
-                <Box
-                  key={r.id}
-                  sx={{
-                    mt: 1,
-                    px: 1,
-                    py: 0.8,
-                    border: `1px solid ${vars.borderWeak}`,
-                    borderRadius: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography sx={{ fontSize: 13 }}>
-                    {r.band} {" | "}
-                    {r.uplink && "Uplink"} {r.uplink && r.downlink ? " | " : ""}
-                    {r.downlink && "Downlink"}
-                    {!(r.uplink || r.downlink) && "-"}
-                  </Typography>
-
-                  <IconButton sx={{ color: vars.textDim }} onClick={() => removeRow(r.id)}>
-                    <CloseRoundedIcon />
-                  </IconButton>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
+              {rows.map(r => (
+                <Box key={r.id} sx={{ display: "flex", alignItems: "center", px: 1.5, py: 0.6, bgcolor: vars.bgCtrl, borderRadius: "10px", border: `1px solid ${vars.border}`, transition: "all 0.2s", "&:hover": { borderColor: ACCENT } }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: TEXT }}>{r.band}</Typography>
+                    <Typography sx={{ fontSize: 9, color: DIM, textTransform: "uppercase", fontWeight: 800 }}>{r.uplink ? "Uplink" : ""} {r.uplink && r.downlink ? "•" : ""} {r.downlink ? "Downlink" : ""}</Typography>
+                  </Box>
+                  <Button size="small" onClick={() => setRows(rows.filter(x => x.id !== r.id))} sx={{ minWidth: 28, p: 0, color: vars.danger, borderRadius: "6px" }}><DeleteOutlineIcon sx={{ fontSize: 16 }} /></Button>
                 </Box>
               ))}
-            </Box>
-
-
-
-            {/* Save */}
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-              <Button
-                variant="contained"
-                onClick={(e) => { (e.currentTarget as HTMLButtonElement).blur(); setCaptchaAction("save"); setCaptchaOpen(true); }}
-                disabled={isSaving}
-                sx={{ textTransform: "none", fontWeight: 700, bgcolor: COLORS.purple, color: "#fff", "&:hover": { bgcolor: "#6b46f1" } }}
-              >
-                {isSaving ? t("Saving...") : t("Save")}
-              </Button>
+              {rows.length === 0 && <Grid size={{ xs: 12 }}><Typography sx={{ fontSize: 11, color: DIM, textAlign: "center", py: 0.5, fontStyle: "italic" }}>{t("No RF bands partitioned yet.")}</Typography></Grid>}
             </Box>
           </Box>
+
+          <Button variant="contained" disabled={!stationsSel.length || !satellitesSel.length || (!noLicenseRequired && !appliedDate)} onClick={() => setCaptchaOpen(true)} sx={{ ...premiumBtnSx, mt: 2.5, width: { xs: "100%", sm: "auto" }, alignSelf: { xs: "stretch", sm: "flex-end" } }}>{t("SAVE")}</Button>
         </Card>
       </Box>
 
-      {/* CAPTCHA Dialog */}
-      <CaptchaDialog
-        open={captchaOpen}
-        onCancel={() => { setCaptchaOpen(false); setCaptchaAction(null); }}
-        onOk={async () => { setCaptchaOpen(false); await runAfterCaptcha(); }}
-      />
+      <style>{`
+        @keyframes sc-scan-line { 0% { left: -35%; } 100% { left: 100%; } }
+        @keyframes sc-fog-breathe { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.65; transform: scale(1.05); } }
+      `}</style>
     </MainLayout>
   );
 }

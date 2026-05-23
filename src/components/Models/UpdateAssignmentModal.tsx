@@ -8,6 +8,17 @@ import {
 import { useTheme } from "@mui/material/styles";
 import type { Theme } from "@mui/material/styles";
 import type { SelectChangeEvent } from "@mui/material/Select";
+import {
+  AmbientLighting,
+  PREMIUM_ACTION_BUTTON_SX,
+  PREMIUM_DIALOG_ACTIONS_SX,
+  PREMIUM_DIALOG_CONTENT_SX,
+  PREMIUM_DIALOG_PAPER_SX,
+  PREMIUM_DIALOG_TITLE_SX,
+  PREMIUM_FORM_CONTROL_SX,
+  PREMIUM_FORM_LABEL_SX,
+  PREMIUM_MENU_PROPS,
+} from "../../ui/styles";
 
 /* theme constants */
 const BG_DARK = "#151517";
@@ -21,6 +32,7 @@ const BORDER_LIGHT = "1px solid rgba(0,0,0,0.12)";
 const UI = { ctrlH: 34, font: 13, icon: 16 } as const;
 
 const compactCtrlSx = (t: Theme) => ({
+  ...PREMIUM_FORM_CONTROL_SX,
   bgcolor: t.palette.mode === "dark" ? CTRL_BG_DARK : CTRL_BG_LIGHT,
   borderRadius: 1,
   color: t.palette.mode === "dark" ? "#fff" : "#000",
@@ -58,26 +70,12 @@ const compactCtrlSx = (t: Theme) => ({
 }) as const;
 
 const labelSx = (t: Theme) => ({
-  color: t.palette.mode === "dark" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)",
-  mb: 0.5,
-  fontSize: 12,
+  ...PREMIUM_FORM_LABEL_SX,
 });
 
 /* themed menu */
 const menuPropsFor = (t: Theme) => ({
-  PaperProps: {
-    sx: {
-      bgcolor: t.palette.mode === "dark" ? CTRL_BG_DARK : "#fff",
-      color: t.palette.mode === "dark" ? "#fff" : "#000",
-      border: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
-      "& .MuiMenuItem-root.Mui-selected": {
-        bgcolor: t.palette.mode === "dark" ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.06)",
-      },
-      "& .MuiMenuItem-root:hover": {
-        bgcolor: t.palette.mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-      },
-    },
-  },
+  ...PREMIUM_MENU_PROPS,
 });
 
 /* ---- types ---- */
@@ -181,15 +179,14 @@ export default function UpdateAssignmentModal({
           borderRadius: 2,
           backgroundImage: "none",
           boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
+          ...PREMIUM_DIALOG_PAPER_SX,
         },
       }}
     >
+      <AmbientLighting />
       <DialogTitle
         sx={{
-          bgcolor: theme.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
-          color:   theme.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
-          fontWeight: 800,
-          pb: 1,
+          ...PREMIUM_DIALOG_TITLE_SX,
           borderBottom: theme.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
         }}
       >
@@ -202,6 +199,7 @@ export default function UpdateAssignmentModal({
           bgcolor: theme.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
           color:   theme.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
           borderColor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+          ...PREMIUM_DIALOG_CONTENT_SX,
         }}
       >
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.25, pt: 0.5 }}>
@@ -272,7 +270,7 @@ export default function UpdateAssignmentModal({
         sx={{
           bgcolor: theme.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
           color:   theme.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
-          p: 2,
+          ...PREMIUM_DIALOG_ACTIONS_SX,
           gap: 1.25,
           borderTop: theme.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
         }}
@@ -285,7 +283,7 @@ export default function UpdateAssignmentModal({
           onClick={handleUpdate}
           disabled={!isDirty}
           variant="contained"
-          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b48ea" } }}
+          sx={PREMIUM_ACTION_BUTTON_SX}
         >
           Update
         </Button>

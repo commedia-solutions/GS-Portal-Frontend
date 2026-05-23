@@ -16,6 +16,17 @@ import { useToast } from "../../ui/toast/ToastProvider";
 /* theme bridge (for colors consistent with the app) */
 import { vars } from "../../ui/toast/themeBridge";
 import { useI18n } from "../../i18n";
+import {
+  AmbientLighting,
+  PREMIUM_ACTION_BUTTON_SX,
+  PREMIUM_DIALOG_ACTIONS_SX,
+  PREMIUM_DIALOG_CONTENT_SX,
+  PREMIUM_DIALOG_PAPER_SX,
+  PREMIUM_DIALOG_TITLE_SX,
+  PREMIUM_FORM_CONTROL_SX,
+  PREMIUM_FORM_LABEL_SX,
+  PREMIUM_MENU_PROPS,
+} from "../../ui/styles";
 
 /* ---------- shared control styling (dark/light) ---------- */
 const UI = { ctrlH: 36, font: 13, icon: 16 };
@@ -29,6 +40,7 @@ const BORDER_DARK = "1px solid rgba(255,255,255,0.14)";
 const BORDER_LIGHT = "1px solid rgba(0,0,0,0.12)";
  
 const controlSx = {
+  ...PREMIUM_FORM_CONTROL_SX,
   borderRadius: 1,
   "& .MuiInputBase-root, & .MuiOutlinedInput-root": {
     height: `${UI.ctrlH}px`,
@@ -67,25 +79,11 @@ const controlSx = {
 } as const;
 
 const labelSx = {
-  color: vars.textDim,
-  mb: 0.5,
-  fontSize: 12,
+  ...PREMIUM_FORM_LABEL_SX,
 } as const;
 
 const darkLightMenu = {
-  PaperProps: {
-    sx: {
-      bgcolor: (t: Theme) => (t.palette.mode === "dark" ? vars.bgCard : "#fff"),
-      color: (t: Theme) => (t.palette.mode === "dark" ? vars.text : "#000"),
-      border: `1px solid ${vars.border}`,
-      "& .MuiMenuItem-root.Mui-selected": {
-        bgcolor: (t: Theme) => (t.palette.mode === "dark" ? vars.bgHover : "#f5f5f5"),
-      },
-      "& .MuiMenuItem-root:hover": {
-        bgcolor: (t: Theme) => (t.palette.mode === "dark" ? vars.bgHover : "#f5f5f5"),
-      },
-    },
-  },
+  ...PREMIUM_MENU_PROPS,
 };
 
 /* ---------- component ---------- */
@@ -203,14 +201,14 @@ onCreated?.(id);
           borderRadius: 2,
           backgroundImage: "none",
           boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
+          ...PREMIUM_DIALOG_PAPER_SX,
         }),
       }}
     >
+      <AmbientLighting />
       <DialogTitle
         sx={{
-          fontWeight: 800,
-          pb: 1,
-          color: (t: Theme) => (t.palette.mode === "dark" ? vars.text : "#000"),
+          ...PREMIUM_DIALOG_TITLE_SX,
         }}
       >
         {t("Add User")}
@@ -220,6 +218,7 @@ onCreated?.(id);
         <DialogContent
           dividers
           sx={{
+            ...PREMIUM_DIALOG_CONTENT_SX,
             borderColor: vars.border,
             "& .MuiFormHelperText-root": {
               m: 0,
@@ -446,7 +445,7 @@ onCreated?.(id);
           )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, gap: 1.25 }}>
+        <DialogActions sx={{ ...PREMIUM_DIALOG_ACTIONS_SX }}>
           <Box sx={{ flex: 1 }} />
           <Button
             onClick={onClose}
@@ -465,11 +464,7 @@ onCreated?.(id);
             disabled={!canCreate || busy}
             variant="contained"
             sx={{
-              textTransform: "none",
-              fontWeight: 700,
-              bgcolor: "#7C57F2",
-              color: "#fff",
-              "&:hover": { bgcolor: "#6b48ea" },
+              ...PREMIUM_ACTION_BUTTON_SX,
               "&.Mui-disabled": {
                 bgcolor: (t: Theme) => (t.palette.mode === "dark" ? vars.bgCtrl : "#ececec"),
                 color: vars.textDim,

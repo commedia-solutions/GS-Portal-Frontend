@@ -1,117 +1,52 @@
 // src/pages/Add_data_pages/Add_Satellites.tsx
-import React from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Box,
-  Card,
-  Button,
-  Typography,
-  TextField,
-  FormControl,
-  MenuItem,
-  Checkbox,
-  ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Box, Card, Button, Typography, TextField, FormControl, MenuItem, Checkbox, ListItemText,
+  Backdrop, CircularProgress, Stack, Grid, Dialog, DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
-import Select from "@mui/material/Select";
-import type { SelectChangeEvent } from "@mui/material/Select";
-
+import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import MainLayout from "../../layouts/MainLayout";
-import { TOPBAR_HEIGHT } from "../../components/TopNav";
-import api from "../../api/http"; // ✅ use DEFAULT export so baseURL/auth match everywhere
-
-/* ✅ theme bridge */
-import { vars, sxPresets } from "../../ui/toast/themeBridge";
+import api from "../../api/http";
+import { vars } from "../../ui/toast/themeBridge";
+import { PREMIUM_CARD_SX, AmbientLighting } from "../../ui/styles";
 import { useI18n } from "../../i18n";
+import SatelliteAltIcon from "@mui/icons-material/SatelliteAlt";
 
-/* -------------------- Shared UI (theme-aware) -------------------- */
-const CARD_SX = {
-  ...sxPresets.card,
-  borderRadius: 2,
-  display: "flex",
-  flexDirection: "column",
+/* ─────────────────────── style constants ─────────────────────── */
+const TEXT = vars.text;
+const DIM = vars.textDim;
+const ACCENT = vars.accent;
+
+const glassCtrlSx = {
+  "& .MuiOutlinedInput-root": {
+    height: "36px", fontSize: 13, color: TEXT,
+    backgroundColor: vars.bgCtrl, borderRadius: "12px",
+    backdropFilter: "blur(10px)",
+    "& fieldset": { borderColor: vars.border, transition: "all 0.2s" },
+    "&:hover fieldset": { borderColor: `${ACCENT}66` },
+    "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: 1 }
+  },
+  "& .MuiInputBase-input": { padding: "0 14px", fontSize: 13, color: TEXT },
+  "& .MuiInputBase-input::placeholder": { color: DIM, opacity: 0.7 },
+  "& .MuiSelect-select": { padding: "0 14px !important", display: "flex", alignItems: "center", fontSize: 13, color: TEXT, height: "36px !important" },
+  "& .MuiSvgIcon-root": { fontSize: 18, color: DIM }
 } as const;
 
-const COLORS = { link: vars.accent, purple: "#7C57F2" };
-
-/** sizing same as Add Passes */
-const FIELD_H = 36;
-const CONTENT_H = 32;
-const FONT_PX = 13;
-const HORIZ_PAD = 8;
-
-const controlSx = {
-  ...sxPresets.ctrl,
-  borderRadius: 1,
-  "& .MuiInputBase-root, & .MuiOutlinedInput-root": {
-    height: `${FIELD_H}px`,
-    minHeight: `${FIELD_H}px`,
-    alignItems: "center",
+const premiumBtnSx = {
+  textTransform: "none", fontWeight: 800, fontSize: 12.5, px: 3, height: 44,
+  borderRadius: "12px", background: `linear-gradient(135deg, ${ACCENT}, #0369a1)`,
+  boxShadow: `0 8px 20px rgba(14, 165, 233, 0.25)`,
+  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+  "&:hover": {
+    background: `linear-gradient(135deg, #0ea5e9, #075985)`,
+    transform: "translateY(-1px)",
+    boxShadow: `0 10px 25px rgba(14, 165, 233, 0.35)`,
   },
-  "& .MuiOutlinedInput-input, & .MuiInputBase-input": {
-    height: `${CONTENT_H}px`,
-    lineHeight: `${CONTENT_H}px`,
-    padding: `0 ${HORIZ_PAD}px`,
-    fontSize: `${FONT_PX}px`,
-    color: vars.text,
-  },
-  "& .MuiSelect-select, & .MuiSelect-select.MuiInputBase-inputSizeSmall": {
-    height: `${CONTENT_H}px !important`,
-    lineHeight: `${CONTENT_H}px`,
-    padding: `0 ${HORIZ_PAD}px !important`,
-    fontSize: `${FONT_PX}px`,
-    display: "flex",
-    alignItems: "center",
-  },
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: vars.border },
-  "& .MuiSvgIcon-root": { color: vars.text },
+  "&.Mui-disabled": { opacity: 0.5, color: "rgba(255,255,255,0.3)" }
 } as const;
 
-const filledField = (t: any) => {
-  const isDark = t.palette.mode === "dark";
-  return {
-    "& .MuiOutlinedInput-root": { backgroundColor: isDark ? "#232325" : "#fff" },
-    "& .MuiOutlinedInput-root.Mui-focused": { backgroundColor: isDark ? "#232325" : "#fff" },
-    "& .MuiSelect-select": { backgroundColor: isDark ? "#232325" : "#fff" },
-    "& .MuiInputBase-input": {
-      color: isDark ? vars.text : "#000",
-      "::placeholder": {
-        color: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)",
-        opacity: 1,
-      },
-    },
-  };
-};
-
-const menuTheme = {
-  PaperProps: {
-    sx: {
-      bgcolor: vars.bgCard,
-      color: vars.text,
-      border: `1px solid ${vars.border}`,
-      "& .MuiMenuItem-root.Mui-selected": { bgcolor: vars.bgHover },
-      "& .MuiMenuItem-root:hover": { bgcolor: vars.bgHover },
-    },
-  },
-};
-
-const LABEL_SX = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: vars.textDim,
-  mb: 0.5,
-  lineHeight: 1.2,
-} as const;
-
-const SCROLLER_SX = sxPresets.scroller;
-
-/* ===================== OFFLINE CAPTCHA (SVG) ===================== */
+/* ---------------- CAPTCHA UI ---------------- */
 type Captcha = { text: string; svg: string };
-
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
 function pick(chars: string, n: number) { let s = ""; for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)]; return s; }
 function makeCaptcha(width = 220, height = 80, length = 5): Captcha {
@@ -123,352 +58,191 @@ function makeCaptcha(width = 220, height = 80, length = 5): Captcha {
     const y = height / 2 + rand(-5, 5);
     const r = rand(-24, 24);
     const fontSize = rand(30, 38);
-    return `<text x="${x}" y="${y}" font-size="${fontSize}" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${r} ${x} ${y})">${ch}</text>`;
+    return `<text x="${x}" y="${y}" font-size="${fontSize}" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${r} ${x} ${y})" fill="white">${ch}</text>`;
   }).join("");
   const lines = Array.from({ length: 4 }).map(() => {
     const x1 = rand(0, width), y1 = rand(0, height);
     const x2 = rand(0, width), y2 = rand(0, height);
-    const op = rand(0.25, 0.45).toFixed(2);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(1,2)}"/>`;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="0.3" stroke-width="1"/>`;
   }).join("");
-  const dots = Array.from({ length: 35 }).map(() => {
-    const x = rand(0, width), y = rand(0, height);
-    const op = rand(0.15, 0.35).toFixed(2);
-    return `<circle cx="${x}" cy="${y}" r="${rand(0.8,2.2)}" fill="white" fill-opacity="${op}"/>`;
-  }).join("");
-  const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <filter id="wavy">
-      <feTurbulence type="fractalNoise" baseFrequency="${rand(0.9,1.3)/100}" numOctaves="2" result="noise"/>
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="${rand(8,14)}" xChannelSelector="R" yChannelSelector="G"/>
-    </filter>
-    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="#1a1a1d"/>
-      <stop offset="100%" stop-color="#121214"/>
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#bg)"/>
-  <g filter="url(#wavy)" fill="#e7e7ff">${chars}</g>
-  <g>${lines}${dots}</g>
-</svg>`.trim();
-  return { text, svg };
+  return {
+    text,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#1a1a1d"/>${chars}${lines}</svg>`.trim()
+  };
 }
 function svgDataUrl(svg: string) { return "data:image/svg+xml;utf8," + encodeURIComponent(svg); }
 
-function CaptchaDialog({
-  open, onCancel, onOk,
-}: { open: boolean; onCancel: () => void; onOk: () => void; }) {
+function CaptchaDialog({ open, onCancel, onOk }: { open: boolean; onCancel: () => void; onOk: () => void; }) {
   const { t } = useI18n();
-  const [cap, setCap] = React.useState<Captcha>(() => makeCaptcha());
-  const [input, setInput] = React.useState("");
-  const [error, setError] = React.useState("");
+  const [cap, setCap] = useState<Captcha>(() => makeCaptcha());
+  const [input, setInput] = useState("");
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = () => { setCap(makeCaptcha()); setInput(""); setError(""); };
   const submit = () => {
     if (input.trim().toLowerCase() === cap.text.toLowerCase()) { setError(""); onOk(); }
     else { setError(t("Incorrect code. Try again.")); refresh(); }
   };
-  React.useEffect(() => { if (open) refresh(); }, [open]);
+  useEffect(() => { if (open) { refresh(); setTimeout(() => inputRef.current?.focus(), 0); } }, [open]);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onCancel}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}` } }}
-    >
+    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth keepMounted disableRestoreFocus PaperProps={{ sx: { bgcolor: vars.bgCard, color: vars.text, border: `1px solid ${vars.border}`, borderRadius: "16px" } }}>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("Verify you’re human")}</DialogTitle>
       <DialogContent>
-        <Box sx={{ display: "grid", gap: 1 }}>
-          <img src={svgDataUrl(cap.svg)} alt="captcha"
-               style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${vars.border}` }} />
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <TextField
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t("Type the letters")}
-              size="small"
-              fullWidth
-              sx={(tMui) => ({ ...sxPresets.ctrl, "& .MuiOutlinedInput-root": { height: 36, background: tMui.palette.mode === "dark" ? "#232325" : "#fff" } })}
-            />
-            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: vars.border }}>
-              {t("Refresh")}
-            </Button>
-          </Box>
-          {error && <Typography sx={{ color: "#f87171", fontSize: 12, mt: 0.25 }}>{error}</Typography>}
-        </Box>
+        <Stack spacing={2}>
+          <img src={svgDataUrl(cap.svg)} alt="captcha" style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${vars.border}` }} />
+          <Stack direction="row" spacing={1}>
+            <TextField value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("Type the letters")} size="small" fullWidth autoFocus inputRef={inputRef} sx={glassCtrlSx} />
+            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: vars.border, color: TEXT, borderRadius: "12px" }}>{t("Refresh")}</Button>
+          </Stack>
+          {error && <Typography sx={{ color: "#f87171", fontSize: 12 }}>{error}</Typography>}
+        </Stack>
       </DialogContent>
-      <DialogActions sx={{ px: 2, pb: 2 }}>
-        <Button onClick={onCancel} sx={{ textTransform: "none" }}>{t("Cancel")}</Button>
-        <Button onClick={submit} variant="contained"
-                sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { bgcolor: "#6b46f1" } }}>
-          {t("Verify")}
-        </Button>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button onClick={onCancel} sx={{ textTransform: "none", color: DIM }}>{t("Cancel")}</Button>
+        <Button onClick={submit} variant="contained" sx={{ ...premiumBtnSx, height: 36 }}>{t("Verify")}</Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-/* -------------------- Page -------------------- */
 export default function AddSatellites() {
   const { t } = useI18n();
 
-  // form
-  const [satId, setSatId] = React.useState("");
-  const [satName, setSatName] = React.useState("");
-  const [noradId, setNoradId] = React.useState("");
-  const [ituName, setItuName] = React.useState("");
+  const [satId, setSatId] = useState("");
+  const [satName, setSatName] = useState("");
+  const [noradId, setNoradId] = useState("");
+  const [ituName, setItuName] = useState("");
+  const [stationsSel, setStationsSel] = useState<string[]>([]);
+  const [polsSel, setPolsSel] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // options
-  const [stationsOpts, setStationsOpts] = React.useState<string[]>([]);
- // fixed polarization values
-const [polOpts] = React.useState<string[]>(["LHCP", "RHCP", "OMNI"]);
+  const [stationsOpts, setStationsOpts] = useState<string[]>([]);
+  const [polOpts] = useState<string[]>(["LHCP", "RHCP", "OMNI"]);
 
+  const [captchaOpen, setCaptchaOpen] = useState(false);
 
-  // selections
-  const [stationsSel, setStationsSel] = React.useState<string[]>([]);
-  const [polsSel, setPolsSel] = React.useState<string[]>([]);
-
-  const [saving, setSaving] = React.useState(false);
-
-  // captcha flow
-  const [captchaOpen, setCaptchaOpen] = React.useState(false);
-  const [pendingPayload, setPendingPayload] = React.useState<any | null>(null);
-
-  React.useEffect(() => {
-    let active = true;
+  useEffect(() => {
     (async () => {
       try {
         const gs = await api.get<any>("/api/ground-stations");
-
-
         const gsRows: any[] = Array.isArray(gs?.data) ? gs.data : Array.isArray(gs) ? gs : [];
-        const stationNames = Array.from(
-          new Set(
-            gsRows
-              .map((g) => String(g.ground_station ?? g.station_name ?? g.name ?? "").trim())
-              .filter(Boolean)
-          )
-        ).sort((a, b) => a.localeCompare(b));
-
-        // const polRows: any[] = Array.isArray(pol?.data) ? pol.data : Array.isArray(pol) ? pol : [];
-        // const polValues = Array.from(
-        //   new Set(polRows.map((p) => String(p.polarization ?? "").trim()).filter(Boolean))
-        // ).sort((a, b) => a.localeCompare(b));
-
-        if (active) {
-          setStationsOpts(stationNames);
-          // setPolOpts(polValues);
-        }
-      } catch (e) {
-        console.error("Failed to load form options", e);
-        if (active) {
-          setStationsOpts([]);
-          // setPolOpts([]);
-        }
-      }
+        const stationNames = Array.from(new Set(gsRows.map((g) => String(g.ground_station ?? g.station_name ?? g.name ?? "").trim()).filter(Boolean))).sort();
+        setStationsOpts(stationNames);
+      } catch (e) { console.error(e); }
     })();
-    return () => { active = false; };
   }, []);
 
-  const clearForm = () => {
-    setSatId(""); setSatName(""); setNoradId(""); setItuName("");
-    setStationsSel([]); setPolsSel([]);
-  };
-
-  const handleStationsChange = (e: SelectChangeEvent<string[]>) => {
-    const v = e.target.value;
-    setStationsSel(typeof v === "string" ? v.split(",") : v);
-  };
-  const handlePolsChange = (e: SelectChangeEvent<string[]>) => {
-    const v = e.target.value;
-    setPolsSel(typeof v === "string" ? v.split(",") : v);
-  };
-
-  // Step 1: open captcha with prepared payload
   const handleSave = async () => {
-    if (!satId.trim() || !satName.trim() || stationsSel.length === 0 || polsSel.length === 0) {
-      alert(t("Please fill Satellite ID, Satellite Name, Station and Polarization."));
-      return;
-    }
-
-    const payload = {
-      satellite_id: satId.trim(),
-      satellite_name: satName.trim(),
-      station_name: stationsSel.join(", ").trim(),
-      polarization: polsSel.join(", ").trim(),
-      norad_id: noradId.trim() || null,
-      itu_name: ituName.trim() || null,
-    };
-
-    setPendingPayload(payload);
-    setCaptchaOpen(true);
-  };
-
-  // Step 2: called only after successful captcha
-  const actuallySave = async () => {
-    if (!pendingPayload) return;
     try {
-      setSaving(true);
-      await api.post("/api/satellites", pendingPayload);
+      setIsSaving(true);
+      const payload = {
+        satellite_id: satId.trim(),
+        satellite_name: satName.trim(),
+        station_name: stationsSel.join(", ").trim(),
+        polarization: polsSel.join(", ").trim(),
+        norad_id: noradId.trim() || null,
+        itu_name: ituName.trim() || null,
+      };
+      await api.post("/api/satellites", payload);
       alert(t("Satellite saved successfully."));
-      clearForm();
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || t("Failed to save satellite."));
-    } finally {
-      setSaving(false);
-      setPendingPayload(null);
-      setCaptchaOpen(false);
-    }
+      window.location.reload();
+    } catch (e: any) { alert(e?.message || t("Failed to save satellite.")); } finally { setIsSaving(false); }
   };
 
   return (
     <MainLayout title="">
-      <Box sx={{ px: 2, py: 1.5 }}>
-        <Card
-          sx={{ ...CARD_SX, height: `calc(100vh - ${TOPBAR_HEIGHT + 25}px)` }}
-          elevation={0}
-        >
-          {/* Header */}
-          <Box
-            sx={{
-              px: 1.25, py: 0.7, borderBottom: `1px solid ${vars.border}`,
-              display: "flex", alignItems: "center", gap: 1, bgcolor: vars.bgCard, color: vars.text,
-            }}
-          >
-            <Typography sx={{ fontWeight: 700, fontSize: 16 }}>{t("Add Satellite Details")}</Typography>
-            <Box sx={{ ml: "auto" }}>
-              <Button size="small" onClick={clearForm}
-                      sx={{ textTransform: "none", fontWeight: 600, color: vars.accent, px: 1 }}>
-                {t("Clear")}
-              </Button>
+      <Backdrop open={isSaving} sx={{ color: "#fff", zIndex: 2000 }}><CircularProgress color="inherit" /></Backdrop>
+      <CaptchaDialog open={captchaOpen} onCancel={() => setCaptchaOpen(false)} onOk={() => { setCaptchaOpen(false); handleSave(); }} />
+
+      <Box sx={{ 
+        px: 2, pt: 1, pb: 2, 
+        bgcolor: vars.bgApp, 
+        height: "100%",
+        minHeight: 0,
+        display: "flex", justifyContent: "center", alignItems: "center", 
+        position: "relative", overflow: "hidden" 
+      }}>
+
+        <Box sx={{ position: "absolute", inset: "-10%", background: `radial-gradient(circle at 80% 20%, rgba(14, 165, 233,0.12) 0%, transparent 40%)`, filter: "blur(70px)", pointerEvents: "none", zIndex: 0, animation: "sc-fog-breathe 25s ease-in-out infinite" }} />
+        <Box sx={{ position: "absolute", top: 0, bottom: 0, width: "35%", background: "linear-gradient(90deg, transparent, rgba(14, 165, 233,0.04), transparent)", pointerEvents: "none", zIndex: 0, animation: "sc-scan-line 15s linear infinite" }} />
+
+        <Card sx={{ ...PREMIUM_CARD_SX, width: "100%", maxWidth: 840, p: { xs: 2, sm: 2.5, md: 4 } }}>
+          <AmbientLighting />
+          <Box sx={{ position: "absolute", top: 0, left: 0, width: "100%", height: "4px", background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)` }} />
+
+          <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 3, gap: 1 }}>
+            <Box>
+              <Typography sx={{ fontWeight: 900, fontSize: { xs: 20, sm: 24 }, color: TEXT, letterSpacing: "-0.01em" }}>{t("Add Satellite Details")}</Typography>
+              <Typography sx={{ fontSize: 12, color: DIM, mt: 0.2 }}>{t("Register new space assets and define their ground station connectivity.")}</Typography>
             </Box>
+            <SatelliteAltIcon sx={{ fontSize: 32, color: ACCENT, opacity: 0.4 }} />
           </Box>
 
-          {/* Body */}
-          <Box sx={{ flex: 1, minHeight: 0, p: 1.25, overflowY: "auto", ...SCROLLER_SX }}>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" },
-                columnGap: 2, rowGap: 2,
-                "& .form-item": { display: "flex", flexDirection: "column" },
-              }}
-            >
-              <Box className="form-item">
-                <Typography sx={LABEL_SX}>{t("Satellite ID *")}</Typography>
-                <TextField value={satId} onChange={(e) => setSatId(e.target.value)}
-                           placeholder={t("Enter Satellite ID")} size="small"
-                           sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
-              </Box>
+          <Grid container spacing={2.5}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Satellite ID *")}</Typography>
+                <TextField fullWidth size="small" value={satId} onChange={e => setSatId(e.target.value)} placeholder={t("e.g. SAT-001")} sx={glassCtrlSx} />
+              </Stack>
+            </Grid>
 
-              <Box className="form-item">
-                <Typography sx={LABEL_SX}>{t("Satellite Name *")}</Typography>
-                <TextField value={satName} onChange={(e) => setSatName(e.target.value)}
-                           placeholder={t("Enter Satellite Name")} size="small"
-                           sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
-              </Box>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Satellite Name *")}</Typography>
+                <TextField fullWidth size="small" value={satName} onChange={e => setSatName(e.target.value)} placeholder={t("Enter full name")} sx={glassCtrlSx} />
+              </Stack>
+            </Grid>
 
-              <Box className="form-item">
-                <Typography sx={LABEL_SX}>{t("Norad ID")}</Typography>
-                <TextField value={noradId} onChange={(e) => setNoradId(e.target.value)}
-                           placeholder={t("Enter Norad ID")} size="small"
-                           sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
-              </Box>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Norad ID")}</Typography>
+                <TextField fullWidth size="small" value={noradId} onChange={e => setNoradId(e.target.value)} placeholder={t("5-digit catalog ID")} sx={glassCtrlSx} />
+              </Stack>
+            </Grid>
 
-              <Box className="form-item">
-                <Typography sx={LABEL_SX}>{t("ITU Name")}</Typography>
-                <TextField value={ituName} onChange={(e) => setItuName(e.target.value)}
-                           placeholder={t("Enter ITU Name")} size="small"
-                           sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })} />
-              </Box>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("ITU Name")}</Typography>
+                <TextField fullWidth size="small" value={ituName} onChange={e => setItuName(e.target.value)} placeholder={t("International ID")} sx={glassCtrlSx} />
+              </Stack>
+            </Grid>
 
-              {/* Station (multi-select) */}
-              <Box className="form-item">
-                <Typography sx={LABEL_SX}>{t("Station *")}</Typography>
-                <FormControl fullWidth size="small">
-                  <Select<string[]>
-                    multiple
-                    value={stationsSel}
-                    onChange={handleStationsChange}
-                    displayEmpty
-                    renderValue={(selected) =>
-                      (selected as string[]).length ? (selected as string[]).join(", ") : t("Select Station")
-                    }
-                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                    MenuProps={menuTheme}
-                  >
-                    <MenuItem disabled value="">{t("Select Station")}</MenuItem>
-                    {stationsOpts.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        <Checkbox checked={stationsSel.indexOf(s) > -1} sx={{ p: 0.5, mr: 1, color: vars.textDim }} />
-                        <ListItemText primary={s} />
-                      </MenuItem>
-                    ))}
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Station *")}</Typography>
+                <FormControl fullWidth size="small" sx={glassCtrlSx}>
+                  <Select multiple value={stationsSel} onChange={e => setStationsSel(typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value)} displayEmpty renderValue={sel => sel.length ? sel.join(", ") : t("Select Stations")}>
+                    {stationsOpts.map(s => <MenuItem key={s} value={s}><Checkbox checked={stationsSel.indexOf(s) > -1} sx={{ p: 0.5 }} /><ListItemText primary={s} /></MenuItem>)}
                   </Select>
                 </FormControl>
-              </Box>
+              </Stack>
+            </Grid>
 
-              {/* Polarization (multi-select) */}
-              <Box className="form-item">
-                <Typography sx={LABEL_SX}>{t("Polarization *")}</Typography>
-                <FormControl fullWidth size="small">
-                  <Select<string[]>
-                    multiple
-                    value={polsSel}
-                    onChange={handlePolsChange}
-                    displayEmpty
-                    renderValue={(selected) =>
-                      (selected as string[]).length ? (selected as string[]).join(", ") : t("Select Polarization")
-                    }
-                    sx={(tMui) => ({ ...controlSx, ...filledField(tMui) })}
-                    MenuProps={menuTheme}
-                  >
-                    <MenuItem disabled value="">{t("Select Polarization")}</MenuItem>
-                    {polOpts.map((p) => (
-                      <MenuItem key={p} value={p}>
-                        <Checkbox checked={polsSel.indexOf(p) > -1} sx={{ p: 0.5, mr: 1, color: vars.textDim }} />
-                        <ListItemText primary={p} />
-                      </MenuItem>
-                    ))}
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Stack spacing={0.8}>
+                <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Polarization *")}</Typography>
+                <FormControl fullWidth size="small" sx={glassCtrlSx}>
+                  <Select multiple value={polsSel} onChange={e => setPolsSel(typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value)} displayEmpty renderValue={sel => sel.length ? sel.join(", ") : t("Select Pol")}>
+                    {polOpts.map(p => <MenuItem key={p} value={p}><Checkbox checked={polsSel.indexOf(p) > -1} sx={{ p: 0.5 }} /><ListItemText primary={p} /></MenuItem>)}
                   </Select>
                 </FormControl>
-              </Box>
-            </Box>
+              </Stack>
+            </Grid>
+          </Grid>
 
-            {/* Save */}
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-              <Button
-                variant="contained"
-                onClick={handleSave}
-                disabled={saving}
-                sx={{
-                  "&&": { textTransform: "none", fontWeight: 700, bgcolor: COLORS.purple, color: "#fff !important" },
-                  "&:hover": { bgcolor: "#6b46f1", color: "#fff !important" },
-                  "& .MuiSvgIcon-root": { color: "#fff !important" },
-                  "&.Mui-disabled": {
-                    bgcolor: vars.bgCtrl, color: `${vars.textDim} !important`,
-                    border: `1px solid ${vars.border}`, boxShadow: "none", opacity: 1,
-                    "& .MuiSvgIcon-root": { color: `${vars.textDim} !important` },
-                  },
-                }}
-              >
-                <span style={{ color: "#fff" }}>{saving ? t("Saving...") : t("Save")}</span>
-              </Button>
-            </Box>
+          <Box sx={{ mt: 5, display: "flex", justifyContent: "flex-end", gap: 2 }}>
+            <Button variant="outlined" onClick={() => window.history.back()} sx={{ textTransform: "none", fontWeight: 700, color: DIM, borderColor: vars.border, borderRadius: "12px", px: 4 }}>{t("Cancel")}</Button>
+            <Button variant="contained" disabled={!satId || !satName || !stationsSel.length || !polsSel.length} onClick={() => setCaptchaOpen(true)} sx={{ ...premiumBtnSx, px: 6 }}>{t("SAVE")}</Button>
           </Box>
         </Card>
       </Box>
 
-      {/* Offline CAPTCHA modal */}
-      <CaptchaDialog
-        open={captchaOpen}
-        onCancel={() => { setCaptchaOpen(false); setPendingPayload(null); }}
-        onOk={actuallySave}
-      />
+      <style>{`
+        @keyframes sc-scan-line { 0% { left: -35%; } 100% { left: 100%; } }
+        @keyframes sc-fog-breathe { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.65; transform: scale(1.05); } }
+      `}</style>
     </MainLayout>
   );
 }

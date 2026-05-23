@@ -67,7 +67,7 @@ const pillSx = {
   height: 32,
   lineHeight: "32px",
   borderRadius: 999,
-  color: vars.textDim,
+  color: "var(--thead-text)",
   bgcolor: "transparent",
   "&.Mui-selected": {
     color: GREEN,

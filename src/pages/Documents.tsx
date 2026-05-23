@@ -1,38 +1,32 @@
 // src/pages/Documents.tsx
 import React from "react";
 import {
-  Box,
-  Card,
-  ToggleButtonGroup,
-  ToggleButton,
-  TextField,
-  InputAdornment,
-  Button,
-  TablePagination,
-  FormControl,
-  Select,
-  MenuItem,
-  Typography,
-  Divider,
-  IconButton,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Box, Card, ToggleButtonGroup, ToggleButton, TextField, InputAdornment, Button, TablePagination,
+  Select, MenuItem, Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DownloadIcon from "@mui/icons-material/Download";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import DescriptionIcon from "@mui/icons-material/Description";
+import StorageIcon from "@mui/icons-material/Storage";
+import ArticleIcon from "@mui/icons-material/Article";
+import TerminalIcon from "@mui/icons-material/Terminal";
+import FeedIcon from "@mui/icons-material/Feed";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import FolderZipIcon from "@mui/icons-material/FolderZip";
+
 import MainLayout from "../layouts/MainLayout";
+import { TOPBAR_HEIGHT } from "../components/TopNav";
 import { api, BASE_URL, getAuthToken } from "../api/http";
-import { useI18n } from "../i18n"; // <-- i18n
+import { useI18n } from "../i18n";
 import { useActionAccess } from "../auth/useActionAccess";
 
-/* --- API endpoints --- */
-const DOCUMENTS_API = `/api/documents`;
-const PASS_API = `/api/pass-schedule`;
+import { vars, sxPresets } from "../ui/toast/themeBridge";
+import {
+  PREMIUM_CARD_SX, THEAD_CELL_SX, ROW_CELL_SX, PAGINATION_SX,
+  AmbientLighting, TableScanLine
+} from "../ui/styles";
 
 /* --- Modals --- */
 import UpdateDocumentModal from "../components/Models/UpdateDocumentModal";
@@ -40,560 +34,62 @@ import UpdatePassModal from "../components/Models/UpdatePass_schedule_Modal";
 import type { DocumentRow as DocModalRow } from "../components/Models/UpdateDocumentModal";
 import type { PassRow as PassModalRow } from "../components/Models/UpdatePass_schedule_Modal";
 
-/* =========================================================
-   Robust mode detection
-========================================================= */
-function readCssColorVar(name: string, fallback = "#000") {
-  if (typeof window === "undefined") return fallback;
-  const raw = getComputedStyle(document.body).getPropertyValue(name).trim();
-  return raw || fallback;
-}
-function isLightFromCss() {
-  const c = readCssColorVar("--bg-card", "#1C1C1E").toLowerCase();
-  let r = 28, g = 28, b = 30;
-  if (c.startsWith("#")) {
-    const n = c.length === 4 ? c.replace(/^#(.)(.)(.)$/, "#$1$1$2$2$3$3") : c;
-    r = parseInt(n.slice(1, 3), 16);
-    g = parseInt(n.slice(3, 5), 16);
-    b = parseInt(n.slice(5, 7), 16);
-  } else if (c.startsWith("rgb")) {
-    const m = c.match(/rgb[a]?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
-    if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
-  }
-  const L = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  return L > 0.5;
-}
-function getMode(): "dark" | "light" {
-  if (typeof document === "undefined") return "dark";
-  if (document.body.classList.contains("theme-light")) return "light";
-  if (document.body.classList.contains("theme-dark")) return "dark";
-  return isLightFromCss() ? "light" : "dark";
-}
-function useMode() {
-  const [mode, setMode] = React.useState<"dark" | "light">(getMode());
-  React.useEffect(() => {
-    const onEvt = () => setMode(getMode());
-    window.addEventListener("pmgt:theme-changed", onEvt as EventListener);
-    const mo = new MutationObserver(() => setMode(getMode()));
-    mo.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-    const id = requestAnimationFrame(() => setMode(getMode()));
-    return () => {
-      window.removeEventListener("pmgt:theme-changed", onEvt as EventListener);
-      mo.disconnect();
-      cancelAnimationFrame(id);
-    };
-  }, []);
-  return mode;
+/* ─────────────────────── style constants ─────────────────────── */
+const TEXT = vars.text;
+const DIM = vars.textDim;
+const ACCENT = vars.accent;
+const BORDER = vars.border;
+
+const ctrlSx = {
+  "& .MuiOutlinedInput-root": {
+    height: "36px",
+    fontSize: 12.5,
+    color: TEXT,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: "6px",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    "& fieldset": { borderColor: "rgba(255,255,255,0.08)" },
+    "&:hover fieldset": { borderColor: `${ACCENT}40` },
+    "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: 1, boxShadow: `0 0 8px ${ACCENT}30` },
+  },
+  "& .MuiInputBase-input": { padding: "0 14px", fontSize: 12.5, color: TEXT, height: "36px", boxSizing: "border-box" },
+  "& .MuiInputBase-input::placeholder": { color: DIM, opacity: 0.6 },
+  "& .MuiSvgIcon-root": { fontSize: 18, color: DIM },
+  "& .MuiSelect-select": { display: "flex", alignItems: "center", paddingRight: "32px !important", height: "36px", boxSizing: "border-box" },
+} as const;
+
+function TypeIcon({ type }: { type: string }) {
+  const t = type.toLowerCase();
+  if (t.includes("pdf")) return <PictureAsPdfIcon sx={{ fontSize: 16, color: "#ff4d4d" }} />;
+  if (t.includes("sql")) return <StorageIcon sx={{ fontSize: 16, color: "#4da6ff" }} />;
+  if (t.includes("report")) return <ArticleIcon sx={{ fontSize: 16, color: "#ffd24d" }} />;
+  if (t.includes("manual")) return <FeedIcon sx={{ fontSize: 16, color: "#4dff88" }} />;
+  if (t.includes("plan")) return <DescriptionIcon sx={{ fontSize: 16, color: "#c299ff" }} />;
+  if (t.includes("zip") || t.includes("tar")) return <FolderZipIcon sx={{ fontSize: 16, color: "#ff944d" }} />;
+  return <TerminalIcon sx={{ fontSize: 16, color: DIM }} />;
 }
 
-/* =========================================================
-   Sizing tokens (unchanged)
-========================================================= */
-const UI = {
-  ctrlH: 36,
-  font: 13,
-  icon: 16,
-  gap: 0.75,
-  headerPx: 1.25,
-  headerPy: 0.6,
-  searchW: 260,
-  paginationH: 36,
-};
-
-/* =========================================================
-   Style generator — keeps dark EXACT, adds light safely
-========================================================= */
-function makeSx(mode: "dark" | "light") {
-  const C =
-    mode === "light"
-      ? {
-        CARD: "#FFFFFF",
-        CTRL: "#FFFFFF",
-        TEXT: "#0B1115",
-        TEXT_DIM: "rgba(11,17,21,0.75)",
-        ICON: "rgba(11,17,21,0.80)",
-        BORDER: "rgba(0,0,0,0.12)",
-        BORDER_WEAK: "rgba(0,0,0,0.10)",
-        HEADER_BG: "#464B4E",
-        HEADER_TEXT: "#FFFFFF",
-        HOVER: "rgba(0,0,0,0.035)",
-        SCROLL: "#c7c7c7",
-      }
-      : {
-        CARD: "#1C1C1E",
-        CTRL: "#1C1C1E",
-        TEXT: "#E8E8EA",
-        TEXT_DIM: "rgba(232,232,234,0.72)",
-        ICON: "rgba(255,255,255,0.90)",
-        BORDER: "rgba(255,255,255,0.14)",
-        BORDER_WEAK: "rgba(255,255,255,0.10)",
-        HEADER_BG: "#000000",
-        HEADER_TEXT: "#FFFFFF",
-        HOVER: "rgba(255,255,255,0.06)",
-        SCROLL: "#3f3f3f",
-      };
-
-  const CARD_SX = {
-    bgcolor: C.CARD,
-    color: C.TEXT,
-    border: `1px solid ${C.BORDER}`,
-    borderRadius: 2,
-    height: "calc(100vh - 90px)",
-    display: "flex",
-    flexDirection: "column" as const,
-    boxShadow: "none",
-    backgroundImage: "none",
-  } as const;
-
-  const SCROLLER_SX = {
-    scrollbarWidth: "thin",
-    scrollbarColor: `${C.SCROLL} transparent`,
-    "&::-webkit-scrollbar": { width: 8, height: 8 },
-    "&::-webkit-scrollbar-thumb": { background: C.SCROLL, borderRadius: 8 },
-    "&::-webkit-scrollbar-thumb:hover": { background: C.SCROLL },
-    "&::-webkit-scrollbar-track": { background: "transparent" },
-  };
-
-  const compactCtrlSx = {
-    bgcolor: C.CTRL,
-    borderRadius: 1,
-    color: C.TEXT,
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: C.BORDER },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: C.BORDER },
-    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: C.BORDER },
-    "& .MuiOutlinedInput-root": { height: `${UI.ctrlH}px`, color: C.TEXT, alignItems: "center" },
-    "& .MuiInputBase-input": { height: `${UI.ctrlH - 2}px`, padding: "0 12px", fontSize: UI.font, lineHeight: 1, color: C.TEXT },
-    "& .MuiSelect-select": { display: "flex", alignItems: "center", height: `${UI.ctrlH - 2}px`, padding: "0 12px" },
-    "& .MuiInputBase-input::placeholder": { color: C.TEXT_DIM, opacity: 1 },
-    "& .MuiSvgIcon-root": { fontSize: UI.icon, color: C.ICON },
-  };
-
-  const PRIMARY_BTN_SX = {
-    textTransform: "none",
-    fontWeight: 600,
-    px: 1.4,
-    py: 0.6,
-    borderRadius: 1,
-    bgcolor: "#7C57F2",
-    color: "#fff",
-    "& .MuiSvgIcon-root": { color: "#fff" },
-    "&:hover": { bgcolor: "#5732d3ff" },
-    "&.Mui-disabled": {
-      bgcolor: mode === "light" ? "#E0E0E0" : "#2f2f33",
-      color: mode === "light" ? "#000000" : "#b5b7bd",
-      border: `1px solid ${C.BORDER}`,
-      boxShadow: "none",
-      opacity: 1,
-      "& .MuiSvgIcon-root": { color: mode === "light" ? "#000000" : "#b5b7bd" },
-    },
-  } as const;
-
-  const OUTLINED_BTN_SX = {
-    textTransform: "none",
-    fontWeight: 700,
-    px: 1.4,
-    py: 0.6,
-    borderRadius: 1,
-    bgcolor: "transparent",
-    color: C.TEXT,
-    border: `1px solid ${C.BORDER}`,
-    "& .MuiSvgIcon-root": { color: C.ICON },
-    "&:hover": { bgcolor: C.HOVER, borderColor: C.BORDER },
-  } as const;
-
-  const toggleBtnSx = {
-    textTransform: "none",
-    fontWeight: 700,
-    fontSize: 13,
-    px: 2,
-    height: 32,
-    lineHeight: "32px",
-    borderRadius: 999,
-    color: C.TEXT_DIM,
-    "&.Mui-selected": {
-      color: mode === "light" ? "#6941F5" : "#7CFF8D",
-      bgcolor: C.CARD,
-      border: `1px solid ${C.BORDER}`,
-      boxShadow: `inset 0 0 0 1px ${C.BORDER_WEAK}`,
-    },
-  };
-
-  const darkMenu = {
-    PaperProps: {
-      sx: {
-        bgcolor: C.CARD,
-        color: C.TEXT,
-        border: `1px solid ${C.BORDER}`,
-        "& .MuiMenuItem-root.Mui-selected": { bgcolor: C.HOVER },
-        "& .MuiMenuItem-root:hover": { bgcolor: C.HOVER },
-      },
-    },
-  };
-
-  const paginationSx = {
-    px: 1,
-    color: C.TEXT,
-    minHeight: UI.paginationH,
-    "& .MuiTablePagination-toolbar": { minHeight: UI.paginationH, p: 0, pl: 1, pr: 1, gap: 0.5 },
-    "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: UI.font, m: 0, color: C.TEXT_DIM },
-    "& .MuiTablePagination-input": { fontSize: UI.font, m: 0, color: C.TEXT },
-    "& .MuiSelect-select": {
-      py: 0,
-      px: 1,
-      fontSize: UI.font,
-      height: UI.ctrlH - 6,
-      display: "flex",
-      alignItems: "center",
-      bgcolor: C.CTRL,
-      borderRadius: 1,
-    },
-    "& .MuiIconButton-root": { p: 0.25 },
-    ".MuiSvgIcon-root": { color: C.ICON, fontSize: UI.icon },
-  };
-
-  return { C, CARD_SX, SCROLLER_SX, compactCtrlSx, PRIMARY_BTN_SX, OUTLINED_BTN_SX, toggleBtnSx, darkMenu, paginationSx };
-}
-
-/* ---------- Data ---------- */
-const DOC_TYPES = [
-  "License report",
-  "Satellite report",
-  "Passes report",
-  "Project plan",
-  "Flow chart",
-  "Design Document",
-  "User manual",
-  "Other",
-] as const;
-
-type DocumentRow = { id: number; sr: number; name: string; type: string; remarks: string; url: string; addedBy: string; dateTime: string };
-
-type Column = {
-  key: keyof DocumentRow | "download" | "action";
-  label: string;
-  width?: number;
-  min?: number;
-  flex?: number;
-  align?: "left" | "center" | "right";
-};
-
-/* ---------- Table ---------- */
-function DarkDocsTable({
-  rows,
-  columns,
-  onDownload,
-  onUpdate,
-  mode,
-  C,
-  onResize,
-}: {
-  rows: DocumentRow[];
-  columns: Column[];
-  onDownload: (r: DocumentRow) => void;
-  onUpdate?: (r: DocumentRow) => void;
-  mode: "dark" | "light";
-  C: ReturnType<typeof makeSx>["C"];
-  onResize?: (key: string, width: number) => void;
-}) {
-  const totalMinW = columns.reduce((acc, c) => acc + (c.width ?? c.min ?? 80), 0) + 16;
-  const template = columns
-    .map((c) => {
-      if (c.key === "action") return "120px";
-      return c.width != null ? `${c.width}px` : `minmax(${Math.max(c.min ?? 80, 80)}px, ${c.flex ?? 1}fr)`;
-    })
-    .join(" ");
-
-  const headerCellSx = { px: "10px", py: "8px", fontWeight: 700, fontSize: 13, color: C.HEADER_TEXT, whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "50px" };
-  const bodyCellSx = { px: "10px", py: "6px", fontSize: 13, color: mode === "light" ? C.TEXT : "#EAEAEA", whiteSpace: "nowrap" as const, overflow: "hidden" as const, textOverflow: "ellipsis" as const, minWidth: "50px" };
-
+function Labeled({ label, children, width }: { label: string; children: React.ReactNode; width?: number | string }) {
   return (
-    <Box>
-      <Box sx={{ width: totalMinW, minWidth: "100%" }}>
-        {/* sticky header */}
-        <Box
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 2,
-            display: "grid",
-            gridTemplateColumns: template,
-            bgcolor: C.HEADER_BG,
-            borderBottom: `1px solid ${C.BORDER}`,
-          }}
-        >
-          {columns.map((c) => (
-            <Box
-              key={String(c.key)}
-              sx={{
-                ...headerCellSx,
-                textAlign: c.align ?? "center",
-                position: "relative",
-                "& .resizer": {
-                  position: "absolute",
-                  right: 0,
-                  top: "20%",
-                  height: "60%",
-                  width: "2px",
-                  bgcolor: mode === "light" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.2)",
-                  cursor: "col-resize",
-                  "&:hover": { bgcolor: "#7C57F2", width: "4px" },
-                },
-              }}
-            >
-              {c.label}
-              {onResize && (c.key === "name" || c.key === "remarks") && (
-                <Box
-                  className="resizer"
-                  onMouseDown={(e) => {
-                    const startX = e.pageX;
-                    const startWidth = c.width ?? c.min ?? 80;
-                    const onMove = (me: MouseEvent) => {
-                      onResize(String(c.key), Math.max(50, startWidth + (me.pageX - startX)));
-                    };
-                    const onUp = () => {
-                      document.removeEventListener("mousemove", onMove);
-                      document.removeEventListener("mouseup", onUp);
-                    };
-                    document.addEventListener("mousemove", onMove);
-                    document.addEventListener("mouseup", onUp);
-                  }}
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
-
-        {/* rows */}
-        {rows.map((r, idx) => (
-          <Box
-            key={`${r.id}-${idx}`}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: template,
-              borderBottom: `1px solid ${C.BORDER_WEAK}`,
-              bgcolor: idx % 2 === 0 ? "var(--row-odd)" : "var(--row-even)",
-              "&:hover": { bgcolor: C.HOVER },
-            }}
-          >
-            {columns.map((c) => {
-              if (c.key === "download") {
-                return (
-                  <Box key={`dl-${idx}`} sx={{ ...bodyCellSx, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                    <IconButton size="small" onClick={() => onDownload(r)} sx={{ color: C.ICON, "&:hover": { color: C.TEXT } }} aria-label="download">
-                      <DownloadIcon />
-                    </IconButton>
-                  </Box>
-                );
-              }
-              if (c.key === "action") {
-                return (
-                  <Box
-                    key={`act-${idx}`}
-                    sx={{ ...bodyCellSx, display: "flex", justifyContent: "center", alignItems: "center" }}
-                  >
-                    {onUpdate && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        sx={{
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          px: 1.1,
-                          bgcolor: "#7C57F2",
-                          "&:hover": { bgcolor: "#6b48ea" },
-                        }}
-                        onClick={() => onUpdate(r)}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                  </Box>
-                );
-              }
-
-
-              return (
-                <Box key={String(c.key)} sx={{ ...bodyCellSx, textAlign: c.align ?? "center", width: c.width ? `${c.width}px` : "auto" }} title={String(r[c.key as keyof DocumentRow] ?? "")}>
-                  {r[c.key as keyof DocumentRow] as any}
-                </Box>
-              );
-            })}
-          </Box>
-        ))}
-
-        {rows.length === 0 && (
-          <Box sx={{ px: 1.25, py: 2, color: mode === "light" ? C.TEXT_DIM : "#aaa", textAlign: "center" }}>
-            {/* i18n handled by caller: pass translated message in columns/labels or use placeholder here */}
-            No rows to show yet.
-          </Box>
-        )}
-      </Box>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, width: width ?? "auto" }}>
+      <Typography sx={{ fontSize: 9, fontWeight: 900, color: DIM, ml: 0.5, textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1 }}>
+        {label}
+      </Typography>
+      {children}
     </Box>
   );
 }
 
-/* ---------------- CAPTCHA (same behavior as Requests/Issues) ---------------- */
-type Captcha = { text: string; svg: string };
-const rand = (min: number, max: number) => Math.random() * (max - min) + min;
-const pick = (chars: string, n: number) => {
-  let s = "";
-  for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
-};
-function makeCaptcha(width = 220, height = 80, length = 5): Captcha {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const text = pick(alphabet, length);
-  const charW = width / (length + 1);
-  const chars = [...text]
-    .map((ch, i) => {
-      const x = (i + 1) * charW + rand(-6, 6);
-      const y = height / 2 + rand(-5, 5);
-      const r = rand(-24, 24);
-      const fontSize = rand(30, 38);
-      return `<text x="${x}" y="${y}" font-size="${fontSize}" font-weight="700" text-anchor="middle"
-               dominant-baseline="middle" transform="rotate(${r} ${x} ${y})">${ch}</text>`;
-    })
-    .join("");
-  const lines = Array.from({ length: 4 })
-    .map(() => {
-      const x1 = rand(0, width),
-        y1 = rand(0, height),
-        x2 = rand(0, width),
-        y2 = rand(0, height);
-      const op = rand(0.25, 0.45).toFixed(2);
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="white" stroke-opacity="${op}" stroke-width="${rand(
-        1,
-        2
-      )}"/>`;
-    })
-    .join("");
-  const dots = Array.from({ length: 35 })
-    .map(() => {
-      const x = rand(0, width),
-        y = rand(0, height);
-      const op = rand(0.15, 0.35).toFixed(2);
-      return `<circle cx="${x}" cy="${y}" r="${rand(0.8, 2.2)}" fill="white" fill-opacity="${op}"/>`;
-    })
-    .join("");
-  const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <filter id="wavy">
-      <feTurbulence type="fractalNoise" baseFrequency="${rand(0.9, 1.3) / 100}" numOctaves="2" result="noise"/>
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="${rand(8, 14)}" xChannelSelector="R" yChannelSelector="G"/>
-    </filter>
-    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="#1a1a1d"/>
-      <stop offset="100%" stop-color="#121214"/>
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#bg)"/>
-  <g filter="url(#wavy)" fill="#e7e7ff">${chars}</g>
-  <g>${lines}${dots}</g>
-</svg>`.trim();
-  return { text, svg };
-}
-const svgDataUrl = (svg: string) => "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+const DOC_TYPES = [
+  "License report", "Satellite report", "Passes report", "Project plan", "Flow chart", "Design Document", "User manual", "Other",
+] as const;
 
-function CaptchaDialog({
-  open,
-  onCancel,
-  onOk,
-  colors,
-  t, // <-- pass translator in
-}: {
-  open: boolean;
-  onCancel: () => void;
-  onOk: () => void;
-  colors: { card: string; text: string; border: string; ctrl: string };
-  t: (k: string) => string;
-}) {
-  const [cap, setCap] = React.useState<Captcha>(() => makeCaptcha());
-  const [input, setInput] = React.useState("");
-  const [error, setError] = React.useState("");
-
-  const refresh = () => {
-    setCap(makeCaptcha());
-    setInput("");
-    setError("");
-  };
-  const submit = () => {
-    if (input.trim().toLowerCase() === cap.text.toLowerCase()) onOk();
-    else {
-      setError(t("Incorrect code. Try again."));
-      refresh();
-    }
-  };
-  React.useEffect(() => {
-    if (open) refresh();
-  }, [open]);
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onCancel}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{ sx: { bgcolor: colors.card, color: colors.text, border: `1px solid ${colors.border}` } }}
-    >
-      <DialogTitle sx={{ fontWeight: 700 }}>{t("Verify you’re human")}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: "grid", gap: 1 }}>
-          <img
-            src={svgDataUrl(cap.svg)}
-            alt="captcha"
-            style={{ width: "100%", height: 80, borderRadius: 8, border: `1px solid ${colors.border}` }}
-          />
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <TextField
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t("Type the letters")}
-              size="small"
-              fullWidth
-              sx={{
-                "& .MuiOutlinedInput-root": { height: 36, background: colors.ctrl },
-                "& .MuiOutlinedInput-notchedOutline": { borderColor: colors.border },
-                "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: colors.border },
-                "& .MuiInputBase-input": { color: colors.text },
-              }}
-            />
-            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: colors.border }}>
-              {t("Refresh")}
-            </Button>
-          </Box>
-          {error && <Box sx={{ color: "#f87171", fontSize: 12, mt: 0.25 }}>{error}</Box>}
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 2, pb: 2 }}>
-        <Button onClick={onCancel} sx={{ textTransform: "none" }}>
-          {t("Cancel")}
-        </Button>
-        <Button
-          onClick={submit}
-          variant="contained"
-          sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#7C57F2", "&:hover": { filter: "brightness(0.95)" } }}
-        >
-          {t("Verify")}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-/* ---------------- end CAPTCHA ---------------- */
+type DocumentRow = { id: number; sr: number; name: string; type: string; remarks: string; url: string; addedBy: string; dateTime: string };
 
 /* ---------- Page ---------- */
 export default function DocumentsPage() {
-  const { t } = useI18n(); // <-- i18n
-  const mode = useMode();
-  const { C, CARD_SX, SCROLLER_SX, compactCtrlSx, PRIMARY_BTN_SX, OUTLINED_BTN_SX, toggleBtnSx, darkMenu, paginationSx } =
-    React.useMemo(() => makeSx(mode), [mode]);
-
+  const { t } = useI18n();
   const { hasWriteAccess } = useActionAccess();
-  // We determine if they can upload via the granular `pass_upload` write access:
-  const canUploadPassLevel = hasWriteAccess("pass_upload");
-
 
   const [tab, setTab] = React.useState<"docs" | "pass">("docs");
   const [docTypeFilter, setDocTypeFilter] = React.useState<string>("");
@@ -603,494 +99,354 @@ export default function DocumentsPage() {
   const [uploadType, setUploadType] = React.useState<string>("");
   const [uploadRemarks, setUploadRemarks] = React.useState("");
   const [file, setFile] = React.useState<File | null>(null);
-
   const [passRemarks, setPassRemarks] = React.useState("");
   const [passFile, setPassFile] = React.useState<File | null>(null);
+  const [selectedIds, setSelectedIds] = React.useState<number[]>([]);
 
   const [docRows, setDocRows] = React.useState<DocumentRow[]>([]);
   const [passRows, setPassRows] = React.useState<DocumentRow[]>([]);
-
-  const [docsPage, setDocsPage] = React.useState(0);
-  const [docsRpp, setDocsRpp] = React.useState(10);
-  const [passPage, setPassPage] = React.useState(0);
-  const [passRpp, setPassRpp] = React.useState(10);
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(25);
 
   const [editDoc, setEditDoc] = React.useState<DocModalRow | null>(null);
   const [editPass, setEditPass] = React.useState<PassModalRow | null>(null);
-
-  // CAPTCHA state
   const [captchaDocOpen, setCaptchaDocOpen] = React.useState(false);
   const [captchaPassOpen, setCaptchaPassOpen] = React.useState(false);
 
-  const handleFilePickDocs = (e: React.ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null);
-  const handleFilePickPass = (e: React.ChangeEvent<HTMLInputElement>) => setPassFile(e.target.files?.[0] ?? null);
-  const clearDocsFile = () => { setFile(null); const el = document.getElementById("doc-file-input") as HTMLInputElement | null; if (el) el.value = ""; };
-  const clearPassFile = () => { setPassFile(null); const el = document.getElementById("pass-file-input") as HTMLInputElement | null; if (el) el.value = ""; };
-
   const refreshDocs = React.useCallback(async () => {
     try {
-      const data = await api.get<any[]>(DOCUMENTS_API);
-      const mapped: DocumentRow[] = (data || []).map((row: any, i: number) => ({
-        id: row.id, sr: i + 1, name: row.document_name, type: row.doc_type, remarks: row.remarks || "", url: `${DOCUMENTS_API}/${row.id}/download`,
-        addedBy: row.added_by || "—",
-        dateTime: formatDateTime(row.updated_at || row.created_at),
+      const data = await api.get<any[]>(`/api/documents?_=${Date.now()}`);
+      const mapped = (data || []).map((row, i) => ({
+        id: row.id, sr: i + 1, name: row.document_name, type: row.doc_type, remarks: row.remarks || "", url: `/api/documents/${row.id}/download`,
+        addedBy: row.added_by || "—", dateTime: String(row.updated_at || row.created_at).replace("T", " ").split(".")[0]
       }));
       setDocRows(mapped);
-    } catch (e) { console.error("Fetch documents failed:", e); }
+    } catch (e) { console.error(e); }
   }, []);
 
   const refreshPass = React.useCallback(async () => {
     try {
-      const data = await api.get<any[]>(PASS_API);
-      const mapped: DocumentRow[] = (data || []).map((row: any, i: number) => ({
-        id: row.id, sr: i + 1, name: row.document_name, type: "", remarks: row.remarks || "", url: `${PASS_API}/${row.id}/download`,
-        addedBy: row.added_by || "—",
-        dateTime: formatDateTime(row.updated_at || row.created_at),
+      const data = await api.get<any[]>(`/api/pass-schedule?_=${Date.now()}`);
+      const mapped = (data || []).map((row, i) => ({
+        id: row.id, sr: i + 1, name: row.document_name, type: "", remarks: row.remarks || "", url: `/api/pass-schedule/${row.id}/download`,
+        addedBy: row.added_by || "—", dateTime: String(row.updated_at || row.created_at).replace("T", " ").split(".")[0]
       }));
       setPassRows(mapped);
-    } catch (e) { console.error("Fetch passes failed:", e); }
+    } catch (e) { console.error(e); }
   }, []);
-
-  function formatDateTime(raw: any) {
-    if (!raw) return "—";
-    // With dateStrings: true, MySQL returns 'YYYY-MM-DD HH:mm:ss'
-    // We just return it exactly as is, or strip milliseconds if present.
-    return String(raw).replace("T", " ").split(".")[0];
-  }
 
   React.useEffect(() => { refreshDocs(); refreshPass(); }, [refreshDocs, refreshPass]);
 
-  const canUploadDoc = hasWriteAccess("documents") && !!file && !!uploadType;
-  const canUploadPass = hasWriteAccess("pass_upload") && !!passFile;
-
-  // --- Upload actions (gated) ---
-  const doUploadDoc = async () => {
-    if (!canUploadDoc || !file) return;
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("doc_type", uploadType);
-      if (uploadRemarks.trim()) form.append("remarks", uploadRemarks.trim());
-      const token = getAuthToken();
-      const res = await fetch(`${BASE_URL}${DOCUMENTS_API}`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: form });
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-      await refreshDocs();
-      clearDocsFile();
-      setUploadType("");
-      setUploadRemarks("");
-    } catch (e: any) { console.error(e); alert(e.message || "Failed to upload document"); }
-  };
-  const doUploadPass = async () => {
-    if (!canUploadPassLevel) { alert("You do not have permission to upload the passes schedule."); return; }
-    if (!canUploadPass || !passFile) return;
-    try {
-      const form = new FormData();
-      form.append("file", passFile);
-      if (passRemarks.trim()) form.append("remarks", passRemarks.trim());
-      const token = getAuthToken();
-      const res = await fetch(`${BASE_URL}${PASS_API}`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: form });
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-      await refreshPass();
-      clearPassFile();
-      setPassRemarks("");
-    } catch (e: any) { console.error(e); alert(e.message || "Failed to upload pass schedule file"); }
-  };
-
-  // Gate openers
-  const openDocCaptcha = () => {
-    if (!canUploadDoc) return;
-    setCaptchaDocOpen(true);
-  };
-  const openPassCaptcha = () => {
-    if (!canUploadPass) return;
-    setCaptchaPassOpen(true);
-  };
-
   const docsFiltered = React.useMemo(() => {
     const q = docsSearch.trim().toLowerCase();
-    return docRows.filter((r) => {
-      const matchesType = !docTypeFilter || r.type === docTypeFilter;
-      if (!q) return matchesType;
-      const hay = [r.name, r.type, r.remarks].join(" ").toLowerCase();
-      return matchesType && hay.includes(q);
-    });
+    return docRows.filter(r => (!docTypeFilter || r.type === docTypeFilter) && (!q || [r.name, r.type, r.remarks].join(" ").toLowerCase().includes(q)));
   }, [docRows, docsSearch, docTypeFilter]);
 
   const passFiltered = React.useMemo(() => {
     const q = passSearch.trim().toLowerCase();
-    return passRows.filter((r) => {
-      if (!q) return true;
-      const hay = [r.name, r.remarks].join(" ").toLowerCase();
-      return hay.includes(q);
-    });
+    return passRows.filter(r => !q || [r.name, r.remarks].join(" ").toLowerCase().includes(q));
   }, [passRows, passSearch]);
 
-  const docsPaged = React.useMemo(() => docsFiltered.slice(docsPage * docsRpp, docsPage * docsRpp + docsRpp), [docsFiltered, docsPage, docsRpp]);
-  const passPaged = React.useMemo(() => passFiltered.slice(passPage * passRpp, passPage * passRpp + passRpp), [passFiltered, passPage, passRpp]);
+  const rows = tab === "docs" ? docsFiltered : passFiltered;
+  const paged = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const [docCols, setDocCols] = React.useState<Column[]>([
-    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
-    { key: "name", label: t("Document"), min: 220, flex: 1.4, align: "left" },
-    { key: "type", label: t("Doc Type"), min: 140, flex: 1.0, align: "center" },
-    { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" },
-    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" },
-    { key: "remarks", label: t("Remarks"), min: 200, flex: 1.2, align: "left" },
-  ]);
-
-  const [passCols, setPassCols] = React.useState<Column[]>([
-    { key: "sr", label: t("Sr No"), width: 60, align: "center" },
-    { key: "name", label: t("Document"), min: 260, flex: 1.5, align: "left" },
-    { key: "addedBy", label: t("Added By"), min: 120, flex: 0.9, align: "center" },
-    { key: "dateTime", label: t("Date/Time"), min: 170, flex: 1, align: "center" },
-    { key: "remarks", label: t("Remarks"), min: 220, flex: 1.2, align: "left" },
-  ]);
-
-  const handleResizeDocs = (key: string, width: number) => {
-    setDocCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
-  };
-  const handleResizePass = (key: string, width: number) => {
-    setPassCols(prev => prev.map(c => c.key === key ? { ...c, width, flex: undefined } : c));
+  const doDownload = async (url: string, filename: string) => {
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${BASE_URL}${url}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const bUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = bUrl; a.download = filename; a.click();
+      URL.revokeObjectURL(bUrl);
+    } catch (e) { console.error(e); }
   };
 
-  const onDownload = async (r: DocumentRow) => { try { await downloadFrom(r.url, r.name); } catch (e: any) { console.error(e); alert(e.message || "Download failed"); } };
-  const handleTab = (_e: React.MouseEvent<HTMLElement>, next: "docs" | "pass" | null) => { if (next) setTab(next); };
+  const doUploadDoc = async () => {
+    if (!file || !uploadType) return;
+    try {
+      const form = new FormData(); form.append("file", file); form.append("doc_type", uploadType); if (uploadRemarks.trim()) form.append("remarks", uploadRemarks.trim());
+      const token = getAuthToken();
+      await fetch(`${BASE_URL}/api/documents`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: form });
+      refreshDocs(); setFile(null); setUploadType(""); setUploadRemarks("");
+    } catch (e) { console.error(e); }
+  };
 
-  const DOC_COLUMNS_FINAL = React.useMemo(() => {
-    const cols = [...docCols];
-    cols.push({ key: "download", label: t("Download"), width: 100, align: "center" });
-    if (hasWriteAccess("documents")) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
-    return cols;
-  }, [docCols, t, hasWriteAccess]);
+  const doUploadPass = async () => {
+    if (!passFile) return;
+    try {
+      const form = new FormData(); form.append("file", passFile); if (passRemarks.trim()) form.append("remarks", passRemarks.trim());
+      const token = getAuthToken();
+      await fetch(`${BASE_URL}/api/pass-schedule`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: form });
+      refreshPass(); setPassFile(null); setPassRemarks("");
+    } catch (e) { console.error(e); }
+  };
 
-  const PASS_COLUMNS_FINAL = React.useMemo(() => {
-    const cols = [...passCols];
-    cols.push({ key: "download", label: t("Download"), width: 100, align: "center" });
-    if (hasWriteAccess("pass_upload")) cols.push({ key: "action", label: t("Action"), width: 110, align: "center" });
-    return cols;
-  }, [passCols, t, hasWriteAccess]);
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+  const toggleAll = () => {
+    if (selectedIds.length === paged.length) setSelectedIds([]);
+    else setSelectedIds(paged.map(r => r.id));
+  };
 
+  const toggleBtnSx = {
+    ...sxPresets.btnGhost,
+    textTransform: "none", fontWeight: 700, fontSize: 13, px: 3, minWidth: 160, height: 32, borderRadius: "8px !important", color: DIM, border: `1px solid ${BORDER} !important`,
+    "&.Mui-selected": { color: ACCENT, bgcolor: `${ACCENT}15`, borderColor: `${ACCENT} !important`, boxShadow: `0 0 10px ${ACCENT}25` },
+    "& .MuiTypography-root": { fontSize: 13, fontWeight: 700 }
+  };
+
+  const theadCellSx = { ...THEAD_CELL_SX, fontSize: 10, fontWeight: 800, textAlign: "center", textTransform: "uppercase" as const, letterSpacing: "0.12em", color: "var(--thead-text)", borderBottom: `1px solid ${BORDER}`, whiteSpace: "nowrap" as const };
+  const bodyCellSx = { ...ROW_CELL_SX, textAlign: "center" as const, fontSize: 12.5, borderBottom: `1px solid ${vars.borderWeak}`, color: TEXT };
 
   return (
     <MainLayout title=" ">
-      <Box sx={{ p: 2 }}>
-        <Card elevation={0} sx={CARD_SX}>
-          {/* Header */}
-          <Box
-            sx={{
-              px: UI.headerPx,
-              py: UI.headerPy,
-              borderBottom: `1px solid ${C.BORDER}`,
-              display: "grid",
-              alignItems: "center",
-              gridTemplateColumns: "auto 1fr auto auto",
-              columnGap: UI.gap,
-              bgcolor: "transparent",
-            }}
-          >
-            <ToggleButtonGroup
-              value={tab}
-              exclusive
-              onChange={handleTab}
-              sx={{
-                p: 0.5,
-                borderRadius: 999,
-                border: `1px solid ${C.BORDER}`,
-                bgcolor: "transparent",
-                "& .MuiToggleButtonGroup-grouped": { border: "none", mx: 0.25 },
-              }}
-            >
-              <ToggleButton value="docs" disableRipple sx={toggleBtnSx}>{t("Documents")}</ToggleButton>
-              <ToggleButton value="pass" disableRipple sx={toggleBtnSx}>{t("Pass Upload")}</ToggleButton>
-            </ToggleButtonGroup>
+      <Box sx={{ px: 2, pt: 1, pb: 2, height: `calc(100vh - ${TOPBAR_HEIGHT}px)`, display: "flex", flexDirection: "column" }}>
+        <Card elevation={0} sx={{ ...PREMIUM_CARD_SX, flex: 1, display: "flex", flexDirection: "column" }}>
+          <AmbientLighting />
+          <TableScanLine />
 
-            <Box />
+          {/* Premium Integrated Header (Instrumentation Panel) */}
+          <Box sx={{ px: 3, py: 2.5, borderBottom: `1px solid ${BORDER}`, zIndex: 1, position: "relative", display: "flex", flexDirection: "column", gap: 2.5 }}>
 
-            {tab === "docs" ? (
-              <>
-                <FormControl size="small" sx={{ minWidth: 160, ...compactCtrlSx }}>
-                  <Select
-                    value={docTypeFilter}
-                    onChange={(e) => { setDocTypeFilter(String(e.target.value)); setDocsPage(0); }}
-                    displayEmpty
-                    renderValue={(v) => (v ? String(v) : t("Select Type"))}
-                    sx={{ "& .MuiOutlinedInput-input": { pl: 1 }, "& .MuiSelect-select": { textAlign: "left" } }}
-                    MenuProps={darkMenu}
-                  >
-                    <MenuItem value="">{t("Select Type")}</MenuItem>
-                    {DOC_TYPES.map((d) => (<MenuItem key={d} value={d}>{t(d)}</MenuItem>))}
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  value={docsSearch}
-                  onChange={(e) => { setDocsSearch(e.target.value); setDocsPage(0); }}
-                  placeholder={t("Search…")}
-                  size="small"
-                  sx={{ width: UI.searchW, ...compactCtrlSx, "& .MuiOutlinedInput-root": { pl: 1 } }}
-                  InputProps={{ startAdornment: (<InputAdornment position="start" sx={{ mr: 0.25 }}><SearchIcon sx={{ fontSize: UI.icon, color: C.ICON }} /></InputAdornment>) }}
-                />
-              </>
-            ) : (
-              <>
-                <TextField
-                  value={passSearch}
-                  onChange={(e) => { setPassSearch(e.target.value); setPassPage(0); }}
-                  placeholder={t("Search…")}
-                  size="small"
-                  sx={{ width: UI.searchW, ...compactCtrlSx, "& .MuiOutlinedInput-root": { pl: 1 } }}
-                  InputProps={{ startAdornment: (<InputAdornment position="start" sx={{ mr: 0.25 }}><SearchIcon sx={{ fontSize: UI.icon, color: C.ICON }} /></InputAdornment>) }}
-                />
-              </>
-            )}
-          </Box>
-
-          {/* Upload rows */}
-          {tab === "docs" && hasWriteAccess("documents") ? (
-            <>
-              <Box
-                sx={{
-                  px: 1.25,
-                  py: 0.75,
-                  display: "grid",
-                  gridTemplateColumns: "auto 160px 240px auto auto auto",
-                  alignItems: "center",
-                  gap: 1.5,
-                }}
-              >
-
-                <Typography sx={{ fontWeight: 600, fontSize: 18, color: C.TEXT }}>{t("Upload Documents")}</Typography>
-
-                <FormControl size="small" sx={{ minWidth: 160, ...compactCtrlSx }}>
-                  <Select
-                    value={uploadType}
-                    onChange={(e) => setUploadType(String(e.target.value))}
-                    displayEmpty
-                    renderValue={(v) => (v ? String(v) : t("Select Type"))}
-                    sx={{ "& .MuiOutlinedInput-input": { pl: 1 }, "& .MuiSelect-select": { textAlign: "left" } }}
-                    MenuProps={darkMenu}
-                  >
-                    <MenuItem value="">{t("Select Type")}</MenuItem>
-                    {[
-                      "License report", "Satellite report", "Passes report", "Project plan", "Flow chart", "Design Document", "User manual", "Other",
-                    ].map((d) => (<MenuItem key={d} value={d}>{t(d)}</MenuItem>))}
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  value={uploadRemarks}
-                  onChange={(e) => setUploadRemarks(e.target.value)}
-                  placeholder={t("Remarks")}
-                  size="small"
-                  sx={{ ...compactCtrlSx, "& .MuiOutlinedInput-root": { pl: 1 } }}
-                />
-
-                <Box>
-                  <input id="doc-file-input" type="file" style={{ display: "none" }} onChange={handleFilePickDocs} />
-                  <label htmlFor="doc-file-input">
-                    <Button component="span" sx={OUTLINED_BTN_SX}>{t("Select File")}</Button>
-                  </label>
-                </Box>
-
-                <Box sx={{ minHeight: UI.ctrlH, display: "flex", alignItems: "center" }}>
-                  {file ? (
-                    <Chip
-                      variant="outlined"
-                      color="default"
-                      onDelete={clearDocsFile}
-                      deleteIcon={<CloseRoundedIcon sx={{ color: mode === "light" ? "#888" : "#bbb" }} />}
-                      label={file.name}
-                      title={file.name}
-                      sx={{
-                        borderColor: C.BORDER,
-                        color: C.TEXT,
-                        bgcolor: "transparent",
-                        width: 120,
-                        "& .MuiChip-label": { width: 120, overflow: "hidden", textOverflow: "ellipsis" },
-                      }}
-                    />
-                  ) : null}
-                </Box>
-
-                {/* Gate with CAPTCHA */}
-                <Button onClick={openDocCaptcha} disabled={!canUploadDoc} startIcon={<CloudUploadIcon />} sx={PRIMARY_BTN_SX}>
-                  {t("Upload")}
-                </Button>
+            {/* Top Row: Navigation and Main Filters */}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <ToggleButtonGroup value={tab} exclusive onChange={(_, v) => v && setTab(v)} size="small" sx={{ bgcolor: "rgba(0,0,0,0.3)", borderRadius: "12px", p: 0.4, border: `1px solid ${BORDER}` }}>
+                  <ToggleButton value="docs" sx={toggleBtnSx}>{t("Documents")}</ToggleButton>
+                  <ToggleButton value="pass" sx={toggleBtnSx}>{t("Pass Schedule")}</ToggleButton>
+                </ToggleButtonGroup>
               </Box>
-              <Divider sx={{ borderColor: C.BORDER }} />
-            </>
-          ) : (
-            <>
-              {canUploadPassLevel && (
-                <>
-                  <Box
-                    sx={{
-                      px: 1.25,
-                      py: 0.75,
-                      display: "grid",
-                      gridTemplateColumns: "auto auto auto 1fr auto",
-                      alignItems: "center",
-                      gap: 1.5,
-                      bgcolor: "transparent",
-                    }}
-                  >
-                    <Typography sx={{ fontWeight: 600, fontSize: 18, color: C.TEXT }}>{t("Pass Upload")}</Typography>
 
-                    <Box>
-                      <input id="pass-file-input" type="file" style={{ display: "none" }} onChange={handleFilePickPass} />
-                      <label htmlFor="pass-file-input">
-                        <Button component="span" sx={OUTLINED_BTN_SX}>{t("Select File")}</Button>
-                      </label>
-                    </Box>
-
-                    <Box sx={{ minHeight: UI.ctrlH, display: "flex", alignItems: "center" }}>
-                      {passFile ? (
-                        <Chip
-                          variant="outlined"
-                          color="default"
-                          onDelete={clearPassFile}
-                          deleteIcon={<CloseRoundedIcon sx={{ color: mode === "light" ? "#888" : "#bbb" }} />}
-                          label={passFile.name}
-                          title={passFile.name}
-                          sx={{
-                            borderColor: C.BORDER,
-                            color: C.TEXT,
-                            bgcolor: "transparent",
-                            width: 120,
-                            "& .MuiChip-label": { width: 120, overflow: "hidden", textOverflow: "ellipsis" },
-                          }}
-                        />
-                      ) : null}
-                    </Box>
-
-                    <TextField
-                      value={passRemarks}
-                      onChange={(e) => setPassRemarks(e.target.value)}
-                      placeholder={t("Remarks")}
-                      size="small"
-                      sx={{ ...compactCtrlSx, "& .MuiOutlinedInput-root": { pl: 1 } }}
-                    />
-
-                    {/* Gate with CAPTCHA */}
-                    <Button onClick={openPassCaptcha} disabled={!canUploadPass} startIcon={<CloudUploadIcon />} sx={PRIMARY_BTN_SX}>
-                      {t("Upload")}
-                    </Button>
-                  </Box>
-                  <Divider sx={{ borderColor: C.BORDER }} />
-                </>
-              )}
-            </>
-          )}
-
-          {/* Body scroller */}
-          <Box sx={{ flex: 1, minHeight: 0, p: 1, pt: 1, pb: 0.5, bgcolor: "transparent" }}>
-            <Box sx={{ height: "100%", borderRadius: 1, overflow: "hidden", bgcolor: "transparent" }}>
-              <Box sx={{ height: "100%", overflow: "auto", pr: 1, ...SCROLLER_SX, bgcolor: "transparent" }}>
-                {tab === "docs" ? (
-                  <DarkDocsTable
-                    rows={docsPaged}
-                    columns={DOC_COLUMNS_FINAL}
-                    onDownload={onDownload}
-                    onUpdate={
-                      hasWriteAccess("documents")
-                        ? (r) => setEditDoc({ id: r.id, name: r.name, type: r.type, remarks: r.remarks })
-                        : undefined
-                    }
-                    mode={mode}
-                    C={C}
-                    onResize={handleResizeDocs}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <Labeled label={t("Global Search")} width={260}>
+                  <TextField
+                    value={tab === "docs" ? docsSearch : passSearch}
+                    onChange={(e) => tab === "docs" ? setDocsSearch(e.target.value) : setPassSearch(e.target.value)}
+                    placeholder={t("Filter by name, type...")}
+                    size="small"
+                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: ACCENT }} /></InputAdornment> }}
+                    sx={ctrlSx}
                   />
-
-                ) : (
-                  <DarkDocsTable
-                    rows={passPaged}
-                    columns={PASS_COLUMNS_FINAL}
-                    onDownload={onDownload}
-                    onUpdate={
-                      hasWriteAccess("pass_upload")
-                        ? (r) => setEditPass({ id: r.id, name: r.name, remarks: r.remarks })
-                        : undefined
-                    }
-                    mode={mode}
-                    C={C}
-                    onResize={handleResizePass}
-                  />
-
+                </Labeled>
+                {tab === "docs" && (
+                  <Labeled label={t("Category Filter")} width={180}>
+                    <Select value={docTypeFilter} onChange={(e) => setDocTypeFilter(e.target.value)} sx={ctrlSx}>
+                      <MenuItem value="">{t("All Categories")}</MenuItem>
+                      {DOC_TYPES.map(T => <MenuItem key={T} value={T}>{T}</MenuItem>)}
+                    </Select>
+                  </Labeled>
                 )}
               </Box>
             </Box>
+
+            {/* Bottom Row: Control Bar (Gated Actions) */}
+            <Box sx={{
+              display: "flex", alignItems: "flex-end", gap: 2.5, px: 2.5, py: 1.5,
+              bgcolor: "rgba(255,255,255,0.02)", borderRadius: "12px", border: `1px solid rgba(255,255,255,0.05)`,
+              boxShadow: "inset 0 0 20px rgba(0,0,0,0.2)"
+            }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 1, mb: 1 }}>
+                <CloudUploadIcon sx={{ color: ACCENT, fontSize: 18 }} />
+                <Typography sx={{ color: TEXT, fontWeight: 900, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {t("Data Ingestion")}
+                </Typography>
+              </Box>
+
+              {tab === "docs" && hasWriteAccess("documents") && (
+                <>
+                  <Labeled label={t("Target Type")} width={180}>
+                    <Select value={uploadType} onChange={(e) => setUploadType(e.target.value)} displayEmpty sx={ctrlSx}>
+                      <MenuItem value="" disabled>{t("Select classification")}</MenuItem>
+                      {DOC_TYPES.map(T => <MenuItem key={T} value={T}>{T}</MenuItem>)}
+                    </Select>
+                  </Labeled>
+                  <Labeled label={t("Meta Remarks")} width={200}>
+                    <TextField value={uploadRemarks} onChange={(e) => setUploadRemarks(e.target.value)} placeholder={t("Audit note...")} size="small" sx={ctrlSx} />
+                  </Labeled>
+                  <Button component="label" variant="outlined" sx={{
+                    ...ctrlSx, textTransform: "none", height: 32, px: 2, minWidth: 160,
+                    borderColor: BORDER, whiteSpace: "nowrap", bgcolor: "rgba(255,255,255,0.03)",
+                    "&:hover": { borderColor: ACCENT, bgcolor: `${ACCENT}10` }
+                  }}>
+                    <Box sx={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 700 }}>{file ? file.name : t("Select Local File")}</Box>
+                    <input type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                  </Button>
+                  <Button variant="contained" disabled={!file || !uploadType} onClick={() => setCaptchaDocOpen(true)} sx={{
+                    bgcolor: ACCENT, color: "#fff", height: 32, px: 3, fontSize: 11, fontWeight: 800, borderRadius: "6px",
+                    boxShadow: `0 4px 14px ${ACCENT}40`,
+                    "&:hover": { bgcolor: "#6b48ea", boxShadow: `0 6px 20px ${ACCENT}60` },
+                    "&.Mui-disabled": { bgcolor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.1)" }
+                  }}>{t("Execute Upload")}</Button>
+                </>
+              )}
+
+              {tab === "pass" && hasWriteAccess("pass_upload") && (
+                <>
+                  <Labeled label={t("Operation Remarks")} width={300}>
+                    <TextField value={passRemarks} onChange={(e) => setPassRemarks(e.target.value)} placeholder={t("Schedule version details...")} size="small" sx={ctrlSx} />
+                  </Labeled>
+                  <Button component="label" variant="outlined" sx={{
+                    ...ctrlSx, textTransform: "none", height: 32, px: 2, minWidth: 220, borderColor: BORDER,
+                    bgcolor: "rgba(255,255,255,0.03)", "&:hover": { borderColor: ACCENT, bgcolor: `${ACCENT}10` }
+                  }}>
+                    <Box sx={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 700, fontSize: 11 }}>{passFile ? passFile.name : t("Attach Schedule (CSV/XLS)")}</Box>
+                    <input type="file" hidden onChange={(e) => setPassFile(e.target.files?.[0] ?? null)} />
+                  </Button>
+                  <Button variant="contained" disabled={!passFile} onClick={() => setCaptchaPassOpen(true)} sx={{
+                    bgcolor: ACCENT, color: "#fff", height: 32, px: 3, fontSize: 11, fontWeight: 800, borderRadius: "6px",
+                    boxShadow: `0 4px 14px ${ACCENT}40`,
+                    "&:hover": { bgcolor: "#6b48ea", boxShadow: `0 6px 20px ${ACCENT}60` }
+                  }}>{t("Sync Schedule")}</Button>
+                </>
+              )}
+            </Box>
           </Box>
 
+          {/* Table Area */}
+          <TableContainer sx={{ flex: 1, overflowY: "auto", position: "relative", zIndex: 1, ...sxPresets.scroller }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox" sx={{ borderBottom: `1px solid ${BORDER}` }}>
+                    <Checkbox size="small" checked={paged.length > 0 && selectedIds.length === paged.length} onChange={toggleAll} indeterminate={selectedIds.length > 0 && selectedIds.length < paged.length} sx={{ color: DIM, "&.Mui-checked": { color: ACCENT } }} />
+                  </TableCell>
+                  <TableCell sx={theadCellSx}>{t("Sr No")}</TableCell>
+                  <TableCell sx={{ ...theadCellSx, textAlign: "left" }}>{t("Document")}</TableCell>
+                  {tab === "docs" && <TableCell sx={theadCellSx}>{t("Doc Type")}</TableCell>}
+                  <TableCell sx={theadCellSx}>{t("Added By")}</TableCell>
+                  <TableCell sx={theadCellSx}>{t("Date/Time")}</TableCell>
+                  <TableCell sx={{ ...theadCellSx, textAlign: "left" }}>{t("Remarks")}</TableCell>
+                  <TableCell sx={theadCellSx}>{t("Download")}</TableCell>
+                  {(tab === "docs" ? hasWriteAccess("documents") : hasWriteAccess("pass_upload")) && <TableCell sx={theadCellSx}>{t("Action")}</TableCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paged.map((r) => (
+                  <TableRow key={r.id} sx={{
+                    bgcolor: "transparent",
+                    transition: 'all 0.25s',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.03)',
+                      "& .hover-accent": { opacity: 1, height: "70%" }
+                    }
+                  }}>
+                    <TableCell padding="checkbox" sx={{ borderBottom: `1px solid ${vars.borderWeak}`, position: "relative" }}>
+                      <Box className="hover-accent" sx={{
+                        position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+                        width: "3px", height: "0%", opacity: 0,
+                        background: `linear-gradient(to bottom, transparent, ${ACCENT}, transparent)`,
+                        boxShadow: `0 0 10px ${ACCENT}`,
+                        transition: "all 0.3s ease",
+                        pointerEvents: "none"
+                      }} />
+                      <Checkbox size="small" checked={selectedIds.includes(r.id)} onChange={() => toggleSelect(r.id)} sx={{ color: DIM, "&.Mui-checked": { color: ACCENT } }} />
+                    </TableCell>
+                    <TableCell sx={bodyCellSx}>{r.sr}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, textAlign: "left", fontWeight: 700, color: "rgba(255,255,255,0.95)" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <TypeIcon type={r.type || r.name.split('.').pop() || ""} />
+                        {r.name}
+                      </Box>
+                    </TableCell>
+                    {tab === "docs" && <TableCell sx={bodyCellSx}>{r.type}</TableCell>}
+                    <TableCell sx={bodyCellSx}>{r.addedBy}</TableCell>
+                    <TableCell sx={bodyCellSx}>{r.dateTime}</TableCell>
+                    <TableCell sx={{ ...bodyCellSx, textAlign: "left", opacity: 0.8 }}>{r.remarks || "—"}</TableCell>
+                    <TableCell sx={bodyCellSx}>
+                      <IconButton size="small" onClick={() => doDownload(r.url, r.name)} sx={{ color: ACCENT, "&:hover": { bgcolor: `${ACCENT}15` } }}>
+                        <DownloadIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                    {(tab === "docs" ? hasWriteAccess("documents") : hasWriteAccess("pass_upload")) && (
+                      <TableCell sx={bodyCellSx}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          sx={{ textTransform: "none", fontWeight: 700, fontSize: 11, px: 1.5, py: 0.3, bgcolor: ACCENT, "&:hover": { bgcolor: "#6b48ea" } }}
+                          onClick={() => tab === "docs" ? setEditDoc(r) : setEditPass(r)}
+                        >
+                          {t("Edit")}
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+                {paged.length === 0 && (
+                  <TableRow><TableCell colSpan={9} sx={{ py: 10, textAlign: "center", color: DIM }}>{t("No documents found.")}</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
           {/* Pagination */}
-          <Box sx={{ borderTop: `1px solid ${C.BORDER}`, bgcolor: "transparent" }}>
-            {tab === "docs" ? (
-              <TablePagination
-                component="div"
-                count={docsFiltered.length}
-                page={docsPage}
-                onPageChange={(_, p) => setDocsPage(p)}
-                rowsPerPage={docsRpp}
-                onRowsPerPageChange={(e) => { setDocsRpp(parseInt(e.target.value, 10)); setDocsPage(0); }}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                sx={paginationSx}
-              />
-            ) : (
-              <TablePagination
-                component="div"
-                count={passFiltered.length}
-                page={passPage}
-                onPageChange={(_, p) => setPassPage(p)}
-                rowsPerPage={passRpp}
-                onRowsPerPageChange={(e) => { setPassRpp(parseInt(e.target.value, 10)); setPassPage(0); }}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                sx={paginationSx}
-              />
-            )}
+          <Box sx={{ borderTop: `1px solid ${BORDER}`, bgcolor: "transparent" }}>
+            <TablePagination
+              component="div"
+              count={rows.length}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={(_, p) => setPage(p)}
+              onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+              sx={PAGINATION_SX}
+            />
           </Box>
         </Card>
       </Box>
 
-      {/* Modals */}
-      <UpdateDocumentModal open={!!editDoc} row={editDoc} onClose={() => setEditDoc(null)} onSuccess={refreshDocs} />
-      <UpdatePassModal open={!!editPass} row={editPass} onClose={() => setEditPass(null)} onSuccess={refreshPass} />
+      {/* Captchas */}
+      <CaptchaDialog open={captchaDocOpen} onCancel={() => setCaptchaDocOpen(false)} onOk={() => { setCaptchaDocOpen(false); doUploadDoc(); }} colors={{ CARD: vars.bgCard, TEXT: vars.text, BORDER: vars.border, CTRL: vars.bgCtrl }} t={t} refreshDocs={refreshDocs} />
+      <CaptchaDialog open={captchaPassOpen} onCancel={() => setCaptchaPassOpen(false)} onOk={() => { setCaptchaPassOpen(false); doUploadPass(); }} colors={{ CARD: vars.bgCard, TEXT: vars.text, BORDER: vars.border, CTRL: vars.bgCtrl }} t={t} refreshPass={refreshPass} />
 
-      {/* CAPTCHA dialogs gating both uploads */}
-      <CaptchaDialog
-        open={captchaDocOpen}
-        onCancel={() => setCaptchaDocOpen(false)}
-        onOk={async () => {
-          setCaptchaDocOpen(false);
-          await doUploadDoc();
-        }}
-        colors={{ card: C.CARD, text: C.TEXT, border: C.BORDER, ctrl: C.CTRL }}
-        t={t}
-      />
-      <CaptchaDialog
-        open={captchaPassOpen}
-        onCancel={() => setCaptchaPassOpen(false)}
-        onOk={async () => {
-          setCaptchaPassOpen(false);
-          await doUploadPass();
-        }}
-        colors={{ card: C.CARD, text: C.TEXT, border: C.BORDER, ctrl: C.CTRL }}
-        t={t}
-      />
+      {/* Modals */}
+      {editDoc && <UpdateDocumentModal open={!!editDoc} onClose={() => setEditDoc(null)} onSuccess={() => { setEditDoc(null); refreshDocs(); }} row={editDoc} />}
+      {editPass && <UpdatePassModal open={!!editPass} onClose={() => setEditPass(null)} onSuccess={() => { setEditPass(null); refreshPass(); }} row={editPass} />}
     </MainLayout>
   );
 }
 
-/* ---------- Download helper ---------- */
-async function downloadFrom(pathOrUrl: string, filename: string) {
-  const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
-  const token = getAuthToken();
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
-  if (!res.ok) throw new Error(`Download failed (${res.status})`);
-  const blob = await res.blob();
-  const href = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = href;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(href);
+function CaptchaDialog({ open, onCancel, onOk, colors, t }: any) {
+  const [cap, setCap] = React.useState<{ text: string, svg: string } | null>(null);
+  const [input, setInput] = React.useState("");
+  const [error, setError] = React.useState("");
+
+  const refresh = React.useCallback(() => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const text = Array.from({ length: 5 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+    const chars = [...text].map((ch, i) => {
+      const x = (i + 1) * 35; const y = 40 + (Math.random() * 10 - 5); const r = (Math.random() * 40 - 20);
+      return `<text x="${x}" y="${y}" font-size="32" font-weight="900" text-anchor="middle" dominant-baseline="middle" transform="rotate(${r} ${x} ${y})">${ch}</text>`;
+    }).join("");
+    setCap({ text, svg: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="80" viewBox="0 0 220 80"><rect width="100%" height="100%" fill="#121214"/><g fill="#7C57F2">${chars}</g></svg>` });
+    setInput(""); setError("");
+  }, []);
+
+  React.useEffect(() => { if (open) refresh(); }, [open, refresh]);
+
+  const submit = () => {
+    if (input.trim().toLowerCase() === cap?.text.toLowerCase()) onOk();
+    else { setError(t("Incorrect code. Try again.")); refresh(); }
+  };
+
+  return (
+    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.CARD, color: colors.TEXT, border: `1px solid ${colors.BORDER}`, borderRadius: "16px" } }}>
+      <DialogTitle sx={{ fontWeight: 800 }}>{t("Human Verification")}</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "grid", gap: 2 }}>
+          {cap && <Box dangerouslySetInnerHTML={{ __html: cap.svg }} style={{ width: "100%", height: 80, borderRadius: 8, overflow: "hidden", border: `1px solid ${colors.BORDER}` }} />}
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <TextField value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("Type the code")} size="small" fullWidth sx={{ "& .MuiOutlinedInput-root": { height: 40, background: colors.CTRL }, "& .MuiInputBase-input": { color: colors.TEXT } }} />
+            <Button onClick={refresh} variant="outlined" sx={{ textTransform: "none", borderColor: colors.BORDER, color: colors.TEXT }}>{t("Refresh")}</Button>
+          </Box>
+          {error && <Typography color="error" variant="caption">{error}</Typography>}
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button onClick={onCancel} sx={{ color: colors.TEXT }}>{t("Cancel")}</Button>
+        <Button onClick={submit} variant="contained" sx={{ bgcolor: "#7C57F2", fontWeight: 800 }}>{t("Verify")}</Button>
+      </DialogActions>
+    </Dialog>
+  );
 }

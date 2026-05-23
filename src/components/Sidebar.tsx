@@ -1,3 +1,4 @@
+// src/components/Sidebar.tsx
 import React from "react";
 import {
   Box,
@@ -5,31 +6,31 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  IconButton,
 } from "@mui/material";
 import { NavLink } from "react-router-dom";
-import DashboardIcon from "@mui/icons-material/Dashboard";
 import SatelliteAltIcon from "@mui/icons-material/SatelliteAlt";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import LogoutIcon from "@mui/icons-material/Logout";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+
 import isroLogo from "../assets/isro_logo.png";
 import { useAuth } from "../auth";
 import { usePageAccess } from "../auth/usePageAccess";
-
 import { vars } from "../ui/toast/themeBridge";
 import { useI18n } from "../i18n";
+import { getAuthToken } from "../api/http";
 
-import { api, getAuthToken } from "../api/http";
-
-
-export const SIDEBAR_EXPANDED_WIDTH = 180;
-export const SIDEBAR_COLLAPSED_WIDTH = 60;
+export const SIDEBAR_EXPANDED_WIDTH = 240;
+export const SIDEBAR_COLLAPSED_WIDTH = 68;
 
 type SidebarProps = {
   expanded: boolean;
@@ -38,345 +39,263 @@ type SidebarProps = {
 
 export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
   const { t } = useI18n();
-
   const { hasRole } = useAuth();
   const { hasPageAccess, loadingAccess } = usePageAccess();
 
-  React.useEffect(() => {
-    console.log("ROLE:", sessionStorage.getItem("pmgt_role"));
-    console.log("ROLETYPE:", sessionStorage.getItem("pmgt_role_type"));
-    console.log("ACCESS:", sessionStorage.getItem("pmgt_page_access"));
-  }, []);
-
   const width = expanded ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
-
   const isAdmin = hasRole("admin");
 
   if (loadingAccess) {
     return (
-      <Box
-        sx={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width,
-          bgcolor: vars.bgApp,
-          borderRight: `2px solid ${vars.border}`,
-        }}
-      />
+      <Box sx={{ position: "fixed", top: 0, left: 0, bottom: 0, width, bgcolor: "transparent", borderRight: `1px solid ${vars.border}` }} />
     );
   }
 
   return (
     <Box
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
       sx={{
         position: "fixed",
         top: 0,
         left: 0,
         bottom: 0,
         width,
-        bgcolor: vars.bgApp,
+        bgcolor: "var(--sidebar-bg)",
+        backdropFilter: "blur(12px)",
         color: vars.text,
         display: "flex",
         flexDirection: "column",
-        borderRight: `2px solid ${vars.border}`,
-        transition: "width 200ms ease",
-        zIndex: 10,
+        borderRight: "1px solid var(--sidebar-border)",
+        transition: "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+        zIndex: 100,
+        overflow: "hidden",
       }}
     >
-      {/* Logo */}
+      {/* Scan Effect */}
       <Box
         sx={{
-          height: 54,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: "100%",
+          background: "linear-gradient(90deg, transparent, rgba(14, 165, 233, 0.03), transparent)",
+          animation: "sc-scan-line 8s linear infinite",
+          pointerEvents: "none",
+          opacity: 0.2,
+        }}
+      />
+
+      {/* Header section with Logo center logic */}
+      <Box
+        sx={{
+          height: 64,
           px: expanded ? 2 : 0,
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          borderBottom: `2px solid ${vars.border}`,
+          justifyContent: expanded ? "space-between" : "center",
+          mb: 1,
+          position: "relative",
         }}
       >
-        <Box
-          component="img"
-          src={isroLogo}
-          alt="ISRO"
+        <Box sx={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <Box
+            component="img"
+            src={isroLogo}
+            alt="ISRO"
+            sx={{
+              height: expanded ? 54 : 32,
+              transition: "all 300ms ease",
+              filter: "drop-shadow(0 0 12px rgba(14, 165, 233, 0.4))",
+            }}
+          />
+        </Box>
+
+        <IconButton
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(!expanded);
+          }}
           sx={{
-            height: expanded ? 50 : 34, // slightly smaller when collapsed
-            transition: "height 180ms ease",
-            userSelect: "none",
-            objectFit: "contain",
+            width: 28,
+            height: 28,
+            bgcolor: "var(--sidebar-control-bg)",
+            border: "1px solid var(--sidebar-border)",
+            color: "var(--sidebar-icon)",
+            borderRadius: "8px",
+            position: expanded ? "relative" : "absolute",
+            bottom: expanded ? "auto" : -20,
+            transition: "all 0.3s",
+            "&:hover": { bgcolor: "rgba(14, 165, 233, 0.16)", color: "#0EA5E9" },
+          }}
+        >
+          {expanded ? <ChevronLeftIcon sx={{ fontSize: 18 }} /> : <ChevronRightIcon sx={{ fontSize: 18 }} />}
+        </IconButton>
+      </Box>
+
+      {/* Navigation Groups */}
+      <Box sx={{ overflowY: expanded ? "auto" : "hidden", flex: 1, mt: 1 }}>
+        <NavGroup label={t("Overview")} expanded={expanded} />
+        <List disablePadding>
+          {hasPageAccess("dashboard") && (
+            <NavItem to="/dashboard" icon={<DashboardIcon />} label={t("Dashboard")} expanded={expanded} end />
+          )}
+          {hasPageAccess("pass_list") && (
+            <NavItem to="/pass-list" icon={<FormatListBulletedIcon />} label={t("Pass List")} expanded={expanded} />
+          )}
+        </List>
+
+        <NavGroup label={t("Management")} expanded={expanded} />
+        <List disablePadding>
+          {hasPageAccess("satellites") && (
+            <NavItem to="/satellites" icon={<SatelliteAltIcon />} label={t("Satellites")} expanded={expanded} />
+          )}
+          {hasPageAccess("licenses") && (
+            <NavItem to="/licenses" icon={<AssignmentIcon />} label={t("Licenses")} expanded={expanded} />
+          )}
+          {hasPageAccess("passes") && (
+            <NavItem to="/passes" icon={<RocketLaunchIcon />} label={t("Passes")} expanded={expanded} />
+          )}
+        </List>
+
+        <NavGroup label={t("Operations")} expanded={expanded} />
+        <List disablePadding>
+          {hasPageAccess("documents") && (
+            <NavItem to="/documents" icon={<DescriptionIcon />} label={t("Documents")} expanded={expanded} />
+          )}
+          {hasPageAccess("requests") && (
+            <NavItem to="/requests" icon={<AssignmentTurnedInIcon />} label={t("Requests")} expanded={expanded} />
+          )}
+          {hasPageAccess("issues") && (
+            <NavItem to="/issues" icon={<HelpOutlineIcon />} label={t("Report Issue")} expanded={expanded} />
+          )}
+        </List>
+
+        {isAdmin && (
+          <>
+            <NavGroup label={t("Admin")} expanded={expanded} />
+            <List disablePadding>
+              {hasPageAccess("logs") && (
+                <NavItem to="/logs" icon={<ReceiptLongIcon />} label={t("User Logs")} expanded={expanded} />
+              )}
+            </List>
+          </>
+        )}
+      </Box>
+
+      {/* Logout Footer */}
+      <Box sx={{ mt: "auto", p: expanded ? 1.5 : 0.5, borderTop: "1px solid var(--sidebar-border)" }}>
+        <UtilityItem
+          icon={<LogoutIcon />}
+          label={t("Logout")}
+          expanded={expanded}
+          textColor="#EF4444"
+          iconColor="#EF4444"
+          onClick={async () => {
+            if (!window.confirm(t("Log out of I-Portal?"))) return;
+            try {
+              const token = getAuthToken();
+              await fetch("/api/auth/logout", {
+                method: "POST",
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              });
+            } catch (e) {
+              console.log("Logout log failed:", e);
+            }
+            sessionStorage.clear();
+            localStorage.removeItem("token");
+            window.location.href = "/";
           }}
         />
-      </Box>
-
-      {/* Nav groups */}
-      <Box sx={{ overflowY: expanded ? "auto" : "hidden", flex: 1 }}>
-        <List disablePadding dense={!expanded}>
-          {hasPageAccess("dashboard") && (
-
-            <NavItem
-              to="/dashboard"
-              icon={<DashboardIcon />}
-              label={t("Dashboard")}
-              expanded={expanded}
-              end
-            />
-          )}
-
-
-          {hasPageAccess("pass_list") && (
-            <NavItem
-              to="/pass-list"
-              icon={<FormatListBulletedIcon />}
-              label={t("Pass List")}
-              expanded={expanded}
-            />
-          )}
-
-
-          {hasPageAccess("satellites") && (
-
-            <NavItem
-              to="/satellites"
-              icon={<SatelliteAltIcon />}
-              label={t("Satellites List")}
-              expanded={expanded}
-            />
-          )}
-
-          {hasPageAccess("licenses") && (
-            <NavItem
-              to="/licenses"
-              icon={<AssignmentIcon />}
-              label={t("License List")}
-              expanded={expanded}
-            />
-          )}
-
-          {hasPageAccess("passes") && (
-            <NavItem
-              to="/passes"
-              icon={<RocketLaunchIcon />}
-              label={t("Passes List")}
-              expanded={expanded}
-            />
-          )}
-
-          {/* <NavItem
-                to="/pass-schedule"
-                icon={<CalendarMonthIcon />}
-                label={t("AWS Operations")}
-                expanded={expanded}
-              /> */}
-          {hasPageAccess("documents") && (
-            <NavItem
-              to="/documents"
-              icon={<DescriptionIcon />}
-              label={t("Documents")}
-              expanded={expanded}
-            />
-          )}
-
-          {isAdmin && hasPageAccess("logs") && (
-
-            <NavItem
-              to="/logs"
-              icon={<ReceiptLongIcon />}
-              label={t("Logs")}
-              expanded={expanded}
-            />
-          )}
-
-          {hasPageAccess("requests") && (
-            <NavItem
-              to="/requests"
-              icon={<AssignmentTurnedInIcon />}
-              label={t("Requests")}
-              expanded={expanded}
-            />
-          )}
-
-          {hasPageAccess("issues") && (
-            <NavItem
-              to="/issues"
-              icon={<HelpOutlineIcon />}
-              label={t("Report Issue")}
-              expanded={expanded}
-            />
-          )}
-
-        </List>
-      </Box>
-
-      {/* Bottom actions */}
-      <Box sx={{ mt: "auto" }}>
-        <List disablePadding dense={!expanded}>
-          <UtilityItem
-            icon={<LogoutIcon />}
-            label={t("Logout")}
-            expanded={expanded}
-            textColor="#FF8A00"
-            iconColor="#FF8A00"
-            onClick={async () => {
-              if (!window.confirm(t("Log out of I-Portal?"))) return;
-
-              try {
-                const token = getAuthToken();
-
-                await fetch("/api/auth/logout", {
-                  method: "POST",
-                  headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                });
-              } catch (e) {
-                console.log("Logout log failed:", e);
-              }
-
-              sessionStorage.removeItem("token");
-              sessionStorage.removeItem("user");
-              sessionStorage.removeItem("profile");
-              localStorage.removeItem("token");
-              localStorage.removeItem("user");
-
-              try {
-                const toDelete: string[] = [];
-                for (let i = 0; i < sessionStorage.length; i++) {
-                  const k = sessionStorage.key(i) || "";
-                  if (k.startsWith("pmgt_")) toDelete.push(k);
-                }
-                toDelete.forEach((k) => sessionStorage.removeItem(k));
-              } catch { }
-
-              window.location.href = "/";
-            }}
-
-          />
-        </List>
       </Box>
     </Box>
   );
 }
 
-function NavItem({
-  to,
-  icon,
-  label,
-  expanded,
-  end,
-}: {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-  expanded: boolean;
-  end?: boolean;
-}) {
+/* --- Helpers (NavGroup, NavItem, UtilityItem) --- */
+function NavGroup({ label, expanded }: { label: string; expanded: boolean }) {
+  if (!expanded) {
+    return (
+      <Box sx={{ px: 2, my: 1.5, opacity: 0.7 }}>
+        <Box sx={{ height: 1.5, width: "100%", bgcolor: "var(--sidebar-muted)", borderRadius: 1 }} />
+      </Box>
+    );
+  }
+  return (
+    <Box sx={{ px: 2.5, mt: 2.5, mb: 1, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--sidebar-muted)" }}>
+      {label}
+    </Box>
+  );
+}
+
+function NavItem({ to, icon, label, expanded, end }: { to: string; icon: React.ReactNode; label: string; expanded: boolean; end?: boolean; }) {
   return (
     <ListItemButton
       component={NavLink}
       to={to}
       {...(end ? { end: true } : {})}
       sx={{
-        mx: expanded ? 1 : 0.5,
-        mt: expanded ? 0.5 : 0.25, // tighter when collapsed
-        mb: expanded ? 0.5 : 1.7, // tighter when collapsed
-        px: expanded ? 1.25 : 0,
-        minHeight: expanded ? 50 : 36, // smaller row height when collapsed
-        borderRadius: 1.5,
+        mb: 0.5,
+        mx: 1,
+        px: expanded ? 1.5 : 0,
+        borderRadius: "8px",
+        height: 44,
         justifyContent: expanded ? "flex-start" : "center",
-        alignItems: "center",
-        transition: "all 160ms ease",
-        color: "inherit",
+        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+        position: "relative",
+        color: "var(--sidebar-text)",
         "&:link, &:visited, &:hover, &:active, &:focus": {
-          color: "inherit",
-          textDecoration: "none",
+            color: "inherit",
+            textDecoration: "none",
         },
-        "& .MuiListItemText-primary": { color: "inherit" },
-        "&.active": { bgcolor: "var(--bg-hover)" },
-        "&:hover": { bgcolor: "var(--bg-hover)" },
+        "&.active": {
+          bgcolor: "rgba(14, 165, 233, 0.12)",
+          color: "#0EA5E9",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            left: -8,
+            top: "20%",
+            height: "60%",
+            width: 3,
+            bgcolor: "#0EA5E9",
+            borderRadius: "0 4px 4px 0",
+            boxShadow: "0 0 10px #0EA5E9",
+          },
+          "& .MuiListItemIcon-root": { color: "#0EA5E9" },
+        },
+        "&:hover": { bgcolor: "rgba(255, 255, 255, 0.06)" },
         "& .MuiListItemIcon-root": {
           minWidth: 0,
-          mr: expanded ? 1.1 : 0,
-          width: expanded ? "auto" : "100%",
-          display: "flex",
-          justifyContent: expanded ? "flex-start" : "center",
-          color: vars.textDim,
-          "& svg": { fontSize: expanded ? 22 : 22 }, // smaller icon when collapsed I/D size 
+          mr: expanded ? 2 : 0,
+          color: "var(--sidebar-icon)",
+          "& svg": { fontSize: 22 },
         },
       }}
     >
       <ListItemIcon>{icon}</ListItemIcon>
-      <Box
-        sx={{
-          overflow: "hidden",
-          opacity: expanded ? 1 : 1,
-          transform: expanded ? "translateX(0)" : "translateX(-6px)",
-          transition: "opacity 140ms ease, transform 140ms ease",
-        }}
-      >
-        <ListItemText primary={label} primaryTypographyProps={{ fontSize: 15.5, lineHeight: 1.15 }} />
-      </Box>
+      {expanded && <ListItemText primary={label} primaryTypographyProps={{ fontSize: 13.5, fontWeight: 700 }} />}
     </ListItemButton>
   );
 }
 
-function UtilityItem({
-  icon,
-  label,
-  expanded,
-  onClick,
-  textColor,
-  iconColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  expanded: boolean;
-  onClick?: () => void;
-  /** Text color (defaults to inherit). */
-  textColor?: string;
-  /** Icon color (defaults to vars.textDim). */
-  iconColor?: string;
-}) {
+function UtilityItem({ icon, label, expanded, onClick, textColor, iconColor }: any) {
   return (
     <ListItemButton
       onClick={onClick}
       sx={{
-        my: expanded ? 0.5 : 0.5,
-        mx: expanded ? 1 : 0.25,
-        px: expanded ? 1.25 : 0,
-        minHeight: expanded ? 48 : 34, // tighter when collapsed
-        borderRadius: 1.5,
+        borderRadius: "12px",
+        px: expanded ? 1.5 : 0,
         justifyContent: expanded ? "flex-start" : "center",
-        alignItems: "center",
-        transition: "all 160ms ease",
         color: textColor ?? "inherit",
-        "&:link, &:visited, &:hover, &:active, &:focus": {
-          color: textColor ?? "inherit",
-          textDecoration: "none",
-        },
         "& .MuiListItemIcon-root": {
-          minWidth: 0,
-          mr: expanded ? 1.1 : 0,
-          width: expanded ? "auto" : "100%",
-          display: "flex",
-          justifyContent: expanded ? "flex-start" : "center",
-          color: iconColor ?? vars.textDim,
-          "& svg": { fontSize: expanded ? 22 : 18 }, // smaller icon when collapsed
+          minWidth: 0, mr: expanded ? 2 : 0, color: iconColor ?? vars.textDim,
+          "& svg": { fontSize: expanded ? 22 : 18 },
         },
-        "&:hover": { bgcolor: "var(--bg-hover)" },
+        "&:hover": { bgcolor: "rgba(239, 68, 68, 0.08)" },
       }}
     >
       <ListItemIcon>{icon}</ListItemIcon>
-      <Box
-        sx={{
-          overflow: "hidden",
-          opacity: expanded ? 1 : 0,
-          transform: expanded ? "translateX(0)" : "translateX(-6px)",
-          transition: "opacity 140ms ease, transform 140ms ease",
-        }}
-      >
-        <ListItemText primary={label} primaryTypographyProps={{ fontSize: 15.5, lineHeight: 1.15 }} />
-      </Box>
+      {expanded && <ListItemText primary={label} primaryTypographyProps={{ fontSize: 14, fontWeight: 700 }} />}
     </ListItemButton>
   );
 }

@@ -95,7 +95,11 @@ function useCssVarTheme() {
           },
           MuiButton: {
             styleOverrides: {
-              root: { textTransform: "none", fontWeight: 600 },
+              root: {
+                textTransform: "none",
+                fontWeight: 700,
+                borderRadius: 4,
+              },
               contained: {
                 // visual color comes from CSS vars, but palette.primary.main is concrete
                 backgroundColor: "var(--accent)",
@@ -149,6 +153,15 @@ function useCssVarTheme() {
               toolbar: { color: "var(--text)" },
               selectLabel: { color: "var(--text-dim)" },
               displayedRows: { color: "var(--text-dim)" },
+            },
+          },
+          MuiTableCell: {
+            styleOverrides: {
+              head: {
+                backgroundColor: "var(--bg-thead)",
+                color: "var(--thead-text)",
+                fontWeight: 800,
+              },
             },
           },
           MuiDivider: {
