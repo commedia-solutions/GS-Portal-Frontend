@@ -203,6 +203,8 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
             }
             sessionStorage.clear();
             localStorage.removeItem("token");
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("pmgt_session_expires_at");
             window.location.href = "/";
           }}
         />

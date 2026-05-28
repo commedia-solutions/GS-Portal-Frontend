@@ -46,7 +46,7 @@ import UpdateOperationSupporterDialog, { type OperationSupporterRow as SupRow } 
 /* ✅ theme bridge */
 import { vars, sxPresets } from "../ui/toast/themeBridge";
 import {
-  PREMIUM_CARD_SX, THEAD_CELL_SX, ROW_CELL_SX, PAGINATION_SX,
+  PREMIUM_CARD_SX, PAGINATION_SX,
   AmbientLighting, TableScanLine, glassRowHoverSx
 } from "../ui/styles";
 
@@ -106,7 +106,21 @@ const LABEL_SX = {
 } as const;
 
 /* ---------- Table Styles ---------- */
-const theadCellSx = { px: 1, py: 1.5, fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: "var(--thead-text)", bgcolor: vars.bgThead, borderBottom: `1px solid ${vars.border}`, whiteSpace: "nowrap" } as const;
+const theadCellSx = {
+  px: 1,
+  py: 1.5,
+  fontWeight: 800,
+  fontSize: 11,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: "var(--thead-text)",
+  bgcolor: vars.bgThead,
+  borderBottom: `1px solid ${vars.border}`,
+  whiteSpace: "nowrap",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+} as const;
 
 const rowCellSx = {
   px: 1.25,
@@ -591,19 +605,19 @@ export default function Gsoperations() {
                               <Box sx={{ minWidth: 1000 }}>
                                 <Box sx={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1.5fr 1.5fr 1.5fr 1fr", borderBottom: `1px solid ${vars.borderWeak}` }}>
                                   {[t("Antenna Type"), t("Location"), t("Size (m)"), t("EIRP (dBW)"), t("TX Pol"), t("RX Pol"), t("Travel Range"), t("Tracking")].map(h => (
-                                    <Box key={h} sx={{ ...THEAD_CELL_SX, borderBottom: "none", py: 1 }}>{h}</Box>
+                                    <Box key={h} sx={{ ...theadCellSx, borderBottom: "none", py: 1 }}>{h}</Box>
                                   ))}
                                 </Box>
                                 {selAnts.map(sel => (
                                   <Box key={sel.id} sx={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1.5fr 1.5fr 1.5fr 1fr", borderBottom: `1px solid ${vars.borderWeak}`, "&:last-child": { borderBottom: "none" } }}>
-                                    <Box sx={ROW_CELL_SX}>{sel.type}</Box>
-                                    <Box sx={ROW_CELL_SX}>{sel.location}</Box>
-                                    <Box sx={ROW_CELL_SX}>{sel.size_m || "—"}</Box>
-                                    <Box sx={ROW_CELL_SX}>{sel.eirp_dbw || "—"}</Box>
-                                    <Box sx={ROW_CELL_SX}>{sel.tx_polarization || "—"}</Box>
-                                    <Box sx={ROW_CELL_SX}>{sel.rx_polarization || "—"}</Box>
-                                    <Box sx={ROW_CELL_SX}>{sel.travel_range || "—"}</Box>
-                                    <Box sx={ROW_CELL_SX}>{sel.tracking_modes || "—"}</Box>
+                                    <Box sx={rowCellSx}>{sel.type}</Box>
+                                    <Box sx={rowCellSx}>{sel.location}</Box>
+                                    <Box sx={rowCellSx}>{sel.size_m || "—"}</Box>
+                                    <Box sx={rowCellSx}>{sel.eirp_dbw || "—"}</Box>
+                                    <Box sx={rowCellSx}>{sel.tx_polarization || "—"}</Box>
+                                    <Box sx={rowCellSx}>{sel.rx_polarization || "—"}</Box>
+                                    <Box sx={rowCellSx}>{sel.travel_range || "—"}</Box>
+                                    <Box sx={rowCellSx}>{sel.tracking_modes || "—"}</Box>
                                   </Box>
                                 ))}
                               </Box>
@@ -620,16 +634,16 @@ export default function Gsoperations() {
                       <TableScanLine />
                       <Box sx={{ width: "100%", minWidth: 1200 }}>
                         <Box sx={{ position: "sticky", top: 0, zIndex: 10, display: "grid", gridTemplateColumns: "80px 1.5fr 1fr 1.5fr 1fr 100px", bgcolor: "rgba(0,0,0,0.3)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${vars.border}` }}>
-                          {[t("Sr No"), t("TTC Provider"), t("Location"), t("Antenna"), t("Added By"), t("Action")].map(h => <Box key={h} sx={THEAD_CELL_SX}>{h}</Box>)}
+                          {[t("Sr No"), t("TTC Provider"), t("Location"), t("Antenna"), t("Added By"), t("Action")].map(h => <Box key={h} sx={theadCellSx}>{h}</Box>)}
                         </Box>
                         {gsRows.slice(gsPage * gsRpp, gsPage * gsRpp + gsRpp).map((r, i) => (
                           <Box key={r.id} sx={{ ...terminalRowSx(i), gridTemplateColumns: "80px 1.5fr 1fr 1.5fr 1fr 100px", ...glassRowHoverSx }}>
-                            <Box sx={ROW_CELL_SX}>{gsPage * gsRpp + i + 1}</Box>
-                            <Box sx={ROW_CELL_SX}>{r.partner}</Box>
-                            <Box sx={ROW_CELL_SX}>{r.station}</Box>
-                            <Box sx={{ ...ROW_CELL_SX, whiteSpace: "normal" }}>{r.antenna}</Box>
-                            <Box sx={ROW_CELL_SX}>{r.addedBy}</Box>
-                            <Box sx={ROW_CELL_SX}><Button size="small" onClick={() => onEditST(r)} sx={{ color: TEXT, bgcolor: "rgba(255,255,255,0.01)", border: `1px solid ${vars.borderWeak}`, borderRadius: "8px", textTransform: "none", fontSize: 11, fontWeight: 700 }}>Edit</Button></Box>
+                            <Box sx={rowCellSx}>{gsPage * gsRpp + i + 1}</Box>
+                            <Box sx={rowCellSx}>{r.partner}</Box>
+                            <Box sx={rowCellSx}>{r.station}</Box>
+                            <Box sx={{ ...rowCellSx, whiteSpace: "normal" }}>{r.antenna}</Box>
+                            <Box sx={rowCellSx}>{r.addedBy}</Box>
+                            <Box sx={rowCellSx}><Button size="small" onClick={() => onEditST(r)} sx={{ color: TEXT, bgcolor: "rgba(255,255,255,0.01)", border: `1px solid ${vars.borderWeak}`, borderRadius: "8px", textTransform: "none", fontSize: 11, fontWeight: 700 }}>Edit</Button></Box>
                           </Box>
                         ))}
                       </Box>

@@ -446,6 +446,7 @@ const LDAPLogin: React.FC = () => {
       }
 
       toast.success("LDAP login successful! Redirecting…", TOAST_OPTS);
+      localStorage.setItem("pmgt_session_expires_at", String(Date.now() + 30 * 60 * 1000));
       setTimeout(() => { window.location.href = "/pass-list"; }, 600);
     } catch (err: any) {
       toast.error(err?.message || "Network error during LDAP login", TOAST_OPTS);

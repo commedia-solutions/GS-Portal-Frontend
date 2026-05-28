@@ -225,6 +225,52 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({
     };
   }, []);
 
+  // Periodic absolute session timeout check
+  useEffect(() => {
+    const checkSessionTimeout = () => {
+      const token =
+        localStorage.getItem("auth_token") ||
+        sessionStorage.getItem("auth_token") ||
+        localStorage.getItem("token") ||
+        sessionStorage.getItem("token");
+
+      if (!token) return;
+
+      let expiresAtStr = localStorage.getItem("pmgt_session_expires_at");
+      if (!expiresAtStr) {
+        // Fallback: If logged in but no expiry is recorded, set it now
+        const fallbackExpiry = Date.now() + 30 * 60 * 1000;
+        localStorage.setItem("pmgt_session_expires_at", String(fallbackExpiry));
+        expiresAtStr = String(fallbackExpiry);
+      }
+
+      const expiresAt = Number(expiresAtStr);
+      if (Date.now() > expiresAt) {
+        console.warn("Session expired. Logging out automatically.");
+        
+        // Attempt backend logout log
+        fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => {});
+
+        // Clear session info
+        sessionStorage.clear();
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("token");
+        localStorage.removeItem("pmgt_session_expires_at");
+
+        setUser(null);
+        window.location.href = "/";
+      }
+    };
+
+    checkSessionTimeout();
+    const interval = setInterval(checkSessionTimeout, 5000);
+
+    return () => clearInterval(interval);
+  }, [setUser]);
+
 
   const value = useMemo<AuthState>(() => {
     const role: Role = user?.role ?? "guest";

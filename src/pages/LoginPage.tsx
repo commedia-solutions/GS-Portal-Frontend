@@ -293,7 +293,14 @@ const LoginPage: React.FC = () => {
       sessionStorage.setItem("pmgt_role", resolvedRole);
       const isEditorRole = editorPages.length > 0 || String(me?.roleType).toLowerCase() === "editor";
       sessionStorage.setItem("pmgt_role_type", isEditorRole ? "editor" : "viewer");
-      setUser({ id: Number(me?.id), username: String(me?.username || ""), roleId: me?.roleId ?? null, role: resolvedRole });
+      setUser({
+        id: Number(me?.id),
+        username: String(me?.username || ""),
+        roleId: me?.roleId ?? null,
+        role: resolvedRole,
+        roleName: String(me?.roleName || me?.role || "User")
+      });
+      localStorage.setItem("pmgt_session_expires_at", String(Date.now() + 30 * 60 * 1000));
       toast.success("Login successful! Redirecting…", TOAST_OPTS);
       requestAnimationFrame(() => {
         window.dispatchEvent(new Event("pmgt:page-access-updated"));
