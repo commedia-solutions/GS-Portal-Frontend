@@ -7,7 +7,6 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import DownloadIcon from "@mui/icons-material/Download";
 import PrintIcon from "@mui/icons-material/Print";
-import DateRangeUI from "../../components/DateRangeUI";
 import MainLayout from "../../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import UpdateSatelliteModal from "../../components/Models/UpdateSatelliteModal";
@@ -68,8 +67,7 @@ export default function SatellitesList() {
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
-  const [fromDate, setFromDate] = React.useState<Date | null>(null);
-  const [toDate, setToDate] = React.useState<Date | null>(null);
+
 
   const fetchRows = React.useCallback(async () => {
     try {
@@ -180,12 +178,6 @@ export default function SatellitesList() {
             </Box>
 
             <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-              <DateRangeUI
-                label={t("Select Date Range")}
-                startDate={fromDate}
-                endDate={toDate}
-                onChange={(s, e) => { setFromDate(s); setToDate(e); setPage(0); }}
-              />
               <TextField
                 value={search} onChange={e => setSearch(e.target.value)}
                 placeholder={t("Search…")} size="small" sx={{ width: 170, ...ctrlSx }}

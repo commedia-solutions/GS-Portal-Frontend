@@ -270,15 +270,17 @@ export default function DocumentsPage() {
                     borderColor: BORDER, whiteSpace: "nowrap", bgcolor: "rgba(255,255,255,0.03)",
                     "&:hover": { borderColor: ACCENT, bgcolor: `${ACCENT}10` }
                   }}>
-                    <Box sx={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 700 }}>{file ? file.name : t("Select Local File")}</Box>
+                    <Box sx={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 700 }}>{file ? file.name : t("Select File")}</Box>
                     <input type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                   </Button>
-                  <Button variant="contained" disabled={!file || !uploadType} onClick={() => setCaptchaDocOpen(true)} sx={{
-                    bgcolor: ACCENT, color: "#fff", height: 32, px: 3, fontSize: 11, fontWeight: 800, borderRadius: "6px",
-                    boxShadow: `0 4px 14px ${ACCENT}40`,
-                    "&:hover": { bgcolor: "#6b48ea", boxShadow: `0 6px 20px ${ACCENT}60` },
-                    "&.Mui-disabled": { bgcolor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.1)" }
-                  }}>{t("Execute Upload")}</Button>
+                  <Button variant="outlined" disabled={!file || !uploadType} onClick={() => setCaptchaDocOpen(true)} sx={{
+                    ...ctrlSx, textTransform: "none", height: 32, px: 2, minWidth: 160,
+                    borderColor: BORDER, whiteSpace: "nowrap", bgcolor: "rgba(255,255,255,0.03)", color: TEXT,
+                    "&:hover": { borderColor: ACCENT, bgcolor: `${ACCENT}10` },
+                    "&.Mui-disabled": { borderColor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)", opacity: 0.5 }
+                  }}>
+                    <Box sx={{ fontWeight: 700 }}>{t("Upload")}</Box>
+                  </Button>
                 </>
               )}
 
@@ -291,14 +293,17 @@ export default function DocumentsPage() {
                     ...ctrlSx, textTransform: "none", height: 32, px: 2, minWidth: 220, borderColor: BORDER,
                     bgcolor: "rgba(255,255,255,0.03)", "&:hover": { borderColor: ACCENT, bgcolor: `${ACCENT}10` }
                   }}>
-                    <Box sx={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 700, fontSize: 11 }}>{passFile ? passFile.name : t("Attach Schedule (CSV/XLS)")}</Box>
+                    <Box sx={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 700, fontSize: 11 }}>{passFile ? passFile.name : t("Select Schedule")}</Box>
                     <input type="file" hidden onChange={(e) => setPassFile(e.target.files?.[0] ?? null)} />
                   </Button>
-                  <Button variant="contained" disabled={!passFile} onClick={() => setCaptchaPassOpen(true)} sx={{
-                    bgcolor: ACCENT, color: "#fff", height: 32, px: 3, fontSize: 11, fontWeight: 800, borderRadius: "6px",
-                    boxShadow: `0 4px 14px ${ACCENT}40`,
-                    "&:hover": { bgcolor: "#6b48ea", boxShadow: `0 6px 20px ${ACCENT}60` }
-                  }}>{t("Sync Schedule")}</Button>
+                  <Button variant="outlined" disabled={!passFile} onClick={() => setCaptchaPassOpen(true)} sx={{
+                    ...ctrlSx, textTransform: "none", height: 32, px: 2, minWidth: 220,
+                    borderColor: BORDER, whiteSpace: "nowrap", bgcolor: "rgba(255,255,255,0.03)", color: TEXT,
+                    "&:hover": { borderColor: ACCENT, bgcolor: `${ACCENT}10` },
+                    "&.Mui-disabled": { borderColor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)", opacity: 0.5 }
+                  }}>
+                    <Box sx={{ fontWeight: 700, fontSize: 11 }}>{t("Upload Schedule")}</Box>
+                  </Button>
                 </>
               )}
             </Box>

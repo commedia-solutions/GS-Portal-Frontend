@@ -114,7 +114,7 @@ export const PREMIUM_FORM_CONTROL_SX = {
 export const PREMIUM_MENU_PROPS = {
   PaperProps: {
     sx: {
-      bgcolor: vars.bgCtrl,
+      bgcolor: vars.bgCard,
       color: vars.text,
       border: `1px solid ${vars.border}`,
       "& .MuiMenuItem-root.Mui-selected": { bgcolor: vars.bgHover },

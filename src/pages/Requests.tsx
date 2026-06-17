@@ -3,7 +3,7 @@ import * as React from "react";
 import {
   Box, Card, ToggleButtonGroup, ToggleButton, TextField, InputAdornment, Button, Select, MenuItem,
   TablePagination, Typography, Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
-  Table, TableBody, TableCell, TableHead, TableRow, Stack
+  Table, TableBody, TableCell, TableHead, TableRow, Stack, Chip
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -109,6 +109,19 @@ export default function RequestsPage() {
   const [details, setDetails] = React.useState("");
   const [captchaOpen, setCaptchaOpen] = React.useState(false);
 
+  // update dialog state
+  const [updOpen, setUpdOpen] = React.useState(false);
+  const [updLoading, setUpdLoading] = React.useState(false);
+  const [updId, setUpdId] = React.useState<number | null>(null);
+  const [updTicketNo, setUpdTicketNo] = React.useState("");
+  const [updRequester, setUpdRequester] = React.useState("");
+  const [updTarget, setUpdTarget] = React.useState("");
+  const [updCategories, setUpdCategories] = React.useState<string[]>([]);
+  const [updPriority, setUpdPriority] = React.useState<"P1" | "P2" | "P3">("P2");
+  const [updStatus, setUpdStatus] = React.useState<Status>("Submitted");
+  const [updDescription, setUpdDescription] = React.useState("");
+  const [updRemarks, setUpdRemarks] = React.useState("");
+
   const refreshList = React.useCallback(async () => {
     if (tab !== "list") return;
     setLoadingList(true);
@@ -137,6 +150,62 @@ export default function RequestsPage() {
       await api.post("/api/tickets", { type: "request", target_user_id: reqToId, priority, description: details, categories });
       setTab("list"); setScope("sent"); setDetails(""); setCategories([]); refreshList();
     } catch (e) { console.error(e); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm(t("Are you sure you want to delete this request?"))) return;
+    try {
+      await api.delete(`/api/tickets/${id}`);
+      refreshList();
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || t("Failed to delete request"));
+    }
+  };
+
+  const openUpdate = async (row: ReqRow) => {
+    try {
+      setUpdOpen(true);
+      setUpdLoading(true);
+      setUpdId(row.id);
+      setUpdTicketNo(row.ticketNo);
+
+      const j = await api.get<any>(`/api/tickets/${row.id}`);
+      const tkt = j?.ticket || {};
+      const cats = Array.isArray(j?.categories) ? j.categories : [];
+
+      setUpdRequester(tkt.requester_name || row.user);
+      setUpdTarget(tkt.target_name || row.reqTo);
+      setUpdCategories(cats.map((c: any) => c.name));
+      setUpdPriority((tkt.priority || row.priority) as any);
+      setUpdStatus((tkt.status || row.status) as Status);
+      setUpdDescription(tkt.description || row.description || "");
+      setUpdRemarks(row.remarks || "");
+    } catch (e) {
+      console.error(e);
+      alert(t("Failed to open ticket."));
+      setUpdOpen(false);
+    } finally {
+      setUpdLoading(false);
+    }
+  };
+
+  const submitUpdate = async () => {
+    if (!updId) return;
+    try {
+      setUpdLoading(true);
+      await api.patch(`/api/tickets/${updId}`, {
+        status: updStatus,
+        note: updRemarks?.trim() || null,
+      });
+      setUpdOpen(false);
+      refreshList();
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || t("Update failed"));
+    } finally {
+      setUpdLoading(false);
+    }
   };
 
   const toggleBtnSx = {
@@ -272,9 +341,15 @@ export default function RequestsPage() {
                           <Button size="small" variant="contained" sx={{
                             textTransform: "none", bgcolor: ACCENT, fontSize: 10.5, fontWeight: 800, py: 0.3, px: 2, borderRadius: "6px",
                             "&:hover": { bgcolor: "#6b48ea" }
-                          }} onClick={() => { }}>{t("Update")}</Button>
+                          }} onClick={() => openUpdate(r)}>{t("Update")}</Button>
                         ) : (
-                          <IconButton size="small" color="error" onClick={() => { }} sx={{ "&:hover": { bgcolor: "rgba(239,68,68,0.1)" } }}><DeleteOutlineIcon fontSize="small" /></IconButton>
+                          <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                            <Button size="small" variant="contained" sx={{
+                              textTransform: "none", bgcolor: ACCENT, fontSize: 10.5, fontWeight: 800, py: 0.3, px: 2, borderRadius: "6px",
+                              "&:hover": { bgcolor: "#6b48ea" }
+                            }} onClick={() => openUpdate(r)}>{t("View")}</Button>
+                            <IconButton size="small" color="error" onClick={() => handleDelete(r.id)} sx={{ "&:hover": { bgcolor: "rgba(239,68,68,0.1)" } }}><DeleteOutlineIcon fontSize="small" /></IconButton>
+                          </Stack>
                         )}
                       </TableCell>
                     </TableRow>
@@ -290,6 +365,145 @@ export default function RequestsPage() {
           )}
         </Card>
       </Box>
+      {/* ----- Update Dialog ----- */}
+      <Dialog
+        open={updOpen}
+        onClose={() => setUpdOpen(false)}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{ sx: { bgcolor: vars.bgCard, color: TEXT, border: `1px solid ${vars.border}` } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>{t("Update Request")}</DialogTitle>
+        <DialogContent dividers sx={{ borderColor: vars.border }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+              gap: 2,
+              mt: 0.5,
+            }}
+          >
+            <TextField
+              label={t("Ticket No")}
+              value={updTicketNo}
+              size="small"
+              InputProps={{ readOnly: true }}
+              sx={ctrlSx}
+              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+            />
+            <TextField
+              label={t("Priority")}
+              value={updPriority}
+              size="small"
+              InputProps={{ readOnly: true }}
+              sx={ctrlSx}
+              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+            />
+            <TextField
+              label={t("Requester")}
+              value={updRequester}
+              size="small"
+              InputProps={{ readOnly: true }}
+              sx={ctrlSx}
+              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+            />
+            <TextField
+              label={t("Report To")}
+              value={updTarget}
+              size="small"
+              InputProps={{ readOnly: true }}
+              sx={ctrlSx}
+              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+            />
+
+            <TextField
+              label={t("Status")}
+              select
+              value={updStatus}
+              onChange={(e) => setUpdStatus(e.target.value as Status)}
+              size="small"
+              sx={{ ...ctrlSx, "& .MuiSelect-select": { py: 0, height: 32, display: "flex", alignItems: "center" } }}
+              InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <MenuItem key={s} value={s}>
+                  {t(s)}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Box />
+
+            <Box sx={{ gridColumn: "1 / -1" }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 900, mb: 0.75, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("Categories")}</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {updCategories.length ? (
+                  updCategories.map((n, i) => (
+                    <Chip
+                      key={i}
+                      size="small"
+                      label={n}
+                      variant="outlined"
+                      sx={{ color: TEXT, borderColor: vars.border, bgcolor: "transparent" }}
+                    />
+                  ))
+                ) : (
+                  <Typography sx={{ color: DIM }}>{t("No categories")}</Typography>
+                )}
+              </Stack>
+            </Box>
+
+            <Box sx={{ gridColumn: "1 / -1" }}>
+              <TextField
+                label={t("Description")}
+                value={updDescription}
+                size="small"
+                fullWidth
+                multiline
+                minRows={3}
+                sx={{
+                  ...ctrlSx,
+                  "& .MuiOutlinedInput-root": { height: "auto" },
+                  "& .MuiInputBase-input": { height: "auto", padding: "10px 12px", lineHeight: 1.25, fontSize: 13, color: TEXT }
+                }}
+                InputProps={{ readOnly: true }}
+                InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+              />
+            </Box>
+
+            <Box sx={{ gridColumn: "1 / -1" }}>
+              <TextField
+                label={t("Remarks (note for this update)")}
+                value={updRemarks}
+                onChange={(e) => setUpdRemarks(e.target.value)}
+                size="small"
+                multiline
+                minRows={2}
+                fullWidth
+                sx={{
+                  ...ctrlSx,
+                  "& .MuiOutlinedInput-root": { height: "auto", alignItems: "start" },
+                  "& .MuiInputBase-input": { height: "auto", padding: "10px 12px", lineHeight: 1.25, fontSize: 13 }
+                }}
+                InputLabelProps={{ sx: { color: TEXT, "&.Mui-focused": { color: TEXT } } }}
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setUpdOpen(false)} disabled={updLoading} sx={{ color: DIM }}>
+            {t("Cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={submitUpdate}
+            disabled={updLoading}
+            sx={{ bgcolor: ACCENT, color: "#fff", "&:hover": { bgcolor: "#6b48ea" } }}
+          >
+            {updLoading ? t("Saving…") : t("Update")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <CaptchaDialog open={captchaOpen} onCancel={() => setCaptchaOpen(false)} onOk={() => { setCaptchaOpen(false); doSubmit(); }} colors={{ CARD: vars.bgCard, TEXT: vars.text, BORDER: vars.border, CTRL: vars.bgCtrl }} t={t} />
     </MainLayout>
   );

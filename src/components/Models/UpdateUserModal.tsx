@@ -33,6 +33,20 @@ const BORDER_DARK = "1px solid rgba(255,255,255,0.14)";
 const BORDER_LIGHT = "1px solid rgba(0,0,0,0.12)";
 const UI = { ctrlH: 36, font: 13, icon: 16 };
 
+export function checkPasswordComplexity(pw: string) {
+  const hasUpper = /[A-Z]/.test(pw);
+  const hasLower = /[a-z]/.test(pw);
+  const hasSpecial = /[^A-Za-z0-9]/.test(pw);
+  const hasMinLength = pw.length >= 8;
+  return {
+    hasUpper,
+    hasLower,
+    hasSpecial,
+    hasMinLength,
+    isValid: hasUpper && hasLower && hasSpecial && hasMinLength
+  };
+}
+
 const controlSx = {
   ...PREMIUM_FORM_CONTROL_SX,
   borderRadius: 1,
@@ -105,6 +119,8 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
 
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const pwMatch = newPassword === confirmPw;
+  const passwordStatus = React.useMemo(() => checkPasswordComplexity(newPassword), [newPassword]);
+  const canSave = emailOk && (newPassword.trim() ? passwordStatus.isValid && pwMatch : true);
 
   const handleSave = async () => {
     if (!row) return;
@@ -244,6 +260,45 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
               }}
             />
           </Box>
+
+          {newPassword && (
+            <Box sx={{
+              gridColumn: "1 / span 2",
+              bgcolor: (t) => t.palette.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+              border: `1px solid ${vars.border}`,
+              borderRadius: "8px",
+              p: 1.5,
+              mt: 1
+            }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1, color: vars.text }}>
+                {t("Password Requirements:")}
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
+                {[
+                  { label: t("At least 8 characters"), met: passwordStatus.hasMinLength },
+                  { label: t("One uppercase letter (A-Z)"), met: passwordStatus.hasUpper },
+                  { label: t("One lowercase letter (a-z)"), met: passwordStatus.hasLower },
+                  { label: t("One special character"), met: passwordStatus.hasSpecial },
+                ].map((req, i) => (
+                  <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                    <Box sx={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      bgcolor: req.met ? "#4caf50" : "#f44336",
+                      boxShadow: req.met ? "0 0 8px #4caf50" : "0 0 8px #f44336"
+                    }} />
+                    <Typography sx={{
+                      fontSize: 11.5,
+                      color: req.met ? vars.text : vars.textDim,
+                      textDecoration: req.met ? "line-through" : "none",
+                      opacity: req.met ? 0.6 : 1
+                    }}>
+                      {req.label}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
       </DialogContent>
 
@@ -251,7 +306,7 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
         <Button onClick={onClose} sx={{ textTransform: "none", fontWeight: 700 }}>{t("Cancel")}</Button>
         <Button
           variant="contained"
-          disabled={!emailOk || (!!confirmPw && !pwMatch)}
+          disabled={!canSave}
           onClick={handleSave}
           sx={PREMIUM_ACTION_BUTTON_SX}
         >

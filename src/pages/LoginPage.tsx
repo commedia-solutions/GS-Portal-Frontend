@@ -392,14 +392,14 @@ const LoginPage: React.FC = () => {
               </div>
 
               <p className="istrac-card-desc">
-                Insert your Username and Password to<br />
+                Insert your User ID and Password to<br />
                 authenticate with the ISTRAC mission network.
               </p>
 
               {/* Operator ID */}
               <div className="istrac-field">
                 <div className="istrac-field-label">
-                  <span className="istrac-field-label-txt">Username</span>
+                  <span className="istrac-field-label-txt">User ID</span>
                   <span className="istrac-field-code">0x9F22 · AUTH</span>
                 </div>
                 <div className="istrac-input-wrap">
@@ -407,8 +407,8 @@ const LoginPage: React.FC = () => {
                   <input
                     className="istrac-input"
                     type="text"
-                    placeholder="Enter Username"
-                    autoComplete="username"
+                    placeholder="Enter User ID"
+                    autoComplete="user ID"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     disabled={loading}

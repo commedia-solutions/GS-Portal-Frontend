@@ -225,6 +225,42 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({
     };
   }, []);
 
+  // Extend session timeout on user activity (mouse movement, clicks, key presses, scroll, touch)
+  useEffect(() => {
+    const token =
+      localStorage.getItem("auth_token") ||
+      sessionStorage.getItem("auth_token") ||
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("token");
+
+    if (!token) return;
+
+    let lastUpdated = Date.now();
+
+    const resetTimer = () => {
+      const now = Date.now();
+      // Throttle updates to localStorage to every 10 seconds to avoid performance degradation
+      if (now - lastUpdated > 10000) {
+        localStorage.setItem("pmgt_session_expires_at", String(now + 30 * 60 * 1000));
+        lastUpdated = now;
+      }
+    };
+
+    const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
+    events.forEach((event) => {
+      window.addEventListener(event, resetTimer, { passive: true });
+    });
+
+    // Also initialize or extend it immediately
+    localStorage.setItem("pmgt_session_expires_at", String(Date.now() + 30 * 60 * 1000));
+
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [user]);
+
   // Periodic absolute session timeout check
   useEffect(() => {
     const checkSessionTimeout = () => {
