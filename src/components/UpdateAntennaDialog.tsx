@@ -232,23 +232,23 @@ export default function UpdateAntennaDialog({
           {/* core fields */}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" }, gap: 3 }}>
             <Stack spacing={0.5}>
-              <Typography sx={LABEL_SX}>Antenna Name *</Typography>
+              <Typography sx={LABEL_SX}>Antenna Name <span style={{ color: RED }}>*</span></Typography>
               <TextField value={type} onChange={(e) => setType(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
             <Stack spacing={0.5}>
-              <Typography sx={LABEL_SX}>Location *</Typography>
+              <Typography sx={LABEL_SX}>Location <span style={{ color: RED }}>*</span></Typography>
               <TextField value={location} onChange={(e) => setLocation(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
             <Stack spacing={0.5}>
-              <Typography sx={LABEL_SX}>Antenna Size (m) *</Typography>
+              <Typography sx={LABEL_SX}>Antenna Size (m) <span style={{ color: RED }}>*</span></Typography>
               <TextField value={size_m} onChange={(e) => setSize(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
             <Stack spacing={0.5}>
-              <Typography sx={LABEL_SX}>EIRP (dBW) *</Typography>
+              <Typography sx={LABEL_SX}>EIRP (dBW) <span style={{ color: RED }}>*</span></Typography>
               <TextField value={eirp_dbw} onChange={(e) => setEirp(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
             <Stack spacing={0.5}>
-              <Typography sx={LABEL_SX}>Transmit Polarization *</Typography>
+              <Typography sx={LABEL_SX}>Transmit Polarization <span style={{ color: RED }}>*</span></Typography>
               <FormControl fullWidth size="small">
                 <Select
                   multiple
@@ -269,7 +269,7 @@ export default function UpdateAntennaDialog({
               </FormControl>
             </Stack>
             <Stack spacing={0.5}>
-              <Typography sx={LABEL_SX}>Receive Polarization *</Typography>
+              <Typography sx={LABEL_SX}>Receive Polarization <span style={{ color: RED }}>*</span></Typography>
               <FormControl fullWidth size="small">
                 <Select
                   multiple
@@ -302,7 +302,7 @@ export default function UpdateAntennaDialog({
               <TextField value={tracking_acceleration} onChange={(e) => setAcc(e.target.value)} size="small" fullWidth sx={glassCtrlSx} />
             </Stack>
             <Stack spacing={0.5} sx={{ gridColumn: { md: "span 3" } }}>
-              <Typography sx={LABEL_SX}>Tracking Modes *</Typography>
+              <Typography sx={LABEL_SX}>Tracking Modes <span style={{ color: RED }}>*</span></Typography>
               <FormControl fullWidth size="small">
                 <Select
                   value={tracking_modes}
@@ -322,7 +322,7 @@ export default function UpdateAntennaDialog({
 
           {/* Bands */}
           <Box sx={{ mt: 1, p: 2, borderRadius: "16px", border: `1px solid ${vars.borderWeak}`, background: "rgba(255,255,255,0.01)" }}>
-            <Typography sx={{ ...LABEL_SX, mb: 2 }}>Bands/Carriers *</Typography>
+            <Typography sx={{ ...LABEL_SX, mb: 2 }}>Bands/Carriers <span style={{ color: RED }}>*</span></Typography>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.5fr 1fr auto auto auto" }, gap: 2, alignItems: "center", mb: 2 }}>
               <FormControl fullWidth size="small">
                 <Select value={curBand} onChange={(e) => setCurBand(e.target.value)} displayEmpty renderValue={(v) => v ? v : "Select Band"} sx={glassCtrlSx}>
@@ -362,7 +362,7 @@ export default function UpdateAntennaDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} variant="contained" disabled={!canSave || busy} sx={premiumBtnSx}>
-            Edit
+            Save
           </Button>
         </Box>
       </DialogActions>

@@ -706,17 +706,17 @@ export default function Gsoperations() {
                 {antInner === "add" ? (
                   <Box sx={{ p: 4, overflowY: "auto", ...sxPresets.scroller }}>
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 2fr 1fr 1fr" }, gap: 3 }}>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Antenna Name *</Typography><TextField size="small" value={antType} onChange={e => setAntType(e.target.value)} placeholder="11m X-Band" sx={glassCtrlSx} /></Stack>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Location *</Typography><TextField size="small" value={antLoc} onChange={e => setAntLoc(e.target.value)} placeholder="Bangalore" sx={glassCtrlSx} /></Stack>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Antenna Size (m) *</Typography><TextField size="small" value={antSize} onChange={e => setAntSize(e.target.value)} placeholder="e.g. 3.7" sx={glassCtrlSx} /></Stack>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>EIRP (dBW) *</Typography><TextField size="small" value={antEirp} onChange={e => setAntEirp(e.target.value)} placeholder="e.g. 52.5" sx={glassCtrlSx} /></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Antenna Name <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antType} onChange={e => setAntType(e.target.value)} placeholder="11m X-Band" sx={glassCtrlSx} /></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Location <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antLoc} onChange={e => setAntLoc(e.target.value)} placeholder="Bangalore" sx={glassCtrlSx} /></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Antenna Size (m) <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antSize} onChange={e => setAntSize(e.target.value)} placeholder="e.g. 3.7" sx={glassCtrlSx} /></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>EIRP (dBW) <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antEirp} onChange={e => setAntEirp(e.target.value)} placeholder="e.g. 52.5" sx={glassCtrlSx} /></Stack>
                     </Box>
 
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 3, mt: 3 }}>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Transmit Polarization *</Typography><FormControl fullWidth size="small"><Select multiple value={antTxPol} onChange={e => setAntTxPol(e.target.value as string[])} displayEmpty renderValue={s => s.length ? s.join(", ") : "Select Transmit Polarization"} sx={glassCtrlSx}>{POL_OPTIONS.map(p => <MenuItem key={p} value={p}><Checkbox checked={(antTxPol || []).includes(p)} size="small" /><ListItemText primary={p} /></MenuItem>)}</Select></FormControl></Stack>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Receive Polarization *</Typography><FormControl fullWidth size="small"><Select multiple value={antRxPol} onChange={e => setAntRxPol(e.target.value as string[])} displayEmpty renderValue={s => s.length ? s.join(", ") : "Select Receive Polarization"} sx={glassCtrlSx}>{POL_OPTIONS.map(p => <MenuItem key={p} value={p}><Checkbox checked={(antRxPol || []).includes(p)} size="small" /><ListItemText primary={p} /></MenuItem>)}</Select></FormControl></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Transmit Polarization <span style={{ color: "#FF2E63" }}>*</span></Typography><FormControl fullWidth size="small"><Select multiple value={antTxPol} onChange={e => setAntTxPol(e.target.value as string[])} displayEmpty renderValue={s => s.length ? s.join(", ") : "Select Transmit Polarization"} sx={glassCtrlSx}>{POL_OPTIONS.map(p => <MenuItem key={p} value={p}><Checkbox checked={(antTxPol || []).includes(p)} size="small" /><ListItemText primary={p} /></MenuItem>)}</Select></FormControl></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Receive Polarization <span style={{ color: "#FF2E63" }}>*</span></Typography><FormControl fullWidth size="small"><Select multiple value={antRxPol} onChange={e => setAntRxPol(e.target.value as string[])} displayEmpty renderValue={s => s.length ? s.join(", ") : "Select Receive Polarization"} sx={glassCtrlSx}>{POL_OPTIONS.map(p => <MenuItem key={p} value={p}><Checkbox checked={(antRxPol || []).includes(p)} size="small" /><ListItemText primary={p} /></MenuItem>)}</Select></FormControl></Stack>
                       <Stack spacing={1}>
-                        <Typography sx={LABEL_SX}>Antenna Travel Range (°) *</Typography>
+                        <Typography sx={LABEL_SX}>Antenna Travel Range (°) <span style={{ color: "#FF2E63" }}>*</span></Typography>
                         <Box sx={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr auto 1fr auto 1fr", gap: 1, alignItems: "center" }}>
                           <Typography sx={{ fontSize: 11, color: DIM }}>Az From</Typography>
                           <TextField size="small" value={azFrom} onChange={e => setAzFrom(e.target.value)} placeholder="0" sx={glassCtrlSx} />
@@ -731,13 +731,13 @@ export default function Gsoperations() {
                     </Box>
 
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 3, mt: 3 }}>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Tracking Velocity (°/s) *</Typography><TextField size="small" value={antVel} onChange={e => setAntVel(e.target.value)} placeholder="e.g. 20" sx={glassCtrlSx} /></Stack>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Tracking Acceleration (°/s²) *</Typography><TextField size="small" value={antAcc} onChange={e => setAntAcc(e.target.value)} placeholder="e.g. 100" sx={glassCtrlSx} /></Stack>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Tracking Modes *</Typography><FormControl fullWidth size="small"><Select value={antModes} onChange={e => setAntModes(e.target.value)} displayEmpty renderValue={v => v || "Select Tracking Mode"} sx={glassCtrlSx}>{TRACK_MODE_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}</Select></FormControl></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Tracking Velocity (°/s) <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antVel} onChange={e => setAntVel(e.target.value)} placeholder="e.g. 20" sx={glassCtrlSx} /></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Tracking Acceleration (°/s²) <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antAcc} onChange={e => setAntAcc(e.target.value)} placeholder="e.g. 100" sx={glassCtrlSx} /></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Tracking Modes <span style={{ color: "#FF2E63" }}>*</span></Typography><FormControl fullWidth size="small"><Select value={antModes} onChange={e => setAntModes(e.target.value)} displayEmpty renderValue={v => v || "Select Tracking Mode"} sx={glassCtrlSx}>{TRACK_MODE_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}</Select></FormControl></Stack>
                     </Box>
 
                     <Box sx={{ mt: 4, p: 3, borderRadius: "20px", border: `1px solid ${vars.border}`, background: "rgba(255,255,255,0.01)" }}>
-                      <Typography sx={{ ...LABEL_SX, mb: 2 }}>Bands/Carriers *</Typography>
+                      <Typography sx={{ ...LABEL_SX, mb: 2 }}>Bands/Carriers <span style={{ color: "#FF2E63" }}>*</span></Typography>
                       <Box sx={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 80px 80px auto", gap: 2, alignItems: "center", mb: 2 }}>
                         <Select size="small" value={curBand} onChange={e => setCurBand(e.target.value)} sx={glassCtrlSx} displayEmpty renderValue={v => v ? v : t("Select Band")}>
                           {BAND_OPTIONS.map(b => <MenuItem key={b} value={b}>{b}</MenuItem>)}

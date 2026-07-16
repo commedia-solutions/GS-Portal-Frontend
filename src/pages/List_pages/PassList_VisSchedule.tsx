@@ -3,7 +3,7 @@ import React from "react";
 import {
     Box, Card, Button, Typography, Backdrop, CircularProgress,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    TablePagination, Checkbox, Dialog, DialogTitle, DialogActions
+    TablePagination, Checkbox, Dialog, DialogTitle, DialogActions, ListItemText
 } from "@mui/material";
 import { Select, MenuItem, FormControl } from "@mui/material";
 import { DownloadOutlined as DownloadOutlinedIcon, DeleteOutlined as DeleteOutlinedIcon } from "@mui/icons-material";
@@ -86,7 +86,7 @@ const compactSelectSx = {
     "& .MuiSvgIcon-root": { fontSize: UI.icon, color: TOK.ICON },
 } as const;
 
-const lightMenu = { PaperProps: { sx: { bgcolor: TOK.CONTROL_BG, color: TOK.TEXT, border: TOK.BORDER_STR, "& .MuiMenuItem-root:hover": { bgcolor: "rgba(0,0,0,0.04)" } } } };
+const darkMenuProps = { PaperProps: { sx: { bgcolor: vars.bgCard, color: TOK.TEXT, border: TOK.BORDER_STR } } };
 
 function Labeled({ label, children, width }: { label: string; children: React.ReactNode; width: number | string }) {
     return (
@@ -152,6 +152,19 @@ function PostPassBadge({ status }: { status: string }) {
 
 
 /* ---------- Main Page ---------- */
+const handleMultiSelect = (e: any, currentVals: string[], setter: (v: string[]) => void) => {
+    const arr = e.target.value as string[];
+    if (arr.includes("All") && !currentVals.includes("All")) {
+        setter(["All"]);
+    } else if (currentVals.includes("All") && arr.length > 1) {
+        setter(arr.filter((x: string) => x !== "All"));
+    } else if (arr.length === 0) {
+        setter(["All"]);
+    } else {
+        setter(arr);
+    }
+};
+
 export default function PassListVisSchedule() {
     const { t } = useI18n();
 
@@ -172,8 +185,8 @@ export default function PassListVisSchedule() {
     React.useEffect(() => { fetchData(); }, [fetchData]);
 
     /* Filters */
-    const [station, setStation] = React.useState("All");
-    const [satellite, setSatellite] = React.useState("All");
+    const [station, setStation] = React.useState<string[]>(["All"]);
+    const [satellite, setSatellite] = React.useState<string[]>(["All"]);
     const [fromDate, setFromDate] = React.useState<Date | null>(null);
     const [toDate, setToDate] = React.useState<Date | null>(null);
 
@@ -181,11 +194,11 @@ export default function PassListVisSchedule() {
     const stationOptions = ["All", ...Array.from(new Set(safeRows.map(r => r.stn).filter(Boolean)))];
     const satOptions = ["All", ...Array.from(new Set(safeRows.map(r => r.sc).filter(Boolean)))];
 
-    const clearFilters = () => { setStation("All"); setSatellite("All"); setFromDate(null); setToDate(null); };
+    const clearFilters = () => { setStation(["All"]); setSatellite(["All"]); setFromDate(null); setToDate(null); };
 
     const filtered = safeRows.filter(r => {
-        if (station !== "All" && r.stn !== station) return false;
-        if (satellite !== "All" && r.sc !== satellite) return false;
+        if (!station.includes("All") && !station.includes(r.stn)) return false;
+        if (!satellite.includes("All") && !satellite.includes(r.sc)) return false;
         if (fromDate || toDate) {
             const parts = r.date_text.split(/[/-]/).map(x => parseInt(x, 10));
             const dt = new Date(parts[0], parts[1] - 1, parts[2]);
@@ -314,16 +327,16 @@ export default function PassListVisSchedule() {
 
                                 <Labeled label={t("Stations")} width={UI.selectW}>
                                     <FormControl size="small" fullWidth>
-                                        <Select value={station} onChange={(e) => { setStation(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
-                                            {stationOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                        <Select multiple value={station} onChange={(e) => { handleMultiSelect(e, station, setStation); setPage(0); }} MenuProps={darkMenuProps} renderValue={(s) => s.length && !s.includes("All") ? (s as string[]).join(", ") : "All"} sx={compactSelectSx}>
+                                            {stationOptions.map(s => <MenuItem key={s} value={s}><Checkbox checked={station.includes(s) || (station.includes("All") && s !== "All")} size="small" /><ListItemText primary={s} /></MenuItem>)}
                                         </Select>
                                     </FormControl>
                                 </Labeled>
 
                                 <Labeled label={t("Satellites")} width={UI.selectW}>
                                     <FormControl size="small" fullWidth>
-                                        <Select value={satellite} onChange={(e) => { setSatellite(e.target.value); setPage(0); }} MenuProps={lightMenu} sx={compactSelectSx}>
-                                            {satOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                                        <Select multiple value={satellite} onChange={(e) => { handleMultiSelect(e, satellite, setSatellite); setPage(0); }} MenuProps={darkMenuProps} renderValue={(s) => s.length && !s.includes("All") ? (s as string[]).join(", ") : "All"} sx={compactSelectSx}>
+                                            {satOptions.map(s => <MenuItem key={s} value={s}><Checkbox checked={satellite.includes(s) || (satellite.includes("All") && s !== "All")} size="small" /><ListItemText primary={s} /></MenuItem>)}
                                         </Select>
                                     </FormControl>
                                 </Labeled>

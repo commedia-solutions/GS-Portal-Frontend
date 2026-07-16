@@ -149,7 +149,7 @@ function DualClockRow() {
 export default function TopNav({ leftOffset }: TopNavProps) {
   const navigate = useNavigate();
 
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const { hasPageAccess, loadingAccess } = usePageAccess();
   const { isEditor } = useActionAccess();
 
@@ -163,6 +163,9 @@ export default function TopNav({ leftOffset }: TopNavProps) {
 
   const { pref, toggle } = useThemePref();
   const { t, lang } = useI18n();
+
+  const userRoleStr = (user as any)?.roleName || (user as any)?.role || sessionStorage.getItem("pmgt_role") || "User";
+
 
   const initialAvatar = React.useMemo(() => {
     const uid = getUid();
@@ -309,30 +312,52 @@ export default function TopNav({ leftOffset }: TopNavProps) {
           <TopNavButton to="/iam" label={t("User & Role Management")} />
         )}
 
-        <Avatar
-          src={!imgError ? avatarSrc : undefined}
-          imgProps={{ loading: "eager", referrerPolicy: "no-referrer" }}
-          onClick={() => navigate("/userprofile")}
-          onError={() => setImgError(true)}
-          onLoad={() => setImgError(false)}
-          sx={{
-            width: 34,
-            height: 34,
-            bgcolor: avatarSrc && !imgError ? "transparent" : vars.accent,
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 800,
-            cursor: "pointer",
-            userSelect: "none",
-            border: `2px solid ${BG}`,
-            boxShadow: `0 0 0 1px ${BORDER}`,
-            transition: "all 0.2s",
-            "&:hover": { transform: "scale(1.05)", boxShadow: `0 0 12px #38bdf844, 0 0 0 1.5px #38bdf8` },
+        <Tooltip
+          title={
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, p: 0.5 }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>I-Portal Account</Typography>
+              <Typography sx={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>Name: {fullName || username || "User"}</Typography>
+              <Typography sx={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>Role: {String(userRoleStr).toUpperCase()}</Typography>
+              <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.6)", mt: 0.5 }}>{email}</Typography>
+            </Box>
+          }
+          slotProps={{
+            tooltip: {
+              sx: {
+                bgcolor: vars.bgCard,
+                color: vars.text,
+                border: `1px solid ${vars.border}`,
+                boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+                borderRadius: "12px",
+                p: 1.5,
+              }
+            }
           }}
-          title={t("User & Role Management")}
         >
-          {!avatarSrc || imgError ? initials : null}
-        </Avatar>
+          <Avatar
+            src={!imgError ? avatarSrc : undefined}
+            imgProps={{ loading: "eager", referrerPolicy: "no-referrer" }}
+            onClick={() => navigate("/userprofile")}
+            onError={() => setImgError(true)}
+            onLoad={() => setImgError(false)}
+            sx={{
+              width: 34,
+              height: 34,
+              bgcolor: avatarSrc && !imgError ? "transparent" : vars.accent,
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+              userSelect: "none",
+              border: `2px solid ${BG}`,
+              boxShadow: `0 0 0 1px ${BORDER}`,
+              transition: "all 0.2s",
+              "&:hover": { transform: "scale(1.05)", boxShadow: `0 0 12px #38bdf844, 0 0 0 1.5px #38bdf8` },
+            }}
+          >
+            {!avatarSrc || imgError ? initials : null}
+          </Avatar>
+        </Tooltip>
 
         <Tooltip title={t("Settings")}>
           <IconButton size="small" onClick={openSettings} sx={{

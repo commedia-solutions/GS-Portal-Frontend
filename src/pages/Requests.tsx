@@ -155,7 +155,7 @@ export default function RequestsPage() {
   const handleDelete = async (id: number) => {
     if (!window.confirm(t("Are you sure you want to delete this request?"))) return;
     try {
-      await api.delete(`/api/tickets/${id}`);
+      await api.del(`/api/tickets/${id}`);
       refreshList();
     } catch (e: any) {
       console.error(e);

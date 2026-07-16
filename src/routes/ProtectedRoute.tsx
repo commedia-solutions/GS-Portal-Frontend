@@ -88,7 +88,7 @@ export default function ProtectedRoute() {
     };
   }, []);
 
-  if (!hasToken) return <Navigate to="/login" replace />;
+  if (!hasToken) return <Navigate to="/" replace />;
 
   if (!accessReady) {
     return (
