@@ -12,6 +12,9 @@ import {
   DownloadOutlined as DownloadOutlinedIcon,
   DeleteOutlined as DeleteOutlinedIcon,
   PublishOutlined as PublishOutlinedIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  UploadOutlined as UploadOutlinedIcon,
 } from "@mui/icons-material";
 import DateRangeUI from "../components/DateRangeUI";
 
@@ -404,6 +407,58 @@ export default function VisibilitySchedule() {
   const { t } = useI18n();
   const { hasReadAccess, hasWriteAccess } = useActionAccess();
 
+  const username = React.useMemo(() => {
+    return sessionStorage.getItem("pmgt_username") || localStorage.getItem("username") || "default";
+  }, []);
+
+  const draftSortKey = `draft_passes_sort_${username}`;
+  const scheduledSortKey = `scheduled_passes_sort_${username}`;
+  const requestedSortKey = `requested_passes_sort_${username}`;
+
+  const [draftSortOrder, setDraftSortOrder] = React.useState<"asc" | "desc">(() => {
+    const saved = localStorage.getItem(draftSortKey);
+    return (saved === "asc" || saved === "desc") ? saved : "desc";
+  });
+
+  const [scheduledSortOrder, setScheduledSortOrder] = React.useState<"asc" | "desc">(() => {
+    const saved = localStorage.getItem(scheduledSortKey);
+    return (saved === "asc" || saved === "desc") ? saved : "desc";
+  });
+
+  const [requestedSortOrder, setRequestedSortOrder] = React.useState<"asc" | "desc">(() => {
+    const saved = localStorage.getItem(requestedSortKey);
+    return (saved === "asc" || saved === "desc") ? saved : "desc";
+  });
+
+  const toggleDraftSort = () => {
+    const next = draftSortOrder === "asc" ? "desc" : "asc";
+    setDraftSortOrder(next);
+    localStorage.setItem(draftSortKey, next);
+    setDraftPage(0);
+  };
+
+  const toggleScheduledSort = () => {
+    const next = scheduledSortOrder === "asc" ? "desc" : "asc";
+    setScheduledSortOrder(next);
+    localStorage.setItem(scheduledSortKey, next);
+    setPage(0);
+  };
+
+  const toggleRequestedSort = () => {
+    const next = requestedSortOrder === "asc" ? "desc" : "asc";
+    setRequestedSortOrder(next);
+    localStorage.setItem(requestedSortKey, next);
+    setPage(0);
+  };
+
+  const compareDates = (aStr: string, bStr: string, order: "asc" | "desc") => {
+    const partsA = (aStr || "").split(/[\s/-]+/).map(Number);
+    const partsB = (bStr || "").split(/[\s/-]+/).map(Number);
+    const timeA = partsA.length === 3 ? new Date(partsA[0], partsA[1] - 1, partsA[2]).getTime() : new Date(aStr).getTime() || 0;
+    const timeB = partsB.length === 3 ? new Date(partsB[0], partsB[1] - 1, partsB[2]).getTime() : new Date(bStr).getTime() || 0;
+    return order === "asc" ? timeA - timeB : timeB - timeA;
+  };
+
   const [tab, setTab] = React.useState<"availability" | "scheduled" | "requested">(hasReadAccess("pass_availability") ? "availability" : hasReadAccess("pass_scheduled") ? "scheduled" : "requested");
   const canWrite = tab === "availability" ? hasWriteAccess("pass_availability") : tab === "scheduled" ? hasWriteAccess("pass_scheduled") : hasWriteAccess("pass_requested");
 
@@ -488,8 +543,17 @@ export default function VisibilitySchedule() {
 
   /* ---- File Upload ---- */
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const fileUpdateInputRef = React.useRef<HTMLInputElement | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
   const [uploading, setUploading] = React.useState(false);
+
+  const [updateResult, setUpdateResult] = React.useState<{
+    open: boolean;
+    updatedCount: number;
+    unmatchedCount: number;
+    duplicateMatchesCount: number;
+    unmatchedRows: any[];
+  } | null>(null);
 
   const handleUpload = async () => {
     if (!file) return;
@@ -510,6 +574,37 @@ export default function VisibilitySchedule() {
       }
     }
     finally { setUploading(false); }
+  };
+
+  const handleUpdatePassesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFile = e.target.files?.[0];
+    if (!uploadedFile) return;
+
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", uploadedFile);
+
+      const res = await api.post("/api/visibility-schedule/update-passes", fd);
+      const data = res?.data || res || {};
+
+      setUpdateResult({
+        open: true,
+        updatedCount: data.updatedCount || 0,
+        unmatchedCount: data.unmatchedCount || 0,
+        duplicateMatchesCount: data.duplicateMatchesCount || 0,
+        unmatchedRows: data.unmatchedRows || [],
+      });
+
+      await fetchData();
+    } catch (err: any) {
+      console.error(err);
+      const errMsg = err?.response?.data?.error || err?.message || "Upload and update failed.";
+      alert(t("Update failed: ") + errMsg);
+    } finally {
+      setUploading(false);
+      if (e.target) e.target.value = "";
+    }
   };
 
   /* ---- Draft checkbox logic ---- */
@@ -607,7 +702,12 @@ export default function VisibilitySchedule() {
     return true;
   });
 
-  const visibleRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const sortedFilteredRows = React.useMemo(() => {
+    const order = tab === "scheduled" ? scheduledSortOrder : requestedSortOrder;
+    return [...filteredRows].sort((a, b) => compareDates(a.date_text, b.date_text, order));
+  }, [filteredRows, tab, scheduledSortOrder, requestedSortOrder]);
+
+  const visibleRows = sortedFilteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   /* ---- Actions ---- */
   const updateVsStatus = async (id: number, status: string, extraFields?: Record<string, string>) => {
@@ -663,7 +763,7 @@ export default function VisibilitySchedule() {
   /* Exports */
   const handleCSV = () => {
     const header = ["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS", "Status", "Post Pass Status"].join(",");
-    const csvRows = filteredRows.map(r => [
+    const csvRows = sortedFilteredRows.map(r => [
       r.date_text, r.sc, r.stn, r.orbit, r.max_ele, r.aos, r.los, `"${r.operations || ''}"`, r.pass_status, r.post_pass_status || "Pending"
     ].join(","));
     const blob = new Blob([[header, ...csvRows].join("\n")], { type: 'text/csv' });
@@ -797,7 +897,11 @@ export default function VisibilitySchedule() {
     return true;
   });
 
-  const visibleDraftRows = filteredDraftRows.slice(draftPage * draftRowsPerPage, draftPage * draftRowsPerPage + draftRowsPerPage);
+  const sortedFilteredDraftRows = React.useMemo(() => {
+    return [...filteredDraftRows].sort((a, b) => compareDates(a.date_text, b.date_text, draftSortOrder));
+  }, [filteredDraftRows, draftSortOrder]);
+
+  const visibleDraftRows = sortedFilteredDraftRows.slice(draftPage * draftRowsPerPage, draftPage * draftRowsPerPage + draftRowsPerPage);
 
   return (
     <MainLayout title="">
@@ -817,6 +921,92 @@ export default function VisibilitySchedule() {
             }
             setCancelPrompt(null);
           }} variant="contained" sx={purpleBtn}>Yes</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Update Passes Summary Dialog */}
+      <Dialog
+        open={updateResult?.open ?? false}
+        onClose={() => setUpdateResult(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: vars.bgCard,
+            color: vars.text,
+            border: `1px solid ${vars.border}`,
+            borderRadius: "16px",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, borderBottom: `1px solid ${vars.border}`, pb: 1.5, color: "#7CA7FF" }}>
+          Update Passes Summary
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 2 }}>
+            <Card sx={{ p: 2, bgcolor: "rgba(0, 255, 157, 0.05)", border: "1px solid rgba(0, 255, 157, 0.2)", borderRadius: "8px", textAlign: "center" }}>
+              <Typography sx={{ fontSize: 12, color: vars.textDim }}>Successfully Updated</Typography>
+              <Typography sx={{ fontSize: 24, fontWeight: 800, color: "#00FF9D", mt: 0.5 }}>
+                {updateResult?.updatedCount ?? 0}
+              </Typography>
+            </Card>
+            <Card sx={{ p: 2, bgcolor: "rgba(255, 184, 0, 0.05)", border: "1px solid rgba(255, 184, 0, 0.2)", borderRadius: "8px", textAlign: "center" }}>
+              <Typography sx={{ fontSize: 12, color: vars.textDim }}>Duplicate Matches Updated</Typography>
+              <Typography sx={{ fontSize: 24, fontWeight: 800, color: "#FFB800", mt: 0.5 }}>
+                {updateResult?.duplicateMatchesCount ?? 0}
+              </Typography>
+            </Card>
+            <Card sx={{ p: 2, bgcolor: updateResult?.unmatchedCount ? "rgba(255, 46, 99, 0.05)" : "rgba(255, 255, 255, 0.03)", border: updateResult?.unmatchedCount ? "1px solid rgba(255, 46, 99, 0.2)" : `1px solid ${vars.border}`, borderRadius: "8px", textAlign: "center" }}>
+              <Typography sx={{ fontSize: 12, color: vars.textDim }}>Unmatched Records</Typography>
+              <Typography sx={{ fontSize: 24, fontWeight: 800, color: updateResult?.unmatchedCount ? "#FF2E63" : vars.textDim, mt: 0.5 }}>
+                {updateResult?.unmatchedCount ?? 0}
+              </Typography>
+            </Card>
+          </Box>
+
+          {updateResult?.unmatchedRows && updateResult.unmatchedRows.length > 0 && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#FF2E63", mb: 1 }}>
+                Unmatched Records Details (Skipped)
+              </Typography>
+              <Box
+                sx={{
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  border: `1px solid ${vars.border}`,
+                  borderRadius: "8px",
+                  bgcolor: "rgba(0,0,0,0.2)",
+                  p: 1.5,
+                  fontSize: 12,
+                  fontFamily: "monospace",
+                  lineHeight: 1.6,
+                  ...sxPresets.scroller
+                }}
+              >
+                {updateResult.unmatchedRows.map((row, i) => (
+                  <Box key={i} sx={{ borderBottom: i < updateResult.unmatchedRows.length - 1 ? `1px solid ${vars.borderWeak}` : "none", py: 0.5 }}>
+                    Row {i + 1}: DATE={row.date_text} | S/C={row.sc} | STN={row.stn} | ORBIT={row.orbit}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, borderTop: `1px solid ${vars.border}` }}>
+          <Button
+            onClick={() => setUpdateResult(null)}
+            variant="contained"
+            sx={{
+              bgcolor: "#7C57F2",
+              color: "#fff",
+              textTransform: "none",
+              fontWeight: 700,
+              "&:hover": { bgcolor: "#6b46f1" }
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -1089,9 +1279,19 @@ export default function VisibilitySchedule() {
                           />
                         </TableCell>
                         <TableCell sx={theadCellSx}>Sr No.</TableCell>
-                        <TableCell sx={{ ...theadCellSx, width: colWidths.date_text }}>
-                          DATE (yyyy mm dd)
-                          <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} />
+                        <TableCell 
+                          sx={{ ...theadCellSx, width: colWidths.date_text, cursor: 'pointer', userSelect: 'none' }}
+                          onClick={toggleDraftSort}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            DATE (yyyy mm dd)
+                            {draftSortOrder === "asc" ? (
+                              <ArrowUpwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                            ) : (
+                              <ArrowDownwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                            )}
+                          </Box>
+                          <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} onClick={(e) => e.stopPropagation()} />
                         </TableCell>
                         <TableCell sx={{ ...theadCellSx, width: colWidths.sc }}>
                           S/C
@@ -1147,7 +1347,7 @@ export default function VisibilitySchedule() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-                <TablePagination component="div" count={filteredDraftRows.length} page={draftPage} onPageChange={(_, p) => setDraftPage(p)} rowsPerPage={draftRowsPerPage} onRowsPerPageChange={(e) => { setDraftRowsPerPage(parseInt(e.target.value, 10)); setDraftPage(0); }} rowsPerPageOptions={[25, 50, 100]} sx={premiumPaginationSx} />
+                <TablePagination component="div" count={sortedFilteredDraftRows.length} page={draftPage} onPageChange={(_, p) => setDraftPage(p)} rowsPerPage={draftRowsPerPage} onRowsPerPageChange={(e) => { setDraftRowsPerPage(parseInt(e.target.value, 10)); setDraftPage(0); }} rowsPerPageOptions={[25, 50, 100]} sx={premiumPaginationSx} />
               </Card>
             )}
 
@@ -1193,6 +1393,8 @@ export default function VisibilitySchedule() {
 
                   <Box flexGrow={1} />
 
+                  <input ref={fileUpdateInputRef} type="file" hidden onChange={handleUpdatePassesUpload} />
+                  <Button onClick={() => fileUpdateInputRef.current?.click()} size="small" variant="contained" disabled={!canWrite} startIcon={<UploadOutlinedIcon />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: "#7C57F2", color: "#fff", height: UI.ctrlH, minHeight: UI.ctrlH, lineHeight: `${UI.ctrlH}px`, borderRadius: 1, mr: 1, ...filterActionSx, "& .MuiSvgIcon-root": { color: "#fff" }, "&:hover": { bgcolor: "#6b46f1", color: "#fff" } }}>Update Passes</Button>
                   <Button onClick={handleCSV} size="small" variant="contained" startIcon={<DownloadOutlinedIcon />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: "#16a34a", color: "#fff", height: UI.ctrlH, minHeight: UI.ctrlH, lineHeight: `${UI.ctrlH}px`, borderRadius: 1, ...filterActionSx, "& .MuiSvgIcon-root": { color: "#fff" }, "&:hover": { bgcolor: "#14833e", color: "#fff" } }}>CSV</Button>
                 </Box>
 
@@ -1201,9 +1403,19 @@ export default function VisibilitySchedule() {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ ...theadCellSx, width: 60 }}>Sr No.</TableCell>
-                        <TableCell sx={{ ...theadCellSx, width: colWidths.date_text }}>
-                          DATE (yyyy mm dd)
-                          <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} />
+                        <TableCell 
+                          sx={{ ...theadCellSx, width: colWidths.date_text, cursor: 'pointer', userSelect: 'none' }}
+                          onClick={toggleScheduledSort}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            DATE (yyyy mm dd)
+                            {scheduledSortOrder === "asc" ? (
+                              <ArrowUpwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                            ) : (
+                              <ArrowDownwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                            )}
+                          </Box>
+                          <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} onClick={(e) => e.stopPropagation()} />
                         </TableCell>
                         <TableCell sx={{ ...theadCellSx, width: colWidths.sc }}>
                           S/C
@@ -1277,7 +1489,7 @@ export default function VisibilitySchedule() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-                <TablePagination component="div" count={filteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} sx={premiumPaginationSx} />
+                <TablePagination component="div" count={sortedFilteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} sx={premiumPaginationSx} />
               </Card>
             )}
 
@@ -1331,9 +1543,19 @@ export default function VisibilitySchedule() {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ ...theadCellSx, width: 60 }}>Sr No.</TableCell>
-                        <TableCell sx={{ ...theadCellSx, width: colWidths.date_text }}>
-                          DATE (yyyy mm dd)
-                          <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} />
+                        <TableCell 
+                          sx={{ ...theadCellSx, width: colWidths.date_text, cursor: 'pointer', userSelect: 'none' }}
+                          onClick={toggleRequestedSort}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            DATE (yyyy mm dd)
+                            {requestedSortOrder === "asc" ? (
+                              <ArrowUpwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                            ) : (
+                              <ArrowDownwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                            )}
+                          </Box>
+                          <Box className="resizer" onMouseDown={(e) => handleResize("date_text", e)} onClick={(e) => e.stopPropagation()} />
                         </TableCell>
                         <TableCell sx={{ ...theadCellSx, width: colWidths.sc }}>
                           S/C
@@ -1413,7 +1635,7 @@ export default function VisibilitySchedule() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-                <TablePagination component="div" count={filteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} sx={premiumPaginationSx} />
+                <TablePagination component="div" count={sortedFilteredRows.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[25, 50, 100]} sx={premiumPaginationSx} />
               </Card>
             )}
           </Box>

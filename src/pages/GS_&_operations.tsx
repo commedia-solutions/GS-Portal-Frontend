@@ -706,7 +706,7 @@ export default function Gsoperations() {
                 {antInner === "add" ? (
                   <Box sx={{ p: 4, overflowY: "auto", ...sxPresets.scroller }}>
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 2fr 1fr 1fr" }, gap: 3 }}>
-                      <Stack spacing={1}><Typography sx={LABEL_SX}>Antenna Name <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antType} onChange={e => setAntType(e.target.value)} placeholder="11m X-Band" sx={glassCtrlSx} /></Stack>
+                      <Stack spacing={1}><Typography sx={LABEL_SX}>Antenna Name <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antType} onChange={e => setAntType(e.target.value)} placeholder="BAL1" sx={glassCtrlSx} /></Stack>
                       <Stack spacing={1}><Typography sx={LABEL_SX}>Location <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antLoc} onChange={e => setAntLoc(e.target.value)} placeholder="Bangalore" sx={glassCtrlSx} /></Stack>
                       <Stack spacing={1}><Typography sx={LABEL_SX}>Antenna Size (m) <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antSize} onChange={e => setAntSize(e.target.value)} placeholder="e.g. 3.7" sx={glassCtrlSx} /></Stack>
                       <Stack spacing={1}><Typography sx={LABEL_SX}>EIRP (dBW) <span style={{ color: "#FF2E63" }}>*</span></Typography><TextField size="small" value={antEirp} onChange={e => setAntEirp(e.target.value)} placeholder="e.g. 52.5" sx={glassCtrlSx} /></Stack>

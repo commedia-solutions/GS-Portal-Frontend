@@ -6,7 +6,7 @@ import {
     TablePagination, Checkbox, Dialog, DialogTitle, DialogActions, ListItemText
 } from "@mui/material";
 import { Select, MenuItem, FormControl } from "@mui/material";
-import { DownloadOutlined as DownloadOutlinedIcon, DeleteOutlined as DeleteOutlinedIcon } from "@mui/icons-material";
+import { DownloadOutlined as DownloadOutlinedIcon, DeleteOutlined as DeleteOutlinedIcon, ArrowUpward as ArrowUpwardIcon, ArrowDownward as ArrowDownwardIcon } from "@mui/icons-material";
 import MainLayout from "../../layouts/MainLayout";
 import { TOPBAR_HEIGHT } from "../../components/TopNav";
 import api, { apiFetch } from "../../api/http";
@@ -165,8 +165,35 @@ const handleMultiSelect = (e: any, currentVals: string[], setter: (v: string[]) 
     }
 };
 
+const getUsername = () => {
+    return sessionStorage.getItem("pmgt_username") || localStorage.getItem("username") || "default";
+};
+
+const compareDates = (aStr: string, bStr: string, order: "asc" | "desc") => {
+    const partsA = (aStr || "").split(/[\s/-]+/).map(Number);
+    const partsB = (bStr || "").split(/[\s/-]+/).map(Number);
+    const timeA = partsA.length === 3 ? new Date(partsA[0], partsA[1] - 1, partsA[2]).getTime() : new Date(aStr).getTime() || 0;
+    const timeB = partsB.length === 3 ? new Date(partsB[0], partsB[1] - 1, partsB[2]).getTime() : new Date(bStr).getTime() || 0;
+    return order === "asc" ? timeA - timeB : timeB - timeA;
+};
+
 export default function PassListVisSchedule() {
     const { t } = useI18n();
+
+    const username = React.useMemo(() => getUsername(), []);
+    const storageKey = `pass_list_sort_dir_${username}`;
+
+    const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">(() => {
+        const saved = localStorage.getItem(storageKey);
+        return (saved === "asc" || saved === "desc") ? saved : "desc";
+    });
+
+    const toggleSort = () => {
+        const next = sortOrder === "asc" ? "desc" : "asc";
+        setSortOrder(next);
+        localStorage.setItem(storageKey, next);
+        setPage(0);
+    };
 
     const [rows, setRows] = React.useState<VSRow[]>([]);
     const [loading, setLoading] = React.useState(false);
@@ -208,10 +235,14 @@ export default function PassListVisSchedule() {
         return true;
     });
 
+    const sortedFiltered = React.useMemo(() => {
+        return [...filtered].sort((a, b) => compareDates(a.date_text, b.date_text, sortOrder));
+    }, [filtered, sortOrder]);
+
     /* Pagination */
     const [page, setPage] = React.useState(0);
     const [rowsPerPage, setRowsPerPage] = React.useState(25);
-    const visible = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const visible = sortedFiltered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     /* Delete Logic */
     const { hasWriteAccess } = useActionAccess();
@@ -250,7 +281,7 @@ export default function PassListVisSchedule() {
     /* CSV export */
     const handleCSV = () => {
         const header = ["DATE", "S/C", "STN", "ORBIT", "Max", "AOS", "LOS", "OPERATIONS", "Status", "Post Pass Status"].join(",");
-        const csvRows = filtered.map(r => [
+        const csvRows = sortedFiltered.map(r => [
             r.date_text, r.sc, r.stn, r.orbit, r.max_ele, r.aos, r.los,
             `"${r.operations || ''}"`, r.pass_status, r.post_pass_status || "Pending"
         ].join(","));
@@ -387,7 +418,20 @@ export default function PassListVisSchedule() {
                                                     sx={{ color: "rgba(255,255,255,0.3)", "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#fff" } }} />
                                             </TableCell>
                                             <TableCell sx={theadCellSx}>Sr</TableCell>
-                                            {["DATE", "S/C", "STN", "ORBIT", "MAX", "AOS", "LOS", "OPERATIONS"].map(h => (
+                                            <TableCell 
+                                                sx={{ ...theadCellSx, cursor: 'pointer', userSelect: 'none' }} 
+                                                onClick={toggleSort}
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                                                    DATE
+                                                    {sortOrder === "asc" ? (
+                                                        <ArrowUpwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                                                    ) : (
+                                                        <ArrowDownwardIcon sx={{ fontSize: 13, color: '#7CA7FF' }} />
+                                                    )}
+                                                </Box>
+                                            </TableCell>
+                                            {["S/C", "STN", "ORBIT", "MAX", "AOS", "LOS", "OPERATIONS"].map(h => (
                                                 <TableCell key={h} sx={theadCellSx}>{h}</TableCell>
                                             ))}
                                             <TableCell sx={{ ...theadCellSx, textAlign: "center" }}>Status</TableCell>
@@ -452,7 +496,7 @@ export default function PassListVisSchedule() {
                             </TableContainer>
                             <TablePagination
                                 component="div"
-                                count={filtered.length}
+                                count={sortedFiltered.length}
                                 page={page}
                                 onPageChange={(_, p) => setPage(p)}
                                 rowsPerPage={rowsPerPage}
