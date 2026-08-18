@@ -173,13 +173,13 @@ export default function UpdateAssignmentModal({
       maxWidth="md"
       PaperProps={{
         sx: {
+          ...PREMIUM_DIALOG_PAPER_SX,
           bgcolor: theme.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
           color:   theme.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
           border:  theme.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
           borderRadius: 2,
           backgroundImage: "none",
           boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
-          ...PREMIUM_DIALOG_PAPER_SX,
         },
       }}
     >
@@ -196,10 +196,10 @@ export default function UpdateAssignmentModal({
       <DialogContent
         dividers
         sx={{
+          ...PREMIUM_DIALOG_CONTENT_SX,
           bgcolor: theme.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
           color:   theme.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
           borderColor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
-          ...PREMIUM_DIALOG_CONTENT_SX,
         }}
       >
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.25, pt: 0.5 }}>

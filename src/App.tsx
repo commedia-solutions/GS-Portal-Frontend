@@ -507,28 +507,24 @@ import VisibilitySchedule from "./pages/VisibilitySchedule";
 // Pass List (published passes from visibility_schedule)
 import PassListVisSchedule from "./pages/List_pages/PassList_VisSchedule";
 
+// Monitoring
+import MonitoringDashboard from "./pages/Monitoring/Dashboard";
+import MonitoringDevices from "./pages/Monitoring/Devices";
+import MonitoringDiscovery from "./pages/Monitoring/Discovery";
+import MonitoringDeviceDetails from "./pages/Monitoring/DeviceDetails";
+import MonitoringPerformance from "./pages/Monitoring/Performance";
+import MonitoringAlerts from "./pages/Monitoring/Alerts";
+import MonitoringNetworkMap from "./pages/Monitoring/NetworkMap";
+import MonitoringSettingsPage from "./pages/Monitoring/Settings";
+
 // RBAC helpers
-import { AuthProvider, useAuth, RequirePermission, PERMISSION, NotAuthorized } from "./auth";
+import { AuthProvider, useAuth, NotAuthorized } from "./auth";
 import ProtectedRoute from "./routes/ProtectedRoute";
-
-
-/* ---------- Guard ---------- */
-function RequireAuth() {
-  const token =
-    getAuthToken() ||
-    sessionStorage.getItem("token") ||
-    sessionStorage.getItem("pmgt_token") ||
-    sessionStorage.getItem("auth_token") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("auth_token");
-
-  return token ? <Outlet /> : <Navigate to="/" replace />;
-}
 
 
 /* ---------- Routes Wrapper ---------- */
 function AppRoutes() {
-  const { loading, user } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -593,6 +589,16 @@ function AppRoutes() {
 
         {/* Pass List */}
         <Route path="/pass-list" element={<PassListVisSchedule />} />
+
+        {/* Monitoring Section */}
+        <Route path="/monitoring/dashboard" element={<MonitoringDashboard />} />
+        <Route path="/monitoring/devices" element={<MonitoringDevices />} />
+        <Route path="/monitoring/discovery" element={<MonitoringDiscovery />} />
+        <Route path="/monitoring/devices/:id" element={<MonitoringDeviceDetails />} />
+        <Route path="/monitoring/performance" element={<MonitoringPerformance />} />
+        <Route path="/monitoring/alerts" element={<MonitoringAlerts />} />
+        <Route path="/monitoring/network-map" element={<MonitoringNetworkMap />} />
+        <Route path="/monitoring/settings" element={<MonitoringSettingsPage />} />
 
         {/* Unauthorized */}
         <Route path="/unauthorized" element={<NotAuthorized />} />

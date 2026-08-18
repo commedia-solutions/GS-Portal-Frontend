@@ -141,15 +141,11 @@
 // src/config/pageRegistry.tsx
 import React from "react";
 
-/* Icons */
-import DashboardIcon from "@mui/icons-material/Dashboard";
 import SatelliteAltIcon from "@mui/icons-material/SatelliteAlt";
 import AssignmentIcon from "@mui/icons-material/Assignment";
-import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 
@@ -242,6 +238,49 @@ export const APP_PAGES: AppPage[] = [
     route: "/requests",
     location: "sidebar",
     icon: <AssignmentTurnedInIcon />,
+  },
+  {
+    key: "monitoring_dashboard",
+    label: "Monitoring Dashboard",
+    route: "/monitoring/dashboard",
+    location: "sidebar",
+  },
+  {
+    key: "monitoring_devices",
+    label: "Monitoring Devices",
+    route: "/monitoring/devices",
+    location: "sidebar",
+  },
+  {
+    key: "monitoring_discovery",
+    label: "Monitoring Discovery",
+    route: "/monitoring/discovery",
+    location: "sidebar",
+  },
+  {
+    key: "monitoring_performance",
+    label: "Monitoring Performance",
+    route: "/monitoring/performance",
+    location: "sidebar",
+  },
+  {
+    key: "monitoring_alerts",
+    label: "Monitoring Alerts",
+    route: "/monitoring/alerts",
+    location: "sidebar",
+  },
+  {
+    key: "monitoring_network_map",
+    label: "Monitoring Network Map",
+    route: "/monitoring/network-map",
+    location: "sidebar",
+  },
+  {
+    key: "monitoring_settings",
+    label: "Monitoring Settings",
+    route: "/monitoring/settings",
+    location: "sidebar",
+    viewerHidden: true,
   },
   // {
   //   key: "issues",

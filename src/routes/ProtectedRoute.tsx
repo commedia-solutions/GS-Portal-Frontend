@@ -4,7 +4,6 @@ import { getAuthToken } from "../api/http";
 
 function hasPageAccess(pathname: string): boolean {
   const role = sessionStorage.getItem("pmgt_role");
-  const roleType = sessionStorage.getItem("pmgt_role_type");
 
   if (String(role).toLowerCase() === "admin") return true;
   try {
@@ -44,6 +43,14 @@ function hasPageAccess(pathname: string): boolean {
     if (pathname.startsWith("/issues")) return pages.includes("issues");
     if (pathname.startsWith("/visibility-schedule")) return pages.includes("visibility_schedule");
     if (pathname.startsWith("/pass-list")) return pages.includes("pass_list");
+
+    if (pathname.startsWith("/monitoring/dashboard")) return pages.includes("monitoring_dashboard");
+    if (pathname.startsWith("/monitoring/devices")) return pages.includes("monitoring_devices");
+    if (pathname.startsWith("/monitoring/discovery")) return pages.includes("monitoring_discovery");
+    if (pathname.startsWith("/monitoring/performance")) return pages.includes("monitoring_performance");
+    if (pathname.startsWith("/monitoring/alerts")) return pages.includes("monitoring_alerts");
+    if (pathname.startsWith("/monitoring/network-map")) return pages.includes("monitoring_network_map");
+    if (pathname.startsWith("/monitoring/settings")) return pages.includes("monitoring_settings");
 
     if (pathname.startsWith("/userprofile")) return true;
 

@@ -150,11 +150,11 @@ export default function UpdateEntityModal({
       maxWidth="sm"
       PaperProps={{
         sx: (t: Theme) => ({
+          ...PREMIUM_DIALOG_PAPER_SX,
           bgcolor: t.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
           color: t.palette.mode === "dark" ? TXT_DARK : TXT_LIGHT,
           border: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
           borderRadius: 2,
-          ...PREMIUM_DIALOG_PAPER_SX,
         }),
       }}
     >

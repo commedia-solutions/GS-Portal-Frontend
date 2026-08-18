@@ -21,6 +21,13 @@ import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import DashboardIcon from "@mui/icons-material/Dashboard";
+import DnsIcon from "@mui/icons-material/Dns";
+import RouterIcon from "@mui/icons-material/Router";
+import SpeedIcon from "@mui/icons-material/Speed";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import HubIcon from "@mui/icons-material/Hub";
+import SettingsIcon from "@mui/icons-material/Settings";
+import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 
 import isroLogo from "../assets/isro_logo.png";
 import { useAuth } from "../auth";
@@ -167,6 +174,31 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
           )}
           {hasPageAccess("issues") && (
             <NavItem to="/issues" icon={<HelpOutlineIcon />} label={t("Report Issue")} expanded={expanded} />
+          )}
+        </List>
+
+        <NavGroup label={t("Monitoring")} expanded={expanded} />
+        <List disablePadding>
+          {hasPageAccess("monitoring_dashboard") && (
+            <NavItem to="/monitoring/dashboard" icon={<DnsIcon />} label={t("Dashboard")} expanded={expanded} />
+          )}
+          {hasPageAccess("monitoring_devices") && (
+            <NavItem to="/monitoring/devices" icon={<RouterIcon />} label={t("Devices")} expanded={expanded} />
+          )}
+          {hasPageAccess("monitoring_discovery") && (
+            <NavItem to="/monitoring/discovery" icon={<TravelExploreIcon />} label={t("Discovery")} expanded={expanded} />
+          )}
+          {hasPageAccess("monitoring_performance") && (
+            <NavItem to="/monitoring/performance" icon={<SpeedIcon />} label={t("Performance")} expanded={expanded} />
+          )}
+          {hasPageAccess("monitoring_alerts") && (
+            <NavItem to="/monitoring/alerts" icon={<NotificationsActiveIcon />} label={t("Alerts")} expanded={expanded} />
+          )}
+          {hasPageAccess("monitoring_network_map") && (
+            <NavItem to="/monitoring/network-map" icon={<HubIcon />} label={t("Network Map")} expanded={expanded} />
+          )}
+          {hasPageAccess("monitoring_settings") && (
+            <NavItem to="/monitoring/settings" icon={<SettingsIcon />} label={t("Settings")} expanded={expanded} />
           )}
         </List>
 

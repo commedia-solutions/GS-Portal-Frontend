@@ -211,13 +211,13 @@ onCreated?.(id);
       maxWidth="md"
       PaperProps={{
         sx: (t) => ({
+          ...PREMIUM_DIALOG_PAPER_SX,
           bgcolor: t.palette.mode === "dark" ? BG_DARK : BG_LIGHT,   // ← main container bg
           color:   t.palette.mode === "dark" ? TEXT_DARK : TEXT_LIGHT,
           border:  t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
           borderRadius: 2,
           backgroundImage: "none",
           boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
-          ...PREMIUM_DIALOG_PAPER_SX,
         }),
       }}
     >

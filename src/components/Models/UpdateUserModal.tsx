@@ -156,12 +156,12 @@ export default function UpdateUserModal({ open, row, onClose, onUpdated, entitie
       maxWidth="md"
       PaperProps={{
         sx: (t) => ({
+          ...PREMIUM_DIALOG_PAPER_SX,
           bgcolor: t.palette.mode === "dark" ? BG_DARK : BG_LIGHT,
           color: t.palette.mode === "dark" ? TEXT_DARK : TEXT_LIGHT,
           border: t.palette.mode === "dark" ? BORDER_DARK : BORDER_LIGHT,
           borderRadius: 2,
           boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
-          ...PREMIUM_DIALOG_PAPER_SX,
         }),
       }}
     >
