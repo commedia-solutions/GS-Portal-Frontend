@@ -125,6 +125,15 @@ type Device = {
     enablePerformancePolling?: boolean | null;
     enableEnvironmentalPolling?: boolean | null;
   } | null;
+  instanceName?: string;
+  instanceId?: string;
+  region?: string;
+  availabilityZone?: string;
+  instanceType?: string;
+  cloudMetadata?: any;
+  state?: string;
+  privateIp?: string;
+  publicIp?: string;
 };
 
 type Profile = {

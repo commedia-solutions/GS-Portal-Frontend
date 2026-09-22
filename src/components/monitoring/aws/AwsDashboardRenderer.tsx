@@ -18,7 +18,7 @@ export default function AwsDashboardRenderer({ deviceId }: AwsDashboardRendererP
   const [error, setError] = useState<string | null>(null);
   const [hours, setHours] = useState<number>(1);
   const [autoRefresh, setAutoRefresh] = useState<number>(0);
-  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
+  const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = async (signal?: AbortSignal) => {
     try {

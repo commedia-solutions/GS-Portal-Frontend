@@ -17,9 +17,10 @@ type MainLayoutProps = {
   /** Text shown in the TopNav on the left */
   title?: string;
   children?: React.ReactNode;
+  hideRightPanel?: boolean;
 };
 
-export default function MainLayout({ title, children }: MainLayoutProps) {
+export default function MainLayout({ title, children, hideRightPanel = false }: MainLayoutProps) {
   const [expanded, setExpanded] = useState(false);
   const leftWidth = expanded ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
 
@@ -66,7 +67,7 @@ if (loading) {
 
     <Sidebar expanded={expanded} setExpanded={setExpanded} />
     <TopNav leftOffset={leftWidth} title={title} />
-    <RightPanel />
+    {!hideRightPanel && <RightPanel />}
 
 
       {/* Content area slides with the sidebar and leaves room for the right rail */}
@@ -75,13 +76,13 @@ if (loading) {
           position: "fixed",
           top: TOPBAR_HEIGHT,
           left: leftWidth,
-          right: RIGHT_RAIL_W,
+          right: hideRightPanel ? 0 : RIGHT_RAIL_W,
           bottom: 0,
           // 🔁 theme-aware colors
           bgcolor: vars.bgApp,
           color: vars.text,
 
-          transition: "left 200ms ease",
+          transition: "left 200ms ease, right 200ms ease",
           overflow: "hidden",
           // optional: make inner pages that use Cards/containers look clean
           // and pick up scroll with their own scrollers
@@ -92,3 +93,4 @@ if (loading) {
     </>
   );
 }
+

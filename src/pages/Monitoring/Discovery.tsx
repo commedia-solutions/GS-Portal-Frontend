@@ -98,6 +98,8 @@ type DiscoveredNode = {
   resourceType?: string;
   instanceId?: string;
   instanceName?: string;
+  deviceName?: string;
+  profileId?: number;
   privateIp?: string;
   publicIp?: string;
   state?: string;
@@ -366,7 +368,7 @@ export default function MonitoringDiscovery() {
     if (!window.confirm(`Delete AWS Profile: ${awsProfileForm.profileName}?\nThis action cannot be undone.`)) return;
     try {
       setIsDeletingAwsProfile(true);
-      const response = await api.delete<any>(`/api/monitoring/aws/profiles/${awsProfileForm.id}`);
+      const response = await api.del<any>(`/api/monitoring/aws/profiles/${awsProfileForm.id}`);
       if (response.success) {
         toast.success(t("Profile Deleted"));
         await fetchAwsProfilesOnly();
@@ -1495,10 +1497,10 @@ export default function MonitoringDiscovery() {
                   displayEmpty
                 >
                   <MenuItem value="">{t("Select Region...")}</MenuItem>
-                  <MenuItem value="ap-south-1">ap-south-1 (Mumbai)</MenuItem>
-                  <MenuItem value="ap-south-2">ap-south-2 (Hyderabad)</MenuItem>
-                  <MenuItem value="us-east-1">us-east-1 (N. Virginia)</MenuItem>
-                  <MenuItem value="us-east-2">us-east-2 (Ohio)</MenuItem>
+                  <MenuItem value="af-south-1">af-south-1 (Cape Town)</MenuItem>
+                  <MenuItem value="eu-west-1">eu-west-1 (Dublin)</MenuItem>
+                  <MenuItem value="sa-east-1">sa-east-1 (Punta Arenas)</MenuItem>
+                  <MenuItem value="ap-southeast-2">ap-southeast-2 (Dubbo)</MenuItem>
                   <MenuItem value="us-west-1">us-west-1 (N. California)</MenuItem>
                   <MenuItem value="us-west-2">us-west-2 (Oregon)</MenuItem>
                   <MenuItem value="eu-west-1">eu-west-1 (Ireland)</MenuItem>
@@ -1527,3 +1529,4 @@ export default function MonitoringDiscovery() {
     </MainLayout>
   );
 }
+

@@ -43,10 +43,10 @@ const SHOW_REGION_BUCKETS = false;
 
 /* -------------------- Shared constants & styles -------------------- */
 const REGION_OPTIONS = [
-  { id: "us-west-2", label: "Oregon (us-west-2)" },
+  { id: "eu-west-1", label: "Dublin (eu-west-1)" },
   { id: "af-south-1", label: "Cape Town (af-south-1)" },
-  { id: "me-south-1", label: "Bahrain (me-south-1)" },
-  { id: "eu-west-1", label: "Ireland (eu-west-1)" },
+  { id: "sa-east-1", label: "Punta Arenas (sa-east-1)" },
+  { id: "ap-southeast-2", label: "Dubbo (ap-southeast-2)" },
   { id: "sa-east-1", label: "São Paulo (sa-east-1)" },
 ];
 const KNOWN_REGION_LABELS: Record<string, string> = Object.fromEntries(
@@ -1730,3 +1730,4 @@ export default function PassSchedulePage() {
     </MainLayout>
   );
 }
+
