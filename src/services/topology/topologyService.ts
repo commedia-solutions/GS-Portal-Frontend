@@ -26,6 +26,8 @@ export const getTopologyData = async (): Promise<GroundStation[]> => {
               infrastructure: {
                 receiverEc2: "UNKNOWN",
                 sdrEc2: "UNKNOWN",
+                receiverInstanceId: st.ec2ReceiverInstanceId || st.receiverInstanceId || undefined,
+                sdrInstanceId: st.ec2SdrInstanceId || st.sdrInstanceId || undefined,
                 rxStatus: "UNKNOWN",
                 txStatus: "UNKNOWN",
               },

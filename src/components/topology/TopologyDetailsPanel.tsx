@@ -4,6 +4,7 @@ import { X, ChevronDown, ChevronUp, Server, Globe, Network, ShieldCheck } from "
 import { vars } from "../../ui/toast/themeBridge";
 import type { TopologyEntity, GroundStation, AwsRegion, AwsHub } from "../../types/topologyTypes";
 import { formatPassDate, formatPassTime, formatPassDuration } from "../../utils/passUtils";
+import { ConnectDataDefenderButton } from "../monitoring/ConnectDataDefenderButton";
 
 interface TopologyDetailsPanelProps {
   entity: TopologyEntity | null;
@@ -397,7 +398,7 @@ export const TopologyDetailsPanel: React.FC<TopologyDetailsPanelProps> = ({
                       <Typography sx={{ fontSize: 10, fontWeight: 900, color: vars.accent, textTransform: "uppercase", letterSpacing: "0.05em", mb: 1 }}>
                         INFRASTRUCTURE
                       </Typography>
-                      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+                      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 1 }}>
                         <Box>
                           <Typography sx={{ fontSize: 10, color: vars.textDim }}>Receiver EC2</Typography>
                           <Typography sx={{ fontSize: 11, color: getStatusColor(receiverEc2Val), fontWeight: "bold" }}>
@@ -411,6 +412,7 @@ export const TopologyDetailsPanel: React.FC<TopologyDetailsPanelProps> = ({
                           </Typography>
                         </Box>
                       </Box>
+                      <ConnectDataDefenderButton pass={station} />
                     </Box>
 
                     {/* 3. RF MONITORING */}

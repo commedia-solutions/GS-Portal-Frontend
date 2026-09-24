@@ -1,6 +1,8 @@
 export interface InfrastructureNode {
   receiverEc2: string;
   sdrEc2: string;
+  receiverInstanceId?: string;
+  sdrInstanceId?: string;
   rxStatus: string;
   txStatus: string;
 }

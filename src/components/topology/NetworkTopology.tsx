@@ -105,6 +105,8 @@ export const NetworkTopology: React.FC<NetworkTopologyProps> = ({
             infrastructure: {
               receiverEc2: liveStation.receiverEc2 || (liveStation.status === "ONLINE" ? "RUNNING" : "OFFLINE"),
               sdrEc2: liveStation.sdrEc2 || (liveStation.status === "ONLINE" ? "RUNNING" : "OFFLINE"),
+              receiverInstanceId: liveStation.receiverInstanceId || station.infrastructure?.receiverInstanceId,
+              sdrInstanceId: liveStation.sdrInstanceId || station.infrastructure?.sdrInstanceId,
               rxStatus: liveStation.rx || "OFF",
               txStatus: liveStation.tx || "OFF",
             },

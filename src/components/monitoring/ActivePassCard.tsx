@@ -5,6 +5,7 @@ import { PREMIUM_CARD_SX } from "../../ui/styles";
 import { vars } from "../../ui/toast/themeBridge";
 import type { ActivePass } from "../../types/monitoring/dashboard";
 import { formatPassDate, formatPassTime, formatPassDuration } from "../../utils/passUtils";
+import { ConnectDataDefenderButton } from "./ConnectDataDefenderButton";
 
 export const ActivePassCard: React.FC<{ pass: ActivePass }> = ({ pass }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
@@ -238,7 +239,7 @@ export const ActivePassCard: React.FC<{ pass: ActivePass }> = ({ pass }) => {
             <Typography sx={sectionHeaderSx}>
               INFRASTRUCTURE
             </Typography>
-            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0.6 }}>
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0.6, mb: 0.6 }}>
               <Box>
                 <Typography sx={labelSx}>Receiver EC2</Typography>
                 <Typography sx={{ ...valueSx, color: getStatusColor(receiverEc2Val) }}>
@@ -252,6 +253,7 @@ export const ActivePassCard: React.FC<{ pass: ActivePass }> = ({ pass }) => {
                 </Typography>
               </Box>
             </Box>
+            <ConnectDataDefenderButton pass={pass} />
           </Box>
 
           {/* 3. RF MONITORING */}

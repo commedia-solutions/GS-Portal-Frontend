@@ -24,6 +24,11 @@ export interface ActivePass {
   txStatus: "ACTIVE" | "OFF" | string;
   receiverEc2?: string;
   sdrEc2?: string;
+  receiverInstanceId?: string | null;
+  sdrInstanceId?: string | null;
+  awsRegion?: string;
+  groundStation?: string;
+  accountType?: "GS1" | "GS2" | string;
   connection?: string;
   lastUpdate?: string;
 }
@@ -43,6 +48,8 @@ export interface GroundStation {
   status: string;
   receiverEc2?: string;
   sdrEc2?: string;
+  receiverInstanceId?: string | null;
+  sdrInstanceId?: string | null;
   operations?: string;
   rx: string;
   tx: string;

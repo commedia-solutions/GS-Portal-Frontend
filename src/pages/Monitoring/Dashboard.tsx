@@ -368,16 +368,13 @@ export default function MonitoringDashboard() {
               </Box>
             </Card>
 
-            {/* 2.5 INFRASTRUCTURE CONNECTION FLOW (FULL WIDTH COMPACT) */}
-            <Card sx={{ ...PREMIUM_CARD_SX, overflow: "hidden", height: "auto" }}>
-              <Box sx={{ py: 0.8, px: 1.5, borderBottom: `1px solid ${vars.border}`, bgcolor: "rgba(255,255,255,0.02)" }}>
-                <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: vars.accent, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  {t("Infrastructure Connection Flow")}
-                </Typography>
-              </Box>
-              <Box sx={{ overflowX: "auto", px: 1.5, py: 1 }}>
-                <InfrastructureFlow nodes={filteredData.infrastructureNodes} hideTitle={true} />
-              </Box>
+            {/* 2.5 INFRASTRUCTURE CONNECTION FLOW (FULL WIDTH) */}
+            <Card sx={{ ...PREMIUM_CARD_SX, overflow: "hidden", height: "auto", p: 2 }}>
+              <InfrastructureFlow 
+                regions={data?.regions} 
+                selectedRegionId={selectedRegionId} 
+                hideTitle={false}
+              />
             </Card>
 
             {/* 2.6 PASSES & ALERTS GRID (2 COLUMNS, FIXED 280px HEIGHT) */}
