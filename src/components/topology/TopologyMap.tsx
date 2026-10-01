@@ -41,8 +41,75 @@ export const TOPOLOGY_CAMERA_CONFIG = {
 
   // Dynamic Satellite Pacing & Animation
   animDurationSec: 7.0,
-  mumbaiBangaloreTimeFraction: 0.28, // 28% of travel time on Mumbai -> Bangalore segment
+  mumbaiBangaloreTimeFraction: 0.32, // 32% of total travel time allocated to Mumbai -> Bangalore arc (~2.24s)
+  eastwardArcOffset: 34, // Pixel offset for the pronounced, visible Mumbai -> Bangalore curved arc
 };
+
+/**
+ * Accurately calculate arc length of a quadratic Bezier curve
+ */
+export function approxQuadBezierLength(
+  x0: number,
+  y0: number,
+  cx: number,
+  cy: number,
+  x1: number,
+  y1: number
+): number {
+  let len = 0;
+  let prevX = x0;
+  let prevY = y0;
+  const steps = 10;
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const it = 1 - t;
+    const curX = it * it * x0 + 2 * it * t * cx + t * t * x1;
+    const curY = it * it * y0 + 2 * it * t * cy + t * t * y1;
+    const dx = curX - prevX;
+    const dy = curY - prevY;
+    len += Math.sqrt(dx * dx + dy * dy);
+    prevX = curX;
+    prevY = curY;
+  }
+  return len;
+}
+
+/**
+ * Calculates a dynamic, eastward-bowing quadratic Bezier arc between Mumbai and Bangalore
+ * without altering geographic coordinates, providing extended path length and high animation visibility.
+ */
+export function calculateHubToIstracArc(
+  hubCoords: [number, number],
+  blrCoords: [number, number],
+  eastwardOffset: number = TOPOLOGY_CAMERA_CONFIG.eastwardArcOffset
+): {
+  controlX: number;
+  controlY: number;
+  pathD: string;
+} {
+  const [hubX, hubY] = hubCoords;
+  const [blrX, blrY] = blrCoords;
+
+  const dx = blrX - hubX;
+  const dy = blrY - hubY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const midX = (hubX + blrX) / 2;
+  const midY = (hubY + blrY) / 2;
+
+  // Normal vector pointing eastward / outward into the Indian Ocean / Bay of Bengal space
+  const nx = dist > 0 ? dy / dist : 1;
+  const ny = dist > 0 ? -dx / dist : 0;
+
+  const controlX = Number((midX + nx * eastwardOffset + 6).toFixed(2));
+  const controlY = Number((midY + ny * (eastwardOffset * 0.45)).toFixed(2));
+
+  return {
+    controlX,
+    controlY,
+    pathD: `M ${hubX} ${hubY} Q ${controlX} ${controlY} ${blrX} ${blrY}`,
+  };
+}
 
 type CameraMode = "DEFAULT" | "FIT_NETWORK" | "ACTIVE_PASS" | "MANUAL";
 
@@ -224,6 +291,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
     });
 
     const hubP = projection([primaryHub.longitude, primaryHub.latitude]);
+    const istracP = projection([primaryIstrac.longitude, primaryIstrac.latitude]);
     if (hubP) {
       points.push({
         x: hubP[0],
@@ -235,7 +303,6 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
       });
     }
 
-    const istracP = projection([primaryIstrac.longitude, primaryIstrac.latitude]);
     if (istracP) {
       points.push({
         x: istracP[0],
@@ -244,6 +311,22 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
         padBottom: 45,
         padLeft: 35,
         padRight: 45,
+      });
+    }
+
+    if (hubP && istracP) {
+      const arc = calculateHubToIstracArc(
+        [hubP[0], hubP[1]],
+        [istracP[0], istracP[1]],
+        TOPOLOGY_CAMERA_CONFIG.eastwardArcOffset
+      );
+      points.push({
+        x: arc.controlX,
+        y: arc.controlY,
+        padTop: 15,
+        padBottom: 15,
+        padLeft: 15,
+        padRight: 35,
       });
     }
 
@@ -303,15 +386,18 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
       }
 
       if (hubP && istracP) {
-        const midHubBlrX = (hubP[0] + istracP[0]) / 2 + 5;
-        const midHubBlrY = (hubY_calc(hubP[1], istracP[1]));
+        const arc = calculateHubToIstracArc(
+          [hubP[0], hubP[1]],
+          [istracP[0], istracP[1]],
+          TOPOLOGY_CAMERA_CONFIG.eastwardArcOffset
+        );
         points.push({
-          x: midHubBlrX,
-          y: midHubBlrY,
+          x: arc.controlX,
+          y: arc.controlY,
           padTop: 20,
           padBottom: 20,
           padLeft: 20,
-          padRight: 20,
+          padRight: 45, // Generous clearance for eastward curve trajectory
         });
       }
 
@@ -356,11 +442,6 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
     },
     [regions, primaryHub, primaryIstrac, activePasses, projection, fitBounds, fitNetwork]
   );
-
-  // Helper for Hub -> BLR curve midpoint calculation
-  function hubY_calc(y1: number, y2: number) {
-    return (y1 + y2) / 2 - 2;
-  }
 
   // Auto-focus on active pass startup / change without disrupting user manual pan during regular polling
   useEffect(() => {
@@ -517,26 +598,25 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
     });
   }, [regions, stations, activePasses]);
 
-  // Static Backbone line from Mumbai AWS Hub to ISTRAC Bangalore
+  // Static / Active Backbone line from Mumbai AWS Hub to ISTRAC Bangalore
   const hubToBlrLine = useMemo(() => {
     const hubCoords = projection([primaryHub.longitude, primaryHub.latitude]);
     const blrCoords = projection([primaryIstrac.longitude, primaryIstrac.latitude]);
     if (!hubCoords || !blrCoords) return null;
 
-    const [hubX, hubY] = hubCoords;
-    const [blrX, blrY] = blrCoords;
+    const arc = calculateHubToIstracArc(
+      [hubCoords[0], hubCoords[1]],
+      [blrCoords[0], blrCoords[1]],
+      TOPOLOGY_CAMERA_CONFIG.eastwardArcOffset
+    );
 
-    const midHubBlrX = (hubX + blrX) / 2 + 5;
-    const midHubBlrY = (hubY + blrY) / 2 - 2;
-
-    const pathD = `M ${hubX} ${hubY} Q ${midHubBlrX} ${midHubBlrY} ${blrX} ${blrY}`;
     const isHighlighted =
       selectedEntity?.id === primaryIstrac.id ||
       selectedEntity?.type === "ISTRAC" ||
       selectedEntity?.id === primaryHub.id ||
       selectedEntity?.type === "AWS_HUB";
 
-    return { pathD, isHighlighted };
+    return { pathD: arc.pathD, isHighlighted, controlX: arc.controlX, controlY: arc.controlY };
   }, [primaryHub, primaryIstrac, projection, selectedEntity]);
 
   // Compute curved SVG topology lines from each ground station to Mumbai AWS Hub and extending to ISTRAC Bangalore on active pass
@@ -547,8 +627,13 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
 
     const [hubX, hubY] = hubCoords;
     const [blrX, blrY] = blrCoords || [hubX + 10, hubY + 15];
-    const midHubBlrX = (hubX + blrX) / 2 + 5;
-    const midHubBlrY = (hubY + blrY) / 2 - 2;
+
+    const arc = calculateHubToIstracArc(
+      [hubX, hubY],
+      [blrX, blrY],
+      TOPOLOGY_CAMERA_CONFIG.eastwardArcOffset
+    );
+    const { controlX: ctrlHubBlrX, controlY: ctrlHubBlrY } = arc;
 
     return regions.map((region) => {
       const stCoords = projection([region.longitude, region.latitude]);
@@ -566,9 +651,6 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
       const isHubSelected = selectedEntity?.type === "AWS_HUB";
       const isIstracSelected = selectedEntity?.type === "ISTRAC";
       const isHighlighted = isStationSelected || isHubSelected || isIstracSelected;
-
-      // Ensure Mumbai -> Bangalore leg receives ample animation time (~28%) so satellite is prominent & trackable
-      const f1 = 1 - TOPOLOGY_CAMERA_CONFIG.mumbaiBangaloreTimeFraction;
 
       // Identify SD1 and SD2 passes independently for this station
       const linked = region.linkedStations || [];
@@ -621,14 +703,24 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
       // Full active pass flow: Ground Station -> Mumbai AWS Hub -> ISTRAC Bangalore
       // Inactive/Idle route: Ground Station -> Mumbai AWS Hub
       const pathD = isPassActive
-        ? `M ${stX} ${stY} Q ${midX} ${midY} ${hubX} ${hubY} Q ${midHubBlrX} ${midHubBlrY} ${blrX} ${blrY}`
+        ? `M ${stX} ${stY} Q ${midX} ${midY} ${hubX} ${hubY} Q ${ctrlHubBlrX} ${ctrlHubBlrY} ${blrX} ${blrY}`
         : `M ${stX} ${stY} Q ${midX} ${midY} ${hubX} ${hubY}`;
+
+      // Accurately calculate arc lengths so animation keyPoints and keyTimes are dynamically paced
+      const len1 = approxQuadBezierLength(stX, stY, midX, midY, hubX, hubY);
+      const len2 = isPassActive
+        ? approxQuadBezierLength(hubX, hubY, ctrlHubBlrX, ctrlHubBlrY, blrX, blrY)
+        : 0;
+      const totalLen = len1 + len2;
+      const waypointPoint = totalLen > 0 ? len1 / totalLen : 0.72;
+      const waypointTime = 1 - TOPOLOGY_CAMERA_CONFIG.mumbaiBangaloreTimeFraction;
 
       return {
         id: region.id,
         regionName: region.name,
         pathD,
-        f1,
+        waypointTime,
+        waypointPoint,
         isHighlighted,
         isPassActive,
         activeSatellites,
@@ -1003,7 +1095,8 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
 
               const totalActive = line.activeSatellites.length;
               const animDuration = TOPOLOGY_CAMERA_CONFIG.animDurationSec;
-              const waypointFraction = line.f1 ? line.f1.toFixed(3) : "0.720";
+              const waypointTimeStr = (line.waypointTime ?? 0.68).toFixed(3);
+              const waypointPointStr = (line.waypointPoint ?? 0.75).toFixed(3);
 
               // Render active satellites on the same route with spacing offset
               return line.activeSatellites.map((sat, index) => {
@@ -1023,8 +1116,8 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
                         begin={animBegin}
                         repeatCount="indefinite"
                         calcMode="linear"
-                        keyTimes="0; 0.72; 1"
-                        keyPoints={`0; ${waypointFraction}; 1`}
+                        keyTimes={`0; ${waypointTimeStr}; 1`}
+                        keyPoints={`0; ${waypointPointStr}; 1`}
                         path={line.pathD}
                       />
                     </circle>
@@ -1037,8 +1130,8 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
                         repeatCount="indefinite"
                         rotate="auto"
                         calcMode="linear"
-                        keyTimes="0; 0.72; 1"
-                        keyPoints={`0; ${waypointFraction}; 1`}
+                        keyTimes={`0; ${waypointTimeStr}; 1`}
+                        keyPoints={`0; ${waypointPointStr}; 1`}
                         path={line.pathD}
                       />
 
