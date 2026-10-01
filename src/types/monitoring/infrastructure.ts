@@ -1,6 +1,6 @@
-// src/types/monitoring/infrastructure.ts
-
 export type InfrastructureStatus = 
+  | "HEALTHY"
+  | "UNHEALTHY"
   | "AVAILABLE" 
   | "NOT_AVAILABLE" 
   | "DEGRADED" 
@@ -63,6 +63,9 @@ export interface VpnProviderDetails {
   status: InfrastructureStatus;
   tunnel1: string;
   tunnel2: string;
+  upCount?: number;
+  totalCount?: number;
+  summary?: string;
   vpnConnectionId?: string;
   tunnels: VpnTunnel[];
 }
@@ -155,6 +158,15 @@ export interface InfrastructureNodePayload {
   details?: any;
   tata?: VpnProviderDetails;
   airtel?: VpnProviderDetails;
+  tunnels?: Array<{ name: string; status: string }>;
+  tunnelsUp?: number;
+  tunnelsTotal?: number;
+  bgp?: {
+    up: number;
+    total: number;
+    summary: string;
+    status: string;
+  };
   connections?: DxConnection[];
   virtualInterfaces?: VirtualInterface[];
   gateways?: DirectConnectGateway[];

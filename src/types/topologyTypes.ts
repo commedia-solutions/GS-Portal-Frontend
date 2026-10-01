@@ -73,4 +73,20 @@ export interface AwsHub {
   connectedRegions?: string[];
 }
 
-export type TopologyEntity = GroundStation | AwsRegion | AwsHub;
+export interface IstracNode {
+  type: "ISTRAC";
+  id: string;
+  name: string; // e.g. "ISTRAC BANGALORE"
+  locationName: string; // e.g. "Bangalore, India"
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  status: "ONLINE" | "HEALTHY";
+  connectedHub: string;
+  hubRegionCode: string;
+  role: string;
+}
+
+export type TopologyEntity = GroundStation | AwsRegion | AwsHub | IstracNode;
+

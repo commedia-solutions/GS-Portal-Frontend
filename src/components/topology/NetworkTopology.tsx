@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Box, CircularProgress, Typography } from "@mui/material";
 import { vars } from "../../ui/toast/themeBridge";
-import type { GroundStation, AwsRegion, AwsHub, TopologyEntity } from "../../types/topologyTypes";
+import type { GroundStation, AwsRegion, AwsHub, IstracNode, TopologyEntity } from "../../types/topologyTypes";
 import type { ActivePass } from "../../types/monitoring/dashboard";
 import { getTopologyData } from "../../services/topology/topologyService";
 import { getAwsRegionData } from "../../services/topology/awsRegionService";
 import { getAwsHubData } from "../../services/topology/awsHubService";
+import { getIstracData } from "../../services/topology/istracService";
 import { TopologyMap } from "./TopologyMap";
 import { TopologyDetailsPanel } from "./TopologyDetailsPanel";
 
@@ -25,6 +26,7 @@ export const NetworkTopology: React.FC<NetworkTopologyProps> = ({
   const [stations, setStations] = useState<GroundStation[]>([]);
   const [regions, setRegions] = useState<AwsRegion[]>([]);
   const [hubs, setHubs] = useState<AwsHub[]>([]);
+  const [istracNode, setIstracNode] = useState<IstracNode | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<TopologyEntity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,15 +37,17 @@ export const NetworkTopology: React.FC<NetworkTopologyProps> = ({
 
     const fetchData = async () => {
       try {
-        const [stationData, regionData, hubData] = await Promise.all([
+        const [stationData, regionData, hubData, istracData] = await Promise.all([
           getTopologyData(),
           getAwsRegionData(),
           getAwsHubData(),
+          getIstracData(),
         ]);
         if (mounted) {
           setStations(stationData);
           setRegions(regionData);
           setHubs(hubData);
+          setIstracNode(istracData);
           setError(null);
         }
       } catch (err) {
@@ -180,7 +184,7 @@ export const NetworkTopology: React.FC<NetworkTopologyProps> = ({
     <Box
       sx={{
         width: "100%",
-        height: { xs: 450, md: 550, xl: 620 },
+        height: { xs: 480, md: "clamp(550px, 68vh, 760px)", xl: "clamp(620px, 72vh, 850px)" },
         display: "flex",
         flexDirection: "row",
         overflow: "hidden",
@@ -191,6 +195,7 @@ export const NetworkTopology: React.FC<NetworkTopologyProps> = ({
         stations={mergedStations}
         regions={regions}
         hubs={hubs}
+        istracNode={istracNode}
         activePasses={activePasses}
         selectedEntity={selectedEntity}
         onSelectEntity={handleEntitySelect}

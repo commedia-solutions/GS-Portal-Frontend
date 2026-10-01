@@ -81,7 +81,8 @@ const getIconForType = (type: string) => {
 };
 
 const getStatusColor = (status: InfrastructureStatus | string) => {
-  switch (status) {
+  const s = String(status || "").toUpperCase();
+  switch (s) {
     case "AVAILABLE":
     case "UP":
     case "HEALTHY":
@@ -92,14 +93,49 @@ const getStatusColor = (status: InfrastructureStatus | string) => {
     case "DOWN":
     case "OFFLINE":
     case "CRITICAL":
+    case "UNHEALTHY":
       return "#EF4444"; // Red
     case "NOT_MANAGED":
       return "#38BDF8"; // Sky Blue
     case "NOT_CONFIGURED":
-      return "#9CA3AF"; // Gray
+    case "UNKNOWN":
     default:
-      return "#9CA3AF";
+      return "#9CA3AF"; // Gray
   }
+};
+
+const getTunnelColor = (status?: string) => {
+  const s = String(status || "").toUpperCase();
+  if (s === "UP" || s === "HEALTHY" || s === "AVAILABLE") return "#10B981";
+  if (s === "DOWN" || s === "UNHEALTHY" || s === "NOT_AVAILABLE") return "#EF4444";
+  return "#9CA3AF";
+};
+
+const formatCardStatus = (nodeId: string, status: InfrastructureStatus | string) => {
+  const s = String(status || "").toUpperCase();
+  const id = String(nodeId || "").toLowerCase();
+
+  if (s === "NOT_MANAGED" || id === "isp" || id === "mission-network") {
+    return "NOT MANAGED";
+  }
+
+  if (s === "NOT_CONFIGURED") {
+    return "NOT CONFIGURED";
+  }
+
+  // VPN, AWS Direct Connect, and Hosted DX use HEALTHY / UNHEALTHY
+  if (id === "privatelink" || id === "direct-connect" || id === "hosted-dx") {
+    if (s === "AVAILABLE" || s === "HEALTHY" || s === "UP") {
+      return "HEALTHY";
+    }
+    return "UNHEALTHY";
+  }
+
+  // AWS VPC, Transit Gateway use AVAILABLE / NOT AVAILABLE
+  if (s === "AVAILABLE" || s === "HEALTHY" || s === "UP") {
+    return "AVAILABLE";
+  }
+  return "NOT AVAILABLE";
 };
 
 export const InfrastructureFlow: React.FC<Props> = ({
@@ -109,15 +145,15 @@ export const InfrastructureFlow: React.FC<Props> = ({
 }) => {
   // Dynamically derive Station options containing Ground Station + Station ID + AWS Region
   const stationOptions = useMemo(() => {
-    if (regions && regions.length > 0) {
-      const list: Array<{
-        key: string;
-        stationId: string;
-        regionId: string;
-        label: string;
-        accountType: "GS1" | "GS2";
-      }> = [];
+    let list: Array<{
+      key: string;
+      stationId: string;
+      regionId: string;
+      label: string;
+      accountType: "GS1" | "GS2";
+    }> = [];
 
+    if (regions && regions.length > 0) {
       regions.forEach((region: any) => {
         const rName = region.name || region.city || region.id;
         const awsRegion = region.id || region.awsRegion || "af-south-1";
@@ -132,20 +168,33 @@ export const InfrastructureFlow: React.FC<Props> = ({
           });
         });
       });
-
-      if (list.length > 0) return list;
     }
 
-    return [
-      { key: "CP1|af-south-1", stationId: "CP1", regionId: "af-south-1", label: "Cape Town (CP1) - af-south-1", accountType: "GS1" as const },
-      { key: "CP2|af-south-1", stationId: "CP2", regionId: "af-south-1", label: "Cape Town (CP2) - af-south-1", accountType: "GS2" as const },
-      { key: "DU1|eu-west-1", stationId: "DU1", regionId: "eu-west-1", label: "Dublin (DU1) - eu-west-1", accountType: "GS1" as const },
-      { key: "DU2|eu-west-1", stationId: "DU2", regionId: "eu-west-1", label: "Dublin (DU2) - eu-west-1", accountType: "GS2" as const },
-      { key: "PA1|sa-east-1", stationId: "PA1", regionId: "sa-east-1", label: "Punta Arenas (PA1) - sa-east-1", accountType: "GS1" as const },
-      { key: "PA2|sa-east-1", stationId: "PA2", regionId: "sa-east-1", label: "Punta Arenas (PA2) - sa-east-1", accountType: "GS2" as const },
-      { key: "DB1|ap-southeast-2", stationId: "DB1", regionId: "ap-southeast-2", label: "Dubbo (DB1) - ap-southeast-2", accountType: "GS1" as const },
-      { key: "DB2|ap-southeast-2", stationId: "DB2", regionId: "ap-southeast-2", label: "Dubbo (DB2) - ap-southeast-2", accountType: "GS2" as const },
-    ];
+    if (list.length === 0) {
+      list = [
+        { key: "CP1|af-south-1", stationId: "CP1", regionId: "af-south-1", label: "Cape Town (CP1) - af-south-1", accountType: "GS1" as const },
+        { key: "CP2|af-south-1", stationId: "CP2", regionId: "af-south-1", label: "Cape Town (CP2) - af-south-1", accountType: "GS2" as const },
+        { key: "DB1|ap-southeast-2", stationId: "DB1", regionId: "ap-southeast-2", label: "Dubbo (DB1) - ap-southeast-2", accountType: "GS1" as const },
+        { key: "DB2|ap-southeast-2", stationId: "DB2", regionId: "ap-southeast-2", label: "Dubbo (DB2) - ap-southeast-2", accountType: "GS2" as const },
+        { key: "DU1|eu-west-1", stationId: "DU1", regionId: "eu-west-1", label: "Dublin (DU1) - eu-west-1", accountType: "GS1" as const },
+        { key: "DU2|eu-west-1", stationId: "DU2", regionId: "eu-west-1", label: "Dublin (DU2) - eu-west-1", accountType: "GS2" as const },
+        { key: "PA1|sa-east-1", stationId: "PA1", regionId: "sa-east-1", label: "Punta Arenas (PA1) - sa-east-1", accountType: "GS1" as const },
+        { key: "PA2|sa-east-1", stationId: "PA2", regionId: "sa-east-1", label: "Punta Arenas (PA2) - sa-east-1", accountType: "GS2" as const },
+      ];
+    }
+
+    const hasMumbai = list.some(o => o.key === "MUMBAI|ap-south-1" || o.label === "Mumbai - ap-south-1");
+    if (!hasMumbai) {
+      list.push({
+        key: "MUMBAI|ap-south-1",
+        stationId: "MUMBAI",
+        regionId: "ap-south-1",
+        label: "Mumbai - ap-south-1",
+        accountType: "GS1",
+      });
+    }
+
+    return list;
   }, [regions]);
 
   const [selectedKey, setSelectedKey] = useState<string>(() => {
@@ -455,21 +504,31 @@ export const InfrastructureFlow: React.FC<Props> = ({
           const Icon = getIconForType(node.type);
           const color = loading ? "#9CA3AF" : getStatusColor(node.status);
           const isVpn = node.id === "privatelink" || node.name === "VPN";
+          const isDirectConnect = node.id === "direct-connect" || node.name === "AWS Direct Connect";
 
-          // Extract Tata and Airtel statuses for VPN card
-          const tataStatusRaw = node.tata?.status || infraData?.privateLink?.tata?.status;
-          const tataTunnel1 = node.tata?.tunnel1 || infraData?.privateLink?.tata?.tunnel1;
-          const tataTunnel2 = node.tata?.tunnel2 || infraData?.privateLink?.tata?.tunnel2;
-          const isTataUp = tataStatusRaw === "AVAILABLE" || tataTunnel1 === "UP" || tataTunnel2 === "UP";
-          const tataText = tataStatusRaw === "NOT_CONFIGURED" ? "N/A" : (isTataUp ? "UP" : "DOWN");
-          const tataColor = tataStatusRaw === "NOT_CONFIGURED" ? "#9CA3AF" : (isTataUp ? "#10B981" : "#EF4444");
+          // Extract Tata & Airtel summary / counts for VPN card
+          const tataT1 = (node.details?.tataTunnel1 || node.tata?.tunnel1 || "UNKNOWN").toUpperCase();
+          const tataT2 = (node.details?.tataTunnel2 || node.tata?.tunnel2 || "UNKNOWN").toUpperCase();
+          const tataUpCount = [tataT1, tataT2].filter(s => s === "UP").length;
+          const tataTotal = 2;
+          const isTataConfigured = node.status !== "NOT_CONFIGURED" && tataT1 !== "UNKNOWN";
+          const tataSummary = isTataConfigured
+            ? `${tataUpCount}/${tataTotal} UP`
+            : (node.tata?.summary || (node.status === "NOT_CONFIGURED" ? "--" : `${tataUpCount}/${tataTotal} UP`));
+          const tataColor = !isTataConfigured ? "#9CA3AF" : (tataUpCount === tataTotal ? "#10B981" : (tataUpCount > 0 ? "#F59E0B" : "#EF4444"));
 
-          const airtelStatusRaw = node.airtel?.status || infraData?.privateLink?.airtel?.status;
-          const airtelTunnel1 = node.airtel?.tunnel1 || infraData?.privateLink?.airtel?.tunnel1;
-          const airtelTunnel2 = node.airtel?.tunnel2 || infraData?.privateLink?.airtel?.tunnel2;
-          const isAirtelUp = airtelStatusRaw === "AVAILABLE" || airtelTunnel1 === "UP" || airtelTunnel2 === "UP";
-          const airtelText = airtelStatusRaw === "NOT_CONFIGURED" ? "N/A" : (isAirtelUp ? "UP" : "DOWN");
-          const airtelColor = airtelStatusRaw === "NOT_CONFIGURED" ? "#9CA3AF" : (isAirtelUp ? "#10B981" : "#EF4444");
+          const airtelT1 = (node.details?.airtelTunnel1 || node.airtel?.tunnel1 || "UNKNOWN").toUpperCase();
+          const airtelT2 = (node.details?.airtelTunnel2 || node.airtel?.tunnel2 || "UNKNOWN").toUpperCase();
+          const airtelUpCount = [airtelT1, airtelT2].filter(s => s === "UP").length;
+          const airtelTotal = 2;
+          const isAirtelConfigured = node.status !== "NOT_CONFIGURED" && airtelT1 !== "UNKNOWN";
+          const airtelSummary = isAirtelConfigured
+            ? `${airtelUpCount}/${airtelTotal} UP`
+            : (node.airtel?.summary || (node.status === "NOT_CONFIGURED" ? "--" : `${airtelUpCount}/${airtelTotal} UP`));
+          const airtelColor = !isAirtelConfigured ? "#9CA3AF" : (airtelUpCount === airtelTotal ? "#10B981" : (airtelUpCount > 0 ? "#F59E0B" : "#EF4444"));
+
+          // Extract BGP summary for Direct Connect card
+          const bgpSummary = node.bgp?.summary || node.details?.bgpSummary || (node.status === "NOT_CONFIGURED" ? "BGP = --" : "BGP = 0/0 UP");
 
           return (
             <React.Fragment key={node.id}>
@@ -532,10 +591,10 @@ export const InfrastructureFlow: React.FC<Props> = ({
                     <Skeleton variant="rectangular" width="80%" height={20} sx={{ borderRadius: "10px", bgcolor: "rgba(255, 255, 255, 0.06)" }} />
                   </Box>
                 ) : isVpn ? (
-                  /* VPN Card with Dual Provider Sub-Panel */
+                  /* Simplified VPN Card with Tata & Airtel Tunnel Summary */
                   <Box sx={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "space-between" }}>
                     {/* Top Icon & Title */}
-                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.4 }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.3 }}>
                       <Box
                         sx={{
                           width: 32,
@@ -555,7 +614,7 @@ export const InfrastructureFlow: React.FC<Props> = ({
                       </Typography>
                     </Box>
 
-                    {/* Dual Provider Box */}
+                    {/* Dual Carrier Summary Box */}
                     <Box
                       sx={{
                         width: "100%",
@@ -565,31 +624,29 @@ export const InfrastructureFlow: React.FC<Props> = ({
                         border: "1px solid rgba(255, 255, 255, 0.06)",
                         borderRadius: "6px",
                         my: 0.5,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0.4,
                       }}
                     >
                       {/* Tata */}
-                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.5, mb: 0.3 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.5 }}>
                         <Typography sx={{ fontSize: 9.5, color: vars.textDim, fontWeight: 700 }}>
                           Tata
                         </Typography>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                          <Box sx={{ width: 5, height: 5, borderRadius: "50%", bgcolor: tataColor, boxShadow: `0 0 5px ${tataColor}` }} />
-                          <Typography sx={{ fontSize: 8.5, color: tataColor, fontWeight: 800 }}>
-                            {tataText}
-                          </Typography>
-                        </Box>
+                        <Typography sx={{ fontSize: 9, color: tataColor, fontWeight: 800, fontFamily: "monospace", letterSpacing: "0.02em" }}>
+                          {tataSummary}
+                        </Typography>
                       </Box>
+
                       {/* Airtel */}
                       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.5 }}>
                         <Typography sx={{ fontSize: 9.5, color: vars.textDim, fontWeight: 700 }}>
                           Airtel
                         </Typography>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                          <Box sx={{ width: 5, height: 5, borderRadius: "50%", bgcolor: airtelColor, boxShadow: `0 0 5px ${airtelColor}` }} />
-                          <Typography sx={{ fontSize: 8.5, color: airtelColor, fontWeight: 800 }}>
-                            {airtelText}
-                          </Typography>
-                        </Box>
+                        <Typography sx={{ fontSize: 9, color: airtelColor, fontWeight: 800, fontFamily: "monospace", letterSpacing: "0.02em" }}>
+                          {airtelSummary}
+                        </Typography>
                       </Box>
                     </Box>
 
@@ -608,7 +665,76 @@ export const InfrastructureFlow: React.FC<Props> = ({
                     >
                       <Box sx={{ width: 5, height: 5, borderRadius: "50%", bgcolor: color, boxShadow: `0 0 6px ${color}` }} />
                       <Typography sx={{ fontSize: 8.5, color: color, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                        {node.status.replace("_", " ")}
+                        {formatCardStatus(node.id, node.status)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : isDirectConnect ? (
+                  /* AWS Direct Connect Card with BGP Session Count */
+                  <Box sx={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "space-between" }}>
+                    {/* Top Icon Badge */}
+                    <Box
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "7px",
+                        bgcolor: `${color}15`,
+                        border: `1px solid ${color}35`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        mb: 0.2,
+                      }}
+                    >
+                      <Icon sx={{ fontSize: 16, color: color }} />
+                    </Box>
+
+                    {/* Node Title & Account Sub-tag */}
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 0.3 }}>
+                      <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: vars.text, textAlign: "center", letterSpacing: "0.02em" }}>
+                        {node.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: 8, color: vars.textDim, fontWeight: 600, textTransform: "uppercase", mt: 0.1 }}>
+                        {node.account}
+                      </Typography>
+                    </Box>
+
+                    {/* BGP Status Sub-panel */}
+                    <Box
+                      sx={{
+                        width: "100%",
+                        px: 0.8,
+                        py: 0.5,
+                        bgcolor: "rgba(0, 0, 0, 0.4)",
+                        border: "1px solid rgba(255, 255, 255, 0.06)",
+                        borderRadius: "6px",
+                        my: 0.5,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Typography sx={{ fontSize: 9.5, color: vars.accent, fontWeight: 800, fontFamily: "monospace", letterSpacing: "0.03em" }}>
+                        {bgpSummary}
+                      </Typography>
+                    </Box>
+
+                    {/* Status Pill */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        px: 0.9,
+                        py: 0.3,
+                        borderRadius: "12px",
+                        bgcolor: `${color}15`,
+                        border: `1px solid ${color}35`,
+                      }}
+                    >
+                      <Box sx={{ width: 5, height: 5, borderRadius: "50%", bgcolor: color, boxShadow: `0 0 6px ${color}` }} />
+                      <Typography sx={{ fontSize: 8.5, color: color, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                        {formatCardStatus(node.id, node.status)}
                       </Typography>
                     </Box>
                   </Box>
@@ -618,8 +744,8 @@ export const InfrastructureFlow: React.FC<Props> = ({
                     {/* Top Icon Badge */}
                     <Box
                       sx={{
-                        width: 34,
-                        height: 34,
+                        width: 32,
+                        height: 32,
                         borderRadius: "8px",
                         bgcolor: `${color}15`,
                         border: `1px solid ${color}35`,
@@ -629,15 +755,15 @@ export const InfrastructureFlow: React.FC<Props> = ({
                         mb: 0.5,
                       }}
                     >
-                      <Icon sx={{ fontSize: 18, color: color }} />
+                      <Icon sx={{ fontSize: 17, color: color }} />
                     </Box>
 
                     {/* Node Title & Account Sub-tag */}
                     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 0.5 }}>
-                      <Typography sx={{ fontSize: 11, fontWeight: 800, color: vars.text, textAlign: "center", letterSpacing: "0.02em" }}>
+                      <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: vars.text, textAlign: "center", letterSpacing: "0.02em" }}>
                         {node.name}
                       </Typography>
-                      <Typography sx={{ fontSize: 8.5, color: vars.textDim, fontWeight: 600, textTransform: "uppercase", mt: 0.2 }}>
+                      <Typography sx={{ fontSize: 8, color: vars.textDim, fontWeight: 600, textTransform: "uppercase", mt: 0.2 }}>
                         {node.account === "EXTERNAL" ? "EXTERNAL" : node.account}
                       </Typography>
                     </Box>
@@ -657,7 +783,7 @@ export const InfrastructureFlow: React.FC<Props> = ({
                     >
                       <Box sx={{ width: 5, height: 5, borderRadius: "50%", bgcolor: color, boxShadow: `0 0 6px ${color}` }} />
                       <Typography sx={{ fontSize: 8.5, color: color, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                        {node.status.replace("_", " ")}
+                        {formatCardStatus(node.id, node.status)}
                       </Typography>
                     </Box>
                   </Box>

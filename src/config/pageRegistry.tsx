@@ -148,6 +148,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
 /* ---------------- TYPES ---------------- */
 
@@ -187,6 +188,13 @@ export const APP_PAGES: AppPage[] = [
     route: "/pass-list",
     location: "sidebar",
     icon: <FormatListBulletedIcon />,
+  },
+  {
+    key: "pass_schedule",
+    label: "Pass Schedule",
+    route: "/pass-schedule",
+    location: "sidebar",
+    icon: <CalendarMonthIcon />,
   },
   {
     key: "satellites",

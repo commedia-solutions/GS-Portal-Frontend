@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Typography, IconButton, Divider, Collapse } from "@mui/material";
 import { X, ChevronDown, ChevronUp, Server, Globe, Network, ShieldCheck } from "lucide-react";
 import { vars } from "../../ui/toast/themeBridge";
-import type { TopologyEntity, GroundStation, AwsRegion, AwsHub } from "../../types/topologyTypes";
+import type { TopologyEntity, GroundStation, AwsRegion, AwsHub, IstracNode } from "../../types/topologyTypes";
 import { formatPassDate, formatPassTime, formatPassDuration } from "../../utils/passUtils";
 import { ConnectDataDefenderButton } from "../monitoring/ConnectDataDefenderButton";
 
@@ -140,6 +140,13 @@ export const TopologyDetailsPanel: React.FC<TopologyDetailsPanelProps> = ({
               </Typography>
             </Box>
           </Box>
+
+          <Box>
+            <Typography sx={{ fontSize: 10, color: vars.textDim }}>License Server</Typography>
+            <Typography sx={{ fontSize: 11, color: vars.text, fontWeight: "bold" }}>
+              Safron License Server
+            </Typography>
+          </Box>
         </Box>
 
         {/* Connected Ground Station Regions */}
@@ -187,7 +194,143 @@ export const TopologyDetailsPanel: React.FC<TopologyDetailsPanelProps> = ({
     );
   }
 
-  // 2. AWS GROUND STATION REGION DETAILS PANEL
+  // 2. ISTRAC BANGALORE DETAILS PANEL
+  if (entity.type === "ISTRAC") {
+    const istrac = entity as IstracNode;
+    const istracColor = "#06B6D4";
+    const glowColor = "#22D3EE";
+
+    return (
+      <Box sx={{ p: 2.5, height: "100%", overflowY: "auto", position: "relative" }}>
+        {/* Header */}
+        <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+          <Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  bgcolor: istracColor,
+                  borderRadius: "2px",
+                  boxShadow: `0 0 8px ${glowColor}`,
+                }}
+              />
+              <Typography sx={{ fontSize: 16, fontWeight: 900, color: glowColor, textTransform: "uppercase" }}>
+                {istrac.name}
+              </Typography>
+            </Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: vars.text, mb: 0.5 }}>
+              {istrac.locationName || `${istrac.city}, ${istrac.country}`}
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: vars.textDim, textTransform: "uppercase", mb: 1 }}>
+              ISRO TELEMETRY, TRACKING & COMMAND NETWORK
+            </Typography>
+            <Box sx={{ display: "inline-flex", flexDirection: "column" }}>
+              <Typography sx={{ fontSize: 10, color: vars.textDim, textTransform: "uppercase" }}>
+                FACILITY STATUS
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: "#10B981", fontWeight: 800, letterSpacing: 0.5 }}>
+                ONLINE / HEALTHY
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton size="small" onClick={onClose} sx={{ color: vars.textDim, mt: -0.5, mr: -0.5 }}>
+            <X size={18} />
+          </IconButton>
+        </Box>
+
+        <Divider sx={{ borderColor: vars.borderWeak, mb: 2 }} />
+
+        {/* Mission Control Facility Overview */}
+        <Typography sx={{ fontSize: 12, fontWeight: 800, color: vars.textDim, textTransform: "uppercase", mb: 1.5 }}>
+          Mission Control Facility Overview
+        </Typography>
+
+        <Box
+          sx={{
+            bgcolor: "rgba(255,255,255,0.02)",
+            border: `1px solid ${vars.borderWeak}`,
+            borderRadius: 1,
+            p: 1.5,
+            mb: 2,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1.5,
+          }}
+        >
+          <Box>
+            <Typography sx={{ fontSize: 10, color: vars.textDim }}>Role / Endpoint</Typography>
+            <Typography sx={{ fontSize: 11, color: vars.text, fontWeight: "bold" }}>
+              {istrac.role || "Mission Operations Complex (MOX) / Ground Station Network Operations"}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+            <Box>
+              <Typography sx={{ fontSize: 10, color: vars.textDim }}>Coordinates</Typography>
+              <Typography sx={{ fontSize: 11, color: glowColor, fontWeight: "bold" }}>
+                12.9716° N, 77.5946° E
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 10, color: vars.textDim }}>Uplink Hub</Typography>
+              <Typography sx={{ fontSize: 11, color: "#FF9900", fontWeight: "bold" }}>
+                {istrac.connectedHub || "AWS Central Hub (Mumbai)"}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 10, color: vars.textDim }}>Hub Region</Typography>
+              <Typography sx={{ fontSize: 11, color: vars.text, fontWeight: "bold" }}>
+                {istrac.hubRegionCode || "ap-south-1"}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 10, color: vars.textDim }}>Link Status</Typography>
+              <Typography sx={{ fontSize: 11, color: "#10B981", fontWeight: "bold" }}>
+                CONNECTED
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box>
+            <Typography sx={{ fontSize: 10, color: vars.textDim }}>Dedicated Line</Typography>
+            <Typography sx={{ fontSize: 11, color: "#10B981", fontWeight: "bold" }}>
+              Active (Direct Backbone)
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Telemetry Routing Topology */}
+        <Typography sx={{ fontSize: 12, fontWeight: 800, color: vars.textDim, textTransform: "uppercase", mb: 1.5 }}>
+          Telemetry Ingestion Topology
+        </Typography>
+
+        <Box
+          sx={{
+            bgcolor: "rgba(6, 182, 212, 0.04)",
+            border: `1px solid rgba(6, 182, 212, 0.25)`,
+            borderRadius: 1,
+            p: 1.5,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#00FF66" }} />
+            <Typography sx={{ fontSize: 11, fontWeight: "bold", color: "#f8fafc" }}>
+              End-to-End Live Stream Routing
+            </Typography>
+          </Box>
+          <Typography sx={{ fontSize: 10.5, color: vars.textDim, lineHeight: 1.4 }}>
+            Ground Stations (CP1/CP2, DU1/DU2, PA1/PA2, DB1/DB2) stream live pass telemetry through the <strong>AWS Central Hub (Mumbai)</strong> directly to the <strong>ISTRAC Bangalore MOX</strong>.
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  // 3. AWS GROUND STATION REGION DETAILS PANEL
   if (entity.type === "region") {
     const region = entity as AwsRegion;
     const regionStations = stations.filter((s) => region.linkedStations.includes(s.id));

@@ -46,7 +46,8 @@ interface Props {
 }
 
 const getStatusColor = (status: InfrastructureStatus | string) => {
-  switch (status) {
+  const s = String(status || "").toUpperCase();
+  switch (s) {
     case "AVAILABLE":
     case "UP":
     case "HEALTHY":
@@ -57,18 +58,20 @@ const getStatusColor = (status: InfrastructureStatus | string) => {
     case "DOWN":
     case "OFFLINE":
     case "CRITICAL":
+    case "UNHEALTHY":
       return "#EF4444"; // Red
     case "NOT_MANAGED":
       return "#3B82F6"; // Blue
     case "NOT_CONFIGURED":
-      return "#9CA3AF"; // Gray
+    case "UNKNOWN":
     default:
-      return "#9CA3AF";
+      return "#9CA3AF"; // Gray
   }
 };
 
 const getStatusIcon = (status: InfrastructureStatus | string) => {
-  switch (status) {
+  const s = String(status || "").toUpperCase();
+  switch (s) {
     case "AVAILABLE":
     case "UP":
     case "HEALTHY":
@@ -79,12 +82,40 @@ const getStatusIcon = (status: InfrastructureStatus | string) => {
     case "DOWN":
     case "OFFLINE":
     case "CRITICAL":
+    case "UNHEALTHY":
       return <ErrorIcon sx={{ fontSize: 16, color: "#EF4444" }} />;
     case "NOT_MANAGED":
       return <InfoIcon sx={{ fontSize: 16, color: "#3B82F6" }} />;
     default:
       return <HelpOutlineIcon sx={{ fontSize: 16, color: "#9CA3AF" }} />;
   }
+};
+
+const formatCardStatus = (nodeId: string, status: InfrastructureStatus | string) => {
+  const s = String(status || "").toUpperCase();
+  const id = String(nodeId || "").toLowerCase();
+
+  if (s === "NOT_MANAGED" || id === "isp" || id === "mission-network") {
+    return "NOT MANAGED";
+  }
+
+  if (s === "NOT_CONFIGURED") {
+    return "NOT CONFIGURED";
+  }
+
+  // VPN, AWS Direct Connect, and Hosted DX use HEALTHY / UNHEALTHY
+  if (id === "privatelink" || id === "direct-connect" || id === "hosted-dx") {
+    if (s === "AVAILABLE" || s === "HEALTHY" || s === "UP") {
+      return "HEALTHY";
+    }
+    return "UNHEALTHY";
+  }
+
+  // AWS VPC, Transit Gateway use AVAILABLE / NOT AVAILABLE
+  if (s === "AVAILABLE" || s === "HEALTHY" || s === "UP") {
+    return "AVAILABLE";
+  }
+  return "NOT AVAILABLE";
 };
 
 const getComponentIcon = (type: string) => {
@@ -285,6 +316,7 @@ export const InfrastructureDetailsModal: React.FC<Props> = ({
                     />
                   </Box>
                   <DetailRow label="VPN Connection ID" value={tata?.vpnConnectionId} mono />
+                  <DetailRow label="Tunnels UP" value={tata?.summary || `${[tata?.tunnel1, tata?.tunnel2].filter(s => s === "UP").length}/2 UP`} />
                   <DetailRow
                     label="Tunnel 1 Status"
                     value={
@@ -337,6 +369,7 @@ export const InfrastructureDetailsModal: React.FC<Props> = ({
                     />
                   </Box>
                   <DetailRow label="VPN Connection ID" value={airtel?.vpnConnectionId} mono />
+                  <DetailRow label="Tunnels UP" value={airtel?.summary || `${[airtel?.tunnel1, airtel?.tunnel2].filter(s => s === "UP").length}/2 UP`} />
                   <DetailRow
                     label="Tunnel 1 Status"
                     value={
@@ -585,7 +618,7 @@ export const InfrastructureDetailsModal: React.FC<Props> = ({
         </Box>
         <Chip
           icon={getStatusIcon(selectedNode.status)}
-          label={selectedNode.status.replace("_", " ")}
+          label={formatCardStatus(selectedNode.id, selectedNode.status)}
           size="small"
           sx={{
             height: 24,

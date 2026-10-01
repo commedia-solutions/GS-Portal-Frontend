@@ -662,7 +662,7 @@ export const RegionManagementModal: React.FC<RegionManagementModalProps> = ({
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                             <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#A855F7" }} />
                             <Typography sx={{ fontSize: 10.5, color: "#C084FC", fontWeight: 700 }}>
-                              SD1 ({sd1?.stationId || "None"}):
+                              GS1 ({sd1?.stationId || "None"}):
                             </Typography>
                           </Box>
                           <Typography sx={{ fontSize: 10, color: vars.textDim, fontFamily: "monospace" }}>
@@ -674,7 +674,7 @@ export const RegionManagementModal: React.FC<RegionManagementModalProps> = ({
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                             <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#EAB308" }} />
                             <Typography sx={{ fontSize: 10.5, color: "#FACC15", fontWeight: 700 }}>
-                              SD2 ({sd2?.stationId || "None"}):
+                              GS2 ({sd2?.stationId || "None"}):
                             </Typography>
                           </Box>
                           <Typography sx={{ fontSize: 10, color: vars.textDim, fontFamily: "monospace" }}>
@@ -948,7 +948,7 @@ export const RegionManagementModal: React.FC<RegionManagementModalProps> = ({
 
               <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
 
-              {/* SECTION 3: GS1 / SD1 INSTANCES CONFIGURATION (OPTIONAL) */}
+              {/* SECTION 3: GS1 INSTANCES CONFIGURATION (OPTIONAL) */}
               <Box
                 sx={{
                   p: 1.8,
@@ -962,7 +962,7 @@ export const RegionManagementModal: React.FC<RegionManagementModalProps> = ({
                     <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: "#A855F7", boxShadow: "0 0 8px rgba(168,85,247,0.5)" }} />
                     <Box>
                       <Typography sx={{ fontSize: "12.5px", fontWeight: 800, color: "#C084FC" }}>
-                        GS1 / SD1
+                        GS1
                       </Typography>
                       <Typography sx={{ fontSize: "10.5px", color: "rgba(255,255,255,0.5)" }}>
                         Purple Satellite (Optional)
@@ -1136,7 +1136,7 @@ export const RegionManagementModal: React.FC<RegionManagementModalProps> = ({
 
               <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
 
-              {/* SECTION 4: GS2 / SD2 INSTANCES CONFIGURATION (OPTIONAL) */}
+              {/* SECTION 4: GS2 INSTANCES CONFIGURATION (OPTIONAL) */}
               <Box
                 sx={{
                   p: 1.8,
@@ -1150,7 +1150,7 @@ export const RegionManagementModal: React.FC<RegionManagementModalProps> = ({
                     <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: "#EAB308", boxShadow: "0 0 8px rgba(234,179,8,0.5)" }} />
                     <Box>
                       <Typography sx={{ fontSize: "12.5px", fontWeight: 800, color: "#FACC15" }}>
-                        GS2 / SD2
+                        GS2
                       </Typography>
                       <Typography sx={{ fontSize: "10.5px", color: "rgba(255,255,255,0.5)" }}>
                         Yellow Satellite (Optional)

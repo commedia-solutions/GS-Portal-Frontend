@@ -28,6 +28,7 @@ import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import HubIcon from "@mui/icons-material/Hub";
 import SettingsIcon from "@mui/icons-material/Settings";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
 import isroLogo from "../assets/isro_logo.png";
 import { useAuth } from "../auth";
@@ -148,6 +149,9 @@ export default function Sidebar({ expanded, setExpanded }: SidebarProps) {
           )}
           {hasPageAccess("pass_list") && (
             <NavItem to="/pass-list" icon={<FormatListBulletedIcon />} label={t("Pass List")} expanded={expanded} />
+          )}
+          {hasPageAccess("pass_schedule") && (
+            <NavItem to="/pass-schedule" icon={<CalendarMonthIcon />} label={t("Pass Schedule")} expanded={expanded} />
           )}
         </List>
 

@@ -1,22 +1,65 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Box, Typography, IconButton } from "@mui/material";
-import { Plus, Minus, RotateCcw } from "lucide-react";
+import { Plus, Minus, RotateCcw, Maximize2, Target } from "lucide-react";
 import { vars } from "../../ui/toast/themeBridge";
-import type { GroundStation, AwsRegion, AwsHub, TopologyEntity } from "../../types/topologyTypes";
+import type { GroundStation, AwsRegion, AwsHub, IstracNode, TopologyEntity } from "../../types/topologyTypes";
 import type { ActivePass } from "../../types/monitoring/dashboard";
 import { GroundStationMarker } from "./GroundStationMarker";
 import { AwsHubMarker } from "./AwsHubMarker";
+import { IstracMarker } from "./IstracMarker";
 import { geoEquirectangular, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 
-const MIN_ZOOM = 0.8;
-const MAX_ZOOM = 3.0;
-const ZOOM_STEP = 0.25;
+// Centralized Topology Camera Configuration for customizable viewport, zoom, padding, and animations
+export const TOPOLOGY_CAMERA_CONFIG = {
+  // SVG virtual canvas dimensions
+  mapWidth: 1000,
+  mapHeight: 500,
+
+  // Manual zoom limits and steps
+  minZoom: 0.8,
+  maxZoom: 3.5,
+  zoomStep: 0.25,
+
+  // Network overview fitting constraints (fits all nodes with no empty Pacific gap)
+  defaultMinZoom: 1.12,
+  defaultMaxZoom: 1.38,
+  defaultWidthRatio: 0.90,
+  defaultHeightRatio: 0.82,
+
+  // Active pass corridor fitting constraints (targets 75-85% width, 65-80% height)
+  activeRouteWidthRatio: 0.80,
+  activeRouteHeightRatio: 0.72,
+  activeMinZoom: 1.25,
+  activeMaxZoom: 2.20,
+
+  // Smooth camera animation easing
+  transitionDuration: "0.65s cubic-bezier(0.2, 0.8, 0.25, 1)",
+
+  // Safe visual margins (accounting for marker rings, labels, and bottom legend)
+  legendHeightCompensation: 18,
+
+  // Dynamic Satellite Pacing & Animation
+  animDurationSec: 7.0,
+  mumbaiBangaloreTimeFraction: 0.28, // 28% of travel time on Mumbai -> Bangalore segment
+};
+
+type CameraMode = "DEFAULT" | "FIT_NETWORK" | "ACTIVE_PASS" | "MANUAL";
+
+interface BoundingPoint {
+  x: number;
+  y: number;
+  padTop?: number;
+  padBottom?: number;
+  padLeft?: number;
+  padRight?: number;
+}
 
 interface TopologyMapProps {
   stations: GroundStation[];
   regions: AwsRegion[];
   hubs?: AwsHub[];
+  istracNode?: IstracNode | null;
   activePasses?: ActivePass[];
   selectedEntity: TopologyEntity | null;
   onSelectEntity: (entity: TopologyEntity | null) => void;
@@ -26,59 +69,20 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
   stations,
   regions,
   hubs = [],
+  istracNode,
   activePasses = [],
   selectedEntity,
   onSelectEntity,
 }) => {
   const [worldData, setWorldData] = useState<any>(null);
-  const [zoom, setZoom] = useState<number>(1.0);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Default centered network view (fits all stations with zero excessive Pacific space on left)
+  const [zoom, setZoom] = useState<number>(1.20);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: -132, y: -24 });
+  const [cameraMode, setCameraMode] = useState<CameraMode>("DEFAULT");
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const hasMovedRef = useRef<boolean>(false);
-
-  const handleZoomIn = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setZoom((prev) => Math.min(MAX_ZOOM, Number((prev + ZOOM_STEP).toFixed(2))));
-  };
-
-  const handleZoomOut = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setZoom((prev) => Math.max(MIN_ZOOM, Number((prev - ZOOM_STEP).toFixed(2))));
-  };
-
-  const handleResetZoom = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setZoom(1.0);
-    setPan({ x: 0, y: 0 });
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    setIsDragging(true);
-    hasMovedRef.current = false;
-    dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const newX = e.clientX - dragStartRef.current.x;
-    const newY = e.clientY - dragStartRef.current.y;
-    if (Math.abs(newX - pan.x) > 3 || Math.abs(newY - pan.y) > 3) {
-      hasMovedRef.current = true;
-    }
-    const maxPanX = 500 * (zoom - 0.5);
-    const maxPanY = 300 * (zoom - 0.5);
-    setPan({
-      x: Math.max(-Math.max(250, maxPanX), Math.min(Math.max(250, maxPanX), newX)),
-      y: Math.max(-Math.max(200, maxPanY), Math.min(Math.max(200, maxPanY), newY)),
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
+  const lastActivePassKeyRef = useRef<string>("");
 
   useEffect(() => {
     fetch("/world-110m.json")
@@ -91,8 +95,8 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
   }, []);
 
   // Map configuration
-  const mapWidth = 1000;
-  const mapHeight = 500;
+  const mapWidth = TOPOLOGY_CAMERA_CONFIG.mapWidth;
+  const mapHeight = TOPOLOGY_CAMERA_CONFIG.mapHeight;
 
   const projection = useMemo(() => {
     return geoEquirectangular()
@@ -112,12 +116,354 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
     return (y / mapHeight) * 100;
   };
 
+  // Primary central hub (Mumbai)
+  const primaryHub = hubs[0] || {
+    type: "AWS_HUB" as const,
+    id: "hub-mumbai",
+    name: "AWS CENTRAL HUB",
+    locationName: "Mumbai, India",
+    city: "Mumbai",
+    country: "India",
+    regionCode: "ap-south-1",
+    latitude: 19.076,
+    longitude: 72.8777,
+    status: "ONLINE" as const,
+  };
+
+  // Primary ISTRAC Node (Bangalore)
+  const primaryIstrac: IstracNode = istracNode || {
+    type: "ISTRAC",
+    id: "node-istrac-bangalore",
+    name: "ISTRAC BANGALORE",
+    locationName: "Bangalore, India",
+    city: "Bangalore",
+    country: "India",
+    latitude: 12.9716,
+    longitude: 77.5946,
+    status: "ONLINE",
+    connectedHub: "AWS Central Hub (Mumbai)",
+    hubRegionCode: "ap-south-1",
+    role: "Mission Operations Complex (MOX) / Ground Station Network Operations",
+  };
+
+  // Mathematical screen-space bounding box and camera centering helper
+  const fitBounds = useCallback(
+    (
+      items: BoundingPoint[],
+      targetWidthRatio: number = TOPOLOGY_CAMERA_CONFIG.activeRouteWidthRatio,
+      targetHeightRatio: number = TOPOLOGY_CAMERA_CONFIG.activeRouteHeightRatio,
+      minZ: number = TOPOLOGY_CAMERA_CONFIG.activeMinZoom,
+      maxZ: number = TOPOLOGY_CAMERA_CONFIG.activeMaxZoom,
+      targetViewportCenterY: number = TOPOLOGY_CAMERA_CONFIG.mapHeight / 2 - TOPOLOGY_CAMERA_CONFIG.legendHeightCompensation
+    ) => {
+      if (items.length === 0) {
+        return { zoom: 1.20, pan: { x: -132, y: -24 } };
+      }
+
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+
+      items.forEach((pt) => {
+        const pL = pt.padLeft ?? 25;
+        const pR = pt.padRight ?? 25;
+        const pT = pt.padTop ?? 25;
+        const pB = pt.padBottom ?? 25;
+
+        minX = Math.min(minX, pt.x - pL);
+        maxX = Math.max(maxX, pt.x + pR);
+        minY = Math.min(minY, pt.y - pT);
+        maxY = Math.max(maxY, pt.y + pB);
+      });
+
+      const spanX = Math.max(120, maxX - minX);
+      const spanY = Math.max(90, maxY - minY);
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      const mapW = TOPOLOGY_CAMERA_CONFIG.mapWidth;
+      const mapH = TOPOLOGY_CAMERA_CONFIG.mapHeight;
+
+      const zoomX = (mapW * targetWidthRatio) / spanX;
+      const zoomY = (mapH * targetHeightRatio) / spanY;
+      const calculatedZoom = Math.min(zoomX, zoomY);
+      const targetZoom = Math.max(minZ, Math.min(maxZ, Number(calculatedZoom.toFixed(2))));
+
+      // Center the bounding box around targetViewportCenter (mapW / 2, targetViewportCenterY)
+      const targetPanX = (mapW / 2 - centerX) * targetZoom;
+      const targetPanY = (targetViewportCenterY - mapH / 2) + (mapH / 2 - centerY) * targetZoom;
+
+      return {
+        zoom: targetZoom,
+        pan: {
+          x: Number(targetPanX.toFixed(1)),
+          y: Number(targetPanY.toFixed(1)),
+        },
+      };
+    },
+    []
+  );
+
+  // Fit All configured network stations (eliminates empty left Pacific space and centers network)
+  const fitNetwork = useCallback(() => {
+    const points: BoundingPoint[] = [];
+
+    regions.forEach((r) => {
+      const p = projection([r.longitude, r.latitude]);
+      if (p) {
+        points.push({
+          x: p[0],
+          y: p[1],
+          padTop: 30,
+          padBottom: 48,
+          padLeft: 45,
+          padRight: 45,
+        });
+      }
+    });
+
+    const hubP = projection([primaryHub.longitude, primaryHub.latitude]);
+    if (hubP) {
+      points.push({
+        x: hubP[0],
+        y: hubP[1],
+        padTop: 45,
+        padBottom: 25,
+        padLeft: 40,
+        padRight: 40,
+      });
+    }
+
+    const istracP = projection([primaryIstrac.longitude, primaryIstrac.latitude]);
+    if (istracP) {
+      points.push({
+        x: istracP[0],
+        y: istracP[1],
+        padTop: 25,
+        padBottom: 45,
+        padLeft: 35,
+        padRight: 45,
+      });
+    }
+
+    const fit = fitBounds(
+      points,
+      TOPOLOGY_CAMERA_CONFIG.defaultWidthRatio,
+      TOPOLOGY_CAMERA_CONFIG.defaultHeightRatio,
+      TOPOLOGY_CAMERA_CONFIG.defaultMinZoom,
+      TOPOLOGY_CAMERA_CONFIG.defaultMaxZoom,
+      TOPOLOGY_CAMERA_CONFIG.mapHeight / 2 - 14
+    );
+    setZoom(fit.zoom);
+    setPan(fit.pan);
+  }, [regions, primaryHub, primaryIstrac, projection, fitBounds]);
+
+  // Focus active pass route (Station -> Mumbai -> Bangalore)
+  const focusActiveRoute = useCallback(
+    (targetStationId?: string) => {
+      const activeRegions = regions.filter((r) => {
+        if (targetStationId) {
+          return r.id === targetStationId || r.linkedStations?.includes(targetStationId);
+        }
+        return activePasses.some(
+          (p) => r.linkedStations?.includes(p.stationId) || p.stationId === r.id
+        );
+      });
+
+      if (activeRegions.length === 0) {
+        fitNetwork();
+        return;
+      }
+
+      const points: BoundingPoint[] = [];
+      const hubP = projection([primaryHub.longitude, primaryHub.latitude]);
+      const istracP = projection([primaryIstrac.longitude, primaryIstrac.latitude]);
+
+      if (hubP) {
+        points.push({
+          x: hubP[0],
+          y: hubP[1],
+          padTop: 48, // Mumbai label is above marker
+          padBottom: 25,
+          padLeft: 40,
+          padRight: 40,
+        });
+      }
+
+      if (istracP) {
+        points.push({
+          x: istracP[0],
+          y: istracP[1],
+          padTop: 25,
+          padBottom: 48, // Bangalore label is below marker
+          padLeft: 30,
+          padRight: 55,  // Eastward arc and satellite clearance
+        });
+      }
+
+      if (hubP && istracP) {
+        const midHubBlrX = (hubP[0] + istracP[0]) / 2 + 5;
+        const midHubBlrY = (hubY_calc(hubP[1], istracP[1]));
+        points.push({
+          x: midHubBlrX,
+          y: midHubBlrY,
+          padTop: 20,
+          padBottom: 20,
+          padLeft: 20,
+          padRight: 20,
+        });
+      }
+
+      activeRegions.forEach((r) => {
+        const stP = projection([r.longitude, r.latitude]);
+        if (stP) {
+          points.push({
+            x: stP[0],
+            y: stP[1],
+            padTop: 30,
+            padBottom: 55, // Cape Town / station label below
+            padLeft: 55,   // Left safety margin
+            padRight: 50,
+          });
+
+          if (hubP) {
+            // Include quadratic curve apex
+            const midX = (stP[0] + hubP[0]) / 2;
+            const midY = Math.min(stP[1], hubP[1]) - 30;
+            points.push({
+              x: midX,
+              y: midY,
+              padTop: 25,
+              padBottom: 15,
+              padLeft: 20,
+              padRight: 20,
+            });
+          }
+        }
+      });
+
+      const fit = fitBounds(
+        points,
+        TOPOLOGY_CAMERA_CONFIG.activeRouteWidthRatio,
+        TOPOLOGY_CAMERA_CONFIG.activeRouteHeightRatio,
+        TOPOLOGY_CAMERA_CONFIG.activeMinZoom,
+        TOPOLOGY_CAMERA_CONFIG.activeMaxZoom,
+        TOPOLOGY_CAMERA_CONFIG.mapHeight / 2 - TOPOLOGY_CAMERA_CONFIG.legendHeightCompensation
+      );
+      setZoom(fit.zoom);
+      setPan(fit.pan);
+    },
+    [regions, primaryHub, primaryIstrac, activePasses, projection, fitBounds, fitNetwork]
+  );
+
+  // Helper for Hub -> BLR curve midpoint calculation
+  function hubY_calc(y1: number, y2: number) {
+    return (y1 + y2) / 2 - 2;
+  }
+
+  // Auto-focus on active pass startup / change without disrupting user manual pan during regular polling
+  useEffect(() => {
+    const currentKey = activePasses
+      .map((p) => p.stationId || p.satellite)
+      .sort()
+      .join(",");
+
+    if (currentKey !== lastActivePassKeyRef.current) {
+      const wasEmpty = lastActivePassKeyRef.current === "";
+      lastActivePassKeyRef.current = currentKey;
+
+      if (activePasses.length > 0) {
+        setCameraMode("ACTIVE_PASS");
+        focusActiveRoute();
+      } else if (!wasEmpty && cameraMode === "ACTIVE_PASS") {
+        setCameraMode("DEFAULT");
+        fitNetwork();
+      }
+    }
+  }, [activePasses, focusActiveRoute, fitNetwork, cameraMode]);
+
+  // Initial network fit on mount
+  useEffect(() => {
+    if (activePasses.length > 0) {
+      focusActiveRoute();
+    } else {
+      fitNetwork();
+    }
+  }, []);
+
+  const handleZoomIn = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCameraMode("MANUAL");
+    setZoom((prev) => Math.min(TOPOLOGY_CAMERA_CONFIG.maxZoom, Number((prev + TOPOLOGY_CAMERA_CONFIG.zoomStep).toFixed(2))));
+  };
+
+  const handleZoomOut = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCameraMode("MANUAL");
+    setZoom((prev) => Math.max(TOPOLOGY_CAMERA_CONFIG.minZoom, Number((prev - TOPOLOGY_CAMERA_CONFIG.zoomStep).toFixed(2))));
+  };
+
+  const handleFitNetwork = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCameraMode("FIT_NETWORK");
+    fitNetwork();
+  };
+
+  const handleFocusActive = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activePasses.length > 0) {
+      setCameraMode("ACTIVE_PASS");
+      focusActiveRoute();
+    }
+  };
+
+  const handleResetZoom = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCameraMode("DEFAULT");
+    fitNetwork();
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+    setCameraMode("MANUAL");
+    const delta = e.deltaY < 0 ? 0.15 : -0.15;
+    setZoom((prev) => Math.min(TOPOLOGY_CAMERA_CONFIG.maxZoom, Math.max(TOPOLOGY_CAMERA_CONFIG.minZoom, Number((prev + delta).toFixed(2)))));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    hasMovedRef.current = false;
+    dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const newX = e.clientX - dragStartRef.current.x;
+    const newY = e.clientY - dragStartRef.current.y;
+    if (Math.abs(newX - pan.x) > 3 || Math.abs(newY - pan.y) > 3) {
+      hasMovedRef.current = true;
+      setCameraMode("MANUAL");
+    }
+    const maxPanX = 800 * (zoom - 0.2);
+    const maxPanY = 500 * (zoom - 0.2);
+    setPan({
+      x: Math.max(-Math.max(350, maxPanX), Math.min(Math.max(350, maxPanX), newX)),
+      y: Math.max(-Math.max(300, maxPanY), Math.min(Math.max(300, maxPanY), newY)),
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   // Structured logging for map active routes
   useEffect(() => {
     console.log(`[MAP ACTIVE ROUTES]`);
     if (activePasses && activePasses.length > 0) {
       activePasses.forEach((p) => {
-        console.log(`${p.stationName || p.stationId} → Mumbai (AWS Central Hub)`);
+        console.log(`${p.stationName || p.stationId} → Mumbai (AWS Central Hub) → ISTRAC Bangalore`);
       });
     } else {
       console.log(`No active routes (all connections static)`);
@@ -171,26 +517,38 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
     });
   }, [regions, stations, activePasses]);
 
-  // Primary central hub (Mumbai)
-  const primaryHub = hubs[0] || {
-    type: "AWS_HUB" as const,
-    id: "hub-mumbai",
-    name: "AWS CENTRAL HUB",
-    locationName: "Mumbai, India",
-    city: "Mumbai",
-    country: "India",
-    regionCode: "ap-south-1",
-    latitude: 19.076,
-    longitude: 72.8777,
-    status: "ONLINE" as const,
-  };
+  // Static Backbone line from Mumbai AWS Hub to ISTRAC Bangalore
+  const hubToBlrLine = useMemo(() => {
+    const hubCoords = projection([primaryHub.longitude, primaryHub.latitude]);
+    const blrCoords = projection([primaryIstrac.longitude, primaryIstrac.latitude]);
+    if (!hubCoords || !blrCoords) return null;
 
-  // Compute curved SVG topology lines from each ground station to the central AWS Hub (Mumbai)
+    const [hubX, hubY] = hubCoords;
+    const [blrX, blrY] = blrCoords;
+
+    const midHubBlrX = (hubX + blrX) / 2 + 5;
+    const midHubBlrY = (hubY + blrY) / 2 - 2;
+
+    const pathD = `M ${hubX} ${hubY} Q ${midHubBlrX} ${midHubBlrY} ${blrX} ${blrY}`;
+    const isHighlighted =
+      selectedEntity?.id === primaryIstrac.id ||
+      selectedEntity?.type === "ISTRAC" ||
+      selectedEntity?.id === primaryHub.id ||
+      selectedEntity?.type === "AWS_HUB";
+
+    return { pathD, isHighlighted };
+  }, [primaryHub, primaryIstrac, projection, selectedEntity]);
+
+  // Compute curved SVG topology lines from each ground station to Mumbai AWS Hub and extending to ISTRAC Bangalore on active pass
   const topologyLines = useMemo(() => {
     const hubCoords = projection([primaryHub.longitude, primaryHub.latitude]);
+    const blrCoords = projection([primaryIstrac.longitude, primaryIstrac.latitude]);
     if (!hubCoords) return [];
 
     const [hubX, hubY] = hubCoords;
+    const [blrX, blrY] = blrCoords || [hubX + 10, hubY + 15];
+    const midHubBlrX = (hubX + blrX) / 2 + 5;
+    const midHubBlrY = (hubY + blrY) / 2 - 2;
 
     return regions.map((region) => {
       const stCoords = projection([region.longitude, region.latitude]);
@@ -198,18 +556,19 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
 
       const [stX, stY] = stCoords;
 
-      // Calculate control point for smooth quadratic curve
+      // Calculate control point for smooth quadratic curve between Ground Station and Mumbai Hub
       const midX = (stX + hubX) / 2;
-      // Slight vertical arc towards northern hemisphere or proportional curvature
       const midY = Math.min(stY, hubY) - 30;
-
-      const pathD = `M ${stX} ${stY} Q ${midX} ${midY} ${hubX} ${hubY}`;
 
       const isStationSelected =
         selectedEntity?.id === region.id ||
         (selectedEntity?.type === "station" && region.linkedStations.includes(selectedEntity.id));
       const isHubSelected = selectedEntity?.type === "AWS_HUB";
-      const isHighlighted = isStationSelected || isHubSelected;
+      const isIstracSelected = selectedEntity?.type === "ISTRAC";
+      const isHighlighted = isStationSelected || isHubSelected || isIstracSelected;
+
+      // Ensure Mumbai -> Bangalore leg receives ample animation time (~28%) so satellite is prominent & trackable
+      const f1 = 1 - TOPOLOGY_CAMERA_CONFIG.mumbaiBangaloreTimeFraction;
 
       // Identify SD1 and SD2 passes independently for this station
       const linked = region.linkedStations || [];
@@ -238,10 +597,10 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
           pass: pass1,
           passType: "SD1",
           name: `${region.name} (${st1Id})`,
-          color: "#3B82F6",       // Blue
-          lightColor: "#60A5FA",
-          darkColor: "#1D4ED8",
-          windowColor: "#1E3A8A",
+          color: "#A855F7",       // Purple
+          lightColor: "#C084FC",
+          darkColor: "#7E22CE",
+          windowColor: "#3B0764",
         });
       }
 
@@ -259,16 +618,23 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
 
       const isPassActive = activeSatellites.length > 0;
 
+      // Full active pass flow: Ground Station -> Mumbai AWS Hub -> ISTRAC Bangalore
+      // Inactive/Idle route: Ground Station -> Mumbai AWS Hub
+      const pathD = isPassActive
+        ? `M ${stX} ${stY} Q ${midX} ${midY} ${hubX} ${hubY} Q ${midHubBlrX} ${midHubBlrY} ${blrX} ${blrY}`
+        : `M ${stX} ${stY} Q ${midX} ${midY} ${hubX} ${hubY}`;
+
       return {
         id: region.id,
         regionName: region.name,
         pathD,
+        f1,
         isHighlighted,
         isPassActive,
         activeSatellites,
       };
     }).filter(Boolean);
-  }, [regions, primaryHub, projection, selectedEntity, activePasses]);
+  }, [regions, primaryHub, primaryIstrac, projection, selectedEntity, activePasses]);
 
   return (
     <Box
@@ -276,6 +642,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
       onDoubleClick={handleResetZoom}
       onClick={() => {
         if (!hasMovedRef.current) {
@@ -294,7 +661,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
         userSelect: "none",
       }}
     >
-      {/* Zoom / Map Controls in Top Right */}
+      {/* Zoom / Map Smart Camera Controls in Top Right */}
       <Box
         sx={{
           position: "absolute",
@@ -303,7 +670,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
           zIndex: 35,
           display: "flex",
           flexDirection: "column",
-          bgcolor: "rgba(11, 18, 24, 0.9)",
+          bgcolor: "rgba(11, 18, 24, 0.92)",
           backdropFilter: "blur(8px)",
           border: `1px solid rgba(255, 255, 255, 0.12)`,
           borderRadius: "6px",
@@ -311,13 +678,14 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
           boxShadow: "0 4px 14px rgba(0, 0, 0, 0.6)",
         }}
       >
+        {/* Zoom In */}
         <IconButton
           size="small"
           onClick={handleZoomIn}
-          disabled={zoom >= MAX_ZOOM}
+          disabled={zoom >= TOPOLOGY_CAMERA_CONFIG.maxZoom}
           title="Zoom In (+)"
           sx={{
-            color: zoom >= MAX_ZOOM ? "rgba(255,255,255,0.25)" : vars.text,
+            color: zoom >= TOPOLOGY_CAMERA_CONFIG.maxZoom ? "rgba(255,255,255,0.25)" : vars.text,
             p: 0.8,
             borderRadius: 0,
             "&:hover": {
@@ -326,18 +694,19 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
             },
           }}
         >
-          <Plus size={16} />
+          <Plus size={15} />
         </IconButton>
 
-        <Box sx={{ height: "1px", bgcolor: "rgba(255, 255, 255, 0.1)" }} />
+        <Box sx={{ height: "1px", bgcolor: "rgba(255, 255, 255, 0.08)" }} />
 
+        {/* Zoom Out */}
         <IconButton
           size="small"
           onClick={handleZoomOut}
-          disabled={zoom <= MIN_ZOOM}
+          disabled={zoom <= TOPOLOGY_CAMERA_CONFIG.minZoom}
           title="Zoom Out (−)"
           sx={{
-            color: zoom <= MIN_ZOOM ? "rgba(255,255,255,0.25)" : vars.text,
+            color: zoom <= TOPOLOGY_CAMERA_CONFIG.minZoom ? "rgba(255,255,255,0.25)" : vars.text,
             p: 0.8,
             borderRadius: 0,
             "&:hover": {
@@ -346,17 +715,69 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
             },
           }}
         >
-          <Minus size={16} />
+          <Minus size={15} />
         </IconButton>
 
-        <Box sx={{ height: "1px", bgcolor: "rgba(255, 255, 255, 0.1)" }} />
+        <Box sx={{ height: "1px", bgcolor: "rgba(255, 255, 255, 0.08)" }} />
 
+        {/* Fit Network (⛶) */}
+        <IconButton
+          size="small"
+          onClick={handleFitNetwork}
+          title="Fit Network (⛶)"
+          sx={{
+            color: cameraMode === "FIT_NETWORK" || cameraMode === "DEFAULT" ? "#38bdf8" : vars.text,
+            bgcolor: cameraMode === "FIT_NETWORK" ? "rgba(56, 189, 248, 0.12)" : "transparent",
+            p: 0.8,
+            borderRadius: 0,
+            "&:hover": {
+              bgcolor: "rgba(56, 189, 248, 0.15)",
+              color: "#38bdf8",
+            },
+          }}
+        >
+          <Maximize2 size={13} />
+        </IconButton>
+
+        <Box sx={{ height: "1px", bgcolor: "rgba(255, 255, 255, 0.08)" }} />
+
+        {/* Focus Active Pass (🎯) */}
+        <IconButton
+          size="small"
+          onClick={handleFocusActive}
+          disabled={activePasses.length === 0}
+          title={activePasses.length > 0 ? "Focus Active Pass (🎯)" : "No Active Pass to Focus"}
+          sx={{
+            color:
+              activePasses.length === 0
+                ? "rgba(255,255,255,0.2)"
+                : cameraMode === "ACTIVE_PASS"
+                ? "#00FF66"
+                : "#10B981",
+            bgcolor:
+              activePasses.length > 0 && cameraMode === "ACTIVE_PASS"
+                ? "rgba(0, 255, 102, 0.12)"
+                : "transparent",
+            p: 0.8,
+            borderRadius: 0,
+            "&:hover": {
+              bgcolor: activePasses.length > 0 ? "rgba(0, 255, 102, 0.18)" : "transparent",
+              color: "#00FF66",
+            },
+          }}
+        >
+          <Target size={14} />
+        </IconButton>
+
+        <Box sx={{ height: "1px", bgcolor: "rgba(255, 255, 255, 0.08)" }} />
+
+        {/* Reset View (↻) */}
         <IconButton
           size="small"
           onClick={handleResetZoom}
-          title="Reset View (⌂)"
+          title="Reset View (↻)"
           sx={{
-            color: zoom === 1.0 && pan.x === 0 && pan.y === 0 ? "rgba(255,255,255,0.3)" : "#38bdf8",
+            color: vars.textDim,
             p: 0.8,
             borderRadius: 0,
             "&:hover": {
@@ -365,11 +786,11 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
             },
           }}
         >
-          <RotateCcw size={14} />
+          <RotateCcw size={13} />
         </IconButton>
       </Box>
 
-      {/* Map Container */}
+      {/* Map Scalable Surface */}
       <Box
         onClick={(e) => {
           if (!hasMovedRef.current && e.target === e.currentTarget) {
@@ -378,12 +799,12 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
         }}
         sx={{
           position: "relative",
-          width: "96%",
-          maxWidth: 1400,
+          width: "100%",
+          maxWidth: 1600,
           aspectRatio: "2/1",
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           transformOrigin: "center center",
-          transition: isDragging ? "none" : "transform 0.25s cubic-bezier(0.2, 0, 0, 1)",
+          transition: isDragging ? "none" : `transform ${TOPOLOGY_CAMERA_CONFIG.transitionDuration}`,
           willChange: "transform",
         }}
       >
@@ -474,6 +895,53 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
 
           {/* Central Hub Interconnect Topology Lines (ONE route per station) */}
           <g>
+            {/* Static / Active Backbone Connection: Mumbai AWS Hub ─── ISTRAC Bangalore */}
+            {hubToBlrLine && (
+              <g>
+                {topologyLines.some((l) => l?.isPassActive) ? (
+                  <>
+                    {/* Glowing outer neon green aura path */}
+                    <path
+                      d={hubToBlrLine.pathD}
+                      fill="none"
+                      stroke="#00FF66"
+                      strokeWidth="4.5"
+                      opacity="0.45"
+                      filter="url(#activeLineGlow)"
+                    />
+                    {/* Core neon green line */}
+                    <path
+                      d={hubToBlrLine.pathD}
+                      fill="none"
+                      stroke="#00FF66"
+                      strokeWidth="1.5"
+                      opacity="0.75"
+                    />
+                    {/* Animated moving neon green data-flow line (Mumbai -> Bangalore) */}
+                    <path
+                      d={hubToBlrLine.pathD}
+                      fill="none"
+                      stroke="url(#activeDataFlowGrad)"
+                      strokeWidth="2.5"
+                      strokeDasharray="8 5"
+                      className="active-flow-path"
+                      filter="url(#activeLineGlow)"
+                    />
+                  </>
+                ) : (
+                  <path
+                    d={hubToBlrLine.pathD}
+                    fill="none"
+                    stroke={hubToBlrLine.isHighlighted ? "url(#hubLineGradActive)" : "url(#hubLineGrad)"}
+                    strokeWidth={hubToBlrLine.isHighlighted ? 2 : 1.2}
+                    strokeDasharray={hubToBlrLine.isHighlighted ? "none" : "4 3"}
+                    opacity={hubToBlrLine.isHighlighted ? 0.95 : 0.45}
+                    style={{ transition: "all 0.3s ease" }}
+                  />
+                )}
+              </g>
+            )}
+
             {topologyLines.map((line) => {
               if (!line) return null;
 
@@ -498,7 +966,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
                       strokeWidth="1.5"
                       opacity="0.75"
                     />
-                    {/* Animated moving neon green data-flow line (Ground Station -> Mumbai) */}
+                    {/* Animated moving neon green data-flow line (Ground Station -> Mumbai -> Bangalore) */}
                     <path
                       d={line.pathD}
                       fill="none"
@@ -528,27 +996,35 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
             })}
           </g>
 
-          {/* SATELLITE LIVE DATA-FLOW ANIMATIONS (Ground Station -> Mumbai) */}
+          {/* SATELLITE LIVE DATA-FLOW ANIMATIONS (Ground Station -> Mumbai -> ISTRAC Bangalore) */}
           <g>
             {topologyLines.map((line) => {
               if (!line || !line.isPassActive || !line.activeSatellites || line.activeSatellites.length === 0) return null;
 
               const totalActive = line.activeSatellites.length;
-              const animDuration = 5.5;
+              const animDuration = TOPOLOGY_CAMERA_CONFIG.animDurationSec;
+              const waypointFraction = line.f1 ? line.f1.toFixed(3) : "0.720";
 
               // Render active satellites on the same route with spacing offset
               return line.activeSatellites.map((sat, index) => {
                 // When both satellites are active, space them 50% apart along the route cycle
                 const animBegin = totalActive > 1 && index === 1 ? `${(animDuration / 2).toFixed(2)}s` : "0s";
+                // Perpendicular offset for concurrent passes to prevent collision
+                const offsetTransform = totalActive > 1
+                  ? (sat.passType === "SD1" ? "translate(0, -5)" : "translate(0, 5)")
+                  : undefined;
 
                 return (
                   <g key={`sat-${line.id}-${sat.passType}`}>
                     {/* Leading energy pulse particle */}
-                    <circle r="3" fill={sat.lightColor} filter="url(#satelliteGlow)">
+                    <circle r="4" fill={sat.lightColor} filter="url(#satelliteGlow)">
                       <animateMotion
                         dur={`${animDuration}s`}
                         begin={animBegin}
                         repeatCount="indefinite"
+                        calcMode="linear"
+                        keyTimes="0; 0.72; 1"
+                        keyPoints={`0; ${waypointFraction}; 1`}
                         path={line.pathD}
                       />
                     </circle>
@@ -560,35 +1036,41 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
                         begin={animBegin}
                         repeatCount="indefinite"
                         rotate="auto"
+                        calcMode="linear"
+                        keyTimes="0; 0.72; 1"
+                        keyPoints={`0; ${waypointFraction}; 1`}
                         path={line.pathD}
                       />
 
-                      {/* Satellite Aura Halo */}
-                      <circle cx="0" cy="0" r="10" fill={sat.color} opacity="0.25" filter="url(#satelliteGlow)" />
+                      <g transform={offsetTransform}>
+                        {/* Satellite Aura Halo */}
+                        <circle cx="0" cy="0" r="14" fill={sat.color} opacity="0.45" filter="url(#satelliteGlow)" />
 
-                      {/* Trailing Data Glow Particles Behind Satellite */}
-                      <circle cx="-14" cy="0" r="1.5" fill={sat.lightColor} opacity="0.4" />
-                      <circle cx="-9" cy="0" r="2.2" fill={sat.lightColor} opacity="0.7" />
-                      <circle cx="-4" cy="0" r="2.8" fill={sat.lightColor} opacity="0.9" />
+                        {/* Trailing Data Glow Particles Behind Satellite */}
+                        <circle cx="-20" cy="0" r="1.8" fill={sat.lightColor} opacity="0.3" />
+                        <circle cx="-15" cy="0" r="2.5" fill={sat.lightColor} opacity="0.55" />
+                        <circle cx="-10" cy="0" r="3.2" fill={sat.lightColor} opacity="0.8" />
+                        <circle cx="-5" cy="0" r="3.8" fill={sat.lightColor} opacity="0.95" />
 
-                      {/* Solar Panel Wings (Upper & Lower) */}
-                      <rect x="-3" y="-8.5" width="6" height="4" rx="0.5" fill={sat.darkColor} stroke={sat.lightColor} strokeWidth="0.6" />
-                      <line x1="-3" y1="-6.5" x2="3" y2="-6.5" stroke={sat.lightColor} strokeWidth="0.5" />
-                      <line x1="0" y1="-8.5" x2="0" y2="-4.5" stroke={sat.lightColor} strokeWidth="0.5" />
+                        {/* Solar Panel Wings (Upper & Lower) */}
+                        <rect x="-4" y="-12" width="8" height="5.5" rx="0.6" fill={sat.darkColor} stroke={sat.lightColor} strokeWidth="0.8" />
+                        <line x1="-4" y1="-9.2" x2="4" y2="-9.2" stroke={sat.lightColor} strokeWidth="0.7" />
+                        <line x1="0" y1="-12" x2="0" y2="-6.5" stroke={sat.lightColor} strokeWidth="0.7" />
 
-                      <rect x="-3" y="4.5" width="6" height="4" rx="0.5" fill={sat.darkColor} stroke={sat.lightColor} strokeWidth="0.6" />
-                      <line x1="-3" y1="6.5" x2="3" y2="6.5" stroke={sat.lightColor} strokeWidth="0.5" />
-                      <line x1="0" y1="4.5" x2="0" y2="8.5" stroke={sat.lightColor} strokeWidth="0.5" />
+                        <rect x="-4" y="6.5" width="8" height="5.5" rx="0.6" fill={sat.darkColor} stroke={sat.lightColor} strokeWidth="0.8" />
+                        <line x1="-4" y1="9.2" x2="4" y2="9.2" stroke={sat.lightColor} strokeWidth="0.7" />
+                        <line x1="0" y1="6.5" x2="0" y2="12" stroke={sat.lightColor} strokeWidth="0.7" />
 
-                      {/* Satellite Central Chassis */}
-                      <rect x="-4.5" y="-3.5" width="9" height="7" rx="1.5" fill="#f8fafc" stroke={sat.darkColor} strokeWidth="0.8" />
-                      <rect x="-2.5" y="-2" width="5" height="4" rx="0.5" fill={sat.windowColor} />
+                        {/* Satellite Central Chassis */}
+                        <rect x="-6" y="-5" width="12" height="10" rx="1.8" fill="#f8fafc" stroke={sat.darkColor} strokeWidth="1.1" />
+                        <rect x="-4" y="-3.2" width="8" height="6.4" rx="0.6" fill={sat.windowColor} />
 
-                      {/* Forward Transceiver Antenna pointing towards Mumbai */}
-                      <path d="M 4.5 0 L 7.5 -2.5 M 4.5 0 L 7.5 2.5 M 4.5 0 L 8.5 0" stroke={sat.lightColor} strokeWidth="0.8" strokeLinecap="round" />
+                        {/* Forward Transceiver Antenna pointing towards movement vector */}
+                        <path d="M 6 0 L 10 -3.5 M 6 0 L 10 3.5 M 6 0 L 11 0" stroke={sat.lightColor} strokeWidth="1.1" strokeLinecap="round" />
 
-                      {/* Live Data Active Blinking Beacon */}
-                      <circle cx="1" cy="0" r="1.3" fill={sat.color} />
+                        {/* Live Data Active Blinking Beacon */}
+                        <circle cx="1.5" cy="0" r="2" fill={sat.color} />
+                      </g>
                     </g>
                   </g>
                 );
@@ -628,6 +1110,16 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
             />
           );
         })}
+
+        {/* Permanent ISTRAC Bangalore Node Marker */}
+        <IstracMarker
+          node={primaryIstrac}
+          isSelected={selectedEntity?.id === primaryIstrac.id || selectedEntity?.type === "ISTRAC"}
+          isReceiving={topologyLines.some((l) => l?.isPassActive)}
+          onSelect={() => onSelectEntity(primaryIstrac)}
+          x={mapLongitudeToX(primaryIstrac.longitude, primaryIstrac.latitude)}
+          y={mapLatitudeToY(primaryIstrac.longitude, primaryIstrac.latitude)}
+        />
       </Box>
 
       {/* Footer Info / Legend: Clean single line */}
@@ -664,25 +1156,25 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
           AWS Global Infrastructure Topology
         </Typography>
 
-        {/* Global satellite color mapping & AWS Central Hub in ONE clean line */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2.5, flexWrap: "nowrap" }}>
-          {/* SD1 : BLUE */}
+        {/* Global satellite color mapping & AWS Central Hub & ISTRAC Bangalore in ONE clean line */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "nowrap" }}>
+          {/* GS1 : PURPLE */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
             <Box
               sx={{
                 width: 7,
                 height: 7,
                 borderRadius: "50%",
-                bgcolor: "#3B82F6",
-                boxShadow: "0 0 5px #3B82F6",
+                bgcolor: "#A855F7",
+                boxShadow: "0 0 5px #A855F7",
               }}
             />
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: "#60A5FA", letterSpacing: 0.4 }}>
-              SD1 : BLUE
+            <Typography sx={{ fontSize: 10, fontWeight: 700, color: "#C084FC", letterSpacing: 0.4 }}>
+              GS1 : PURPLE
             </Typography>
           </Box>
 
-          {/* SD2 : YELLOW */}
+          {/* GS2 : YELLOW */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
             <Box
               sx={{
@@ -694,7 +1186,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
               }}
             />
             <Typography sx={{ fontSize: 10, fontWeight: 700, color: "#FACC15", letterSpacing: 0.4 }}>
-              SD2 : YELLOW
+              GS2 : YELLOW
             </Typography>
           </Box>
 
@@ -704,7 +1196,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
               display: "flex",
               alignItems: "center",
               gap: 0.7,
-              pl: 1.5,
+              pl: 1.2,
               borderLeft: `1px solid rgba(255, 255, 255, 0.12)`,
             }}
           >
@@ -720,6 +1212,30 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
             />
             <Typography sx={{ fontSize: 10, color: "#FF9900", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
               AWS Central Hub
+            </Typography>
+          </Box>
+
+          {/* ISTRAC BANGALORE */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.7,
+              pl: 1.2,
+              borderLeft: `1px solid rgba(255, 255, 255, 0.12)`,
+            }}
+          >
+            <Box
+              sx={{
+                width: 7,
+                height: 7,
+                bgcolor: "#06B6D4",
+                boxShadow: "0 0 6px #22D3EE",
+                borderRadius: "2px",
+              }}
+            />
+            <Typography sx={{ fontSize: 10, color: "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
+              ISTRAC Bangalore
             </Typography>
           </Box>
         </Box>
