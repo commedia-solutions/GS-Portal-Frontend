@@ -42,7 +42,7 @@ export const TOPOLOGY_CAMERA_CONFIG = {
   // Dynamic Satellite Pacing & Animation
   animDurationSec: 7.0,
   mumbaiBangaloreTimeFraction: 0.32, // 32% of total travel time allocated to Mumbai -> Bangalore arc (~2.24s)
-  eastwardArcOffset: 34, // Pixel offset for the pronounced, visible Mumbai -> Bangalore curved arc
+  eastwardArcOffset: 42, // Extended pixel offset for the pronounced, visible Mumbai -> Bangalore curved arc (~68px arc)
 };
 
 /**
@@ -122,7 +122,144 @@ interface BoundingPoint {
   padRight?: number;
 }
 
-interface TopologyMapProps {
+export interface SatelliteVisualProps {
+  passType: "SD1" | "SD2";
+  name: string;
+  color: string;
+  lightColor: string;
+  darkColor: string;
+  windowColor: string;
+}
+
+interface TopologyTravelingSatelliteProps {
+  id: string;
+  sat: SatelliteVisualProps;
+  pathD: string;
+  durationSec: number;
+  begin?: string;
+  offsetTransform?: string;
+  keyTimes?: string;
+  keyPoints?: string;
+}
+
+/**
+ * Unified Canonical Satellite Renderer: Matches the reference satellite silhouette
+ * (rounded capsule body, crossbar solar panels, RF transmission arcs) centered exactly
+ * at origin (0, 0) and scaled to 60% with zero outer circular halo.
+ */
+export const TopologyTravelingSatellite: React.FC<TopologyTravelingSatelliteProps> = ({
+  id,
+  sat,
+  pathD,
+  durationSec,
+  begin = "0s",
+  offsetTransform,
+  keyTimes,
+  keyPoints,
+}) => {
+  return (
+    <g key={id}>
+      {/* Leading energy pulse particle (proportionally scaled ~60%) */}
+      <circle r="2.2" fill={sat.lightColor} opacity="0.85">
+        <animateMotion
+          dur={`${durationSec}s`}
+          begin={begin}
+          repeatCount="indefinite"
+          calcMode="linear"
+          keyTimes={keyTimes}
+          keyPoints={keyPoints}
+          path={pathD}
+        />
+      </circle>
+
+      {/* Standardized Traveling Satellite Icon (Centered exactly on route path) */}
+      <g>
+        <animateMotion
+          dur={`${durationSec}s`}
+          begin={begin}
+          repeatCount="indefinite"
+          rotate="auto"
+          calcMode="linear"
+          keyTimes={keyTimes}
+          keyPoints={keyPoints}
+          path={pathD}
+        />
+
+        <g transform={offsetTransform}>
+          {/* Proportional 60% Scale Group for Unified Canonical Satellite Silhouette */}
+          <g transform="scale(0.6)">
+            {/* Trailing Data Glow Particles Behind Satellite (Subtle inline trail along path) */}
+            <circle cx="-20" cy="0" r="1.6" fill={sat.lightColor} opacity="0.25" />
+            <circle cx="-15" cy="0" r="2.0" fill={sat.lightColor} opacity="0.45" />
+            <circle cx="-10" cy="0" r="2.5" fill={sat.lightColor} opacity="0.7" />
+            <circle cx="-5" cy="0" r="3.0" fill={sat.lightColor} opacity="0.9" />
+
+            {/* Perpendicular Solar Wing Crossbar (Rounded Ends, centered at 0,0) */}
+            <rect
+              x="-3.5"
+              y="-13"
+              width="7"
+              height="26"
+              rx="3.5"
+              fill={sat.darkColor}
+              stroke={sat.lightColor}
+              strokeWidth="0.9"
+              filter="url(#satelliteGlow)"
+            />
+            {/* Solar Wing Photovoltaic Grid Separator Lines */}
+            <line x1="-3.5" y1="-6.5" x2="3.5" y2="-6.5" stroke={sat.lightColor} strokeWidth="0.7" opacity="0.8" />
+            <line x1="-3.5" y1="6.5" x2="3.5" y2="6.5" stroke={sat.lightColor} strokeWidth="0.7" opacity="0.8" />
+
+            {/* Main Capsule Body (Oriented along flight axis with rounded caps, centered at 0,0) */}
+            <rect
+              x="-9"
+              y="-4.5"
+              width="18"
+              height="9"
+              rx="4.5"
+              fill="#ffffff"
+              stroke={sat.darkColor}
+              strokeWidth="1.2"
+              filter="url(#satelliteGlow)"
+            />
+            {/* Inner Sensor / Window Core */}
+            <rect
+              x="-5.5"
+              y="-2.5"
+              width="11"
+              height="5"
+              rx="2.5"
+              fill={sat.windowColor}
+            />
+
+            {/* Active Telemetry Beacon in Nose */}
+            <circle cx="2.5" cy="0" r="1.8" fill={sat.color} />
+
+            {/* RF Broadcast / Signal Wave Arcs (Emitting outward towards transmission vector) */}
+            <path
+              d="M 10 -4 A 6 6 0 0 1 10 4"
+              fill="none"
+              stroke={sat.lightColor}
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
+            <path
+              d="M 13.5 -7 A 10.5 10.5 0 0 1 13.5 7"
+              fill="none"
+              stroke={sat.lightColor}
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              opacity="0.65"
+            />
+          </g>
+        </g>
+      </g>
+    </g>
+  );
+};
+
+export interface TopologyMapProps {
   stations: GroundStation[];
   regions: AwsRegion[];
   hubs?: AwsHub[];
@@ -150,6 +287,38 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const hasMovedRef = useRef<boolean>(false);
   const lastActivePassKeyRef = useRef<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Explicit Ctrl + Wheel zoom handler (allows natural page scrolling when Ctrl is not pressed)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onNativeWheel = (e: WheelEvent) => {
+      // Only zoom the map when Ctrl (or Cmd on macOS) is pressed
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setCameraMode("MANUAL");
+        const delta = e.deltaY < 0 ? 0.15 : -0.15;
+        setZoom((prev) =>
+          Math.min(
+            TOPOLOGY_CAMERA_CONFIG.maxZoom,
+            Math.max(
+              TOPOLOGY_CAMERA_CONFIG.minZoom,
+              Number((prev + delta).toFixed(2))
+            )
+          )
+        );
+      }
+      // When Ctrl is not pressed, do nothing: event naturally scrolls the dashboard page
+    };
+
+    container.addEventListener("wheel", onNativeWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", onNativeWheel);
+    };
+  }, []);
 
   useEffect(() => {
     fetch("/world-110m.json")
@@ -505,13 +674,6 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
     fitNetwork();
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.stopPropagation();
-    setCameraMode("MANUAL");
-    const delta = e.deltaY < 0 ? 0.15 : -0.15;
-    setZoom((prev) => Math.min(TOPOLOGY_CAMERA_CONFIG.maxZoom, Math.max(TOPOLOGY_CAMERA_CONFIG.minZoom, Number((prev + delta).toFixed(2)))));
-  };
-
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     setIsDragging(true);
@@ -730,11 +892,11 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
 
   return (
     <Box
+      ref={containerRef}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
       onDoubleClick={handleResetZoom}
       onClick={() => {
         if (!hasMovedRef.current) {
@@ -955,8 +1117,8 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            <filter id="satelliteGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
+            <filter id="satelliteGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="1.2" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -1090,6 +1252,7 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
 
           {/* SATELLITE LIVE DATA-FLOW ANIMATIONS (Ground Station -> Mumbai -> ISTRAC Bangalore) */}
           <g>
+            {/* Real Active Pass Satellites */}
             {topologyLines.map((line) => {
               if (!line || !line.isPassActive || !line.activeSatellites || line.activeSatellites.length === 0) return null;
 
@@ -1102,70 +1265,18 @@ export const TopologyMap: React.FC<TopologyMapProps> = ({
               return line.activeSatellites.map((sat, index) => {
                 // When both satellites are active, space them 50% apart along the route cycle
                 const animBegin = totalActive > 1 && index === 1 ? `${(animDuration / 2).toFixed(2)}s` : "0s";
-                // Perpendicular offset for concurrent passes to prevent collision
-                const offsetTransform = totalActive > 1
-                  ? (sat.passType === "SD1" ? "translate(0, -5)" : "translate(0, 5)")
-                  : undefined;
-
                 return (
-                  <g key={`sat-${line.id}-${sat.passType}`}>
-                    {/* Leading energy pulse particle */}
-                    <circle r="4" fill={sat.lightColor} filter="url(#satelliteGlow)">
-                      <animateMotion
-                        dur={`${animDuration}s`}
-                        begin={animBegin}
-                        repeatCount="indefinite"
-                        calcMode="linear"
-                        keyTimes={`0; ${waypointTimeStr}; 1`}
-                        keyPoints={`0; ${waypointPointStr}; 1`}
-                        path={line.pathD}
-                      />
-                    </circle>
-
-                    {/* High-Tech Traveling Satellite Icon */}
-                    <g>
-                      <animateMotion
-                        dur={`${animDuration}s`}
-                        begin={animBegin}
-                        repeatCount="indefinite"
-                        rotate="auto"
-                        calcMode="linear"
-                        keyTimes={`0; ${waypointTimeStr}; 1`}
-                        keyPoints={`0; ${waypointPointStr}; 1`}
-                        path={line.pathD}
-                      />
-
-                      <g transform={offsetTransform}>
-                        {/* Satellite Aura Halo */}
-                        <circle cx="0" cy="0" r="14" fill={sat.color} opacity="0.45" filter="url(#satelliteGlow)" />
-
-                        {/* Trailing Data Glow Particles Behind Satellite */}
-                        <circle cx="-20" cy="0" r="1.8" fill={sat.lightColor} opacity="0.3" />
-                        <circle cx="-15" cy="0" r="2.5" fill={sat.lightColor} opacity="0.55" />
-                        <circle cx="-10" cy="0" r="3.2" fill={sat.lightColor} opacity="0.8" />
-                        <circle cx="-5" cy="0" r="3.8" fill={sat.lightColor} opacity="0.95" />
-
-                        {/* Solar Panel Wings (Upper & Lower) */}
-                        <rect x="-4" y="-12" width="8" height="5.5" rx="0.6" fill={sat.darkColor} stroke={sat.lightColor} strokeWidth="0.8" />
-                        <line x1="-4" y1="-9.2" x2="4" y2="-9.2" stroke={sat.lightColor} strokeWidth="0.7" />
-                        <line x1="0" y1="-12" x2="0" y2="-6.5" stroke={sat.lightColor} strokeWidth="0.7" />
-
-                        <rect x="-4" y="6.5" width="8" height="5.5" rx="0.6" fill={sat.darkColor} stroke={sat.lightColor} strokeWidth="0.8" />
-                        <line x1="-4" y1="9.2" x2="4" y2="9.2" stroke={sat.lightColor} strokeWidth="0.7" />
-                        <line x1="0" y1="6.5" x2="0" y2="12" stroke={sat.lightColor} strokeWidth="0.7" />
-
-                        {/* Satellite Central Chassis */}
-                        <rect x="-6" y="-5" width="12" height="10" rx="1.8" fill="#f8fafc" stroke={sat.darkColor} strokeWidth="1.1" />
-                        <rect x="-4" y="-3.2" width="8" height="6.4" rx="0.6" fill={sat.windowColor} />
-
-                        {/* Forward Transceiver Antenna pointing towards movement vector */}
-                        <path d="M 6 0 L 10 -3.5 M 6 0 L 10 3.5 M 6 0 L 11 0" stroke={sat.lightColor} strokeWidth="1.1" strokeLinecap="round" />
-
-                        {/* Live Data Active Blinking Beacon */}
-                        <circle cx="1.5" cy="0" r="2" fill={sat.color} />
-                      </g>
-                    </g>
-                  </g>
+                  <TopologyTravelingSatellite
+                    key={`sat-${line.id}-${sat.passType}`}
+                    id={`sat-${line.id}-${sat.passType}`}
+                    sat={sat}
+                    pathD={line.pathD}
+                    durationSec={animDuration}
+                    begin={animBegin}
+                    offsetTransform={undefined}
+                    keyTimes={`0; ${waypointTimeStr}; 1`}
+                    keyPoints={`0; ${waypointPointStr}; 1`}
+                  />
                 );
               });
             })}
